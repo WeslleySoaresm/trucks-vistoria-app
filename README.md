@@ -1,9 +1,6 @@
-`![Screenshot do Dashboard](./public/teladelogin.png)`
-`![Screenshot do Dashboard](./public/teladevistoria.png)`
+![Screenshot do Dashboard](./public/teladelogin.png)
+![Screenshot do Dashboard](./public/teladevistoria.png)
 
----
-
-# 📑 README.md
 
 ## 🇧🇷 Português
 
