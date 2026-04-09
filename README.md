@@ -2,39 +2,6 @@
 <img src="./public/teladelogin.png" alt="Dashboard" width="500">
 <img src="./public/teladevistoria.png" alt="Dashboard" width="500">
 
-## 🇧🇷 Português
-
-### 🚚 Sistema de Vistoria de Caminhões
-Um aplicativo robusto desenvolvido para digitalizar o processo de vistoria, permitindo o registro de dados, fotos e localização em tempo real.
-
-### 🛠️ Ferramentas Utilizadas
-* **React + Vite:** Interface rápida e moderna.
-* **Supabase:** Banco de Dados, Autenticação e Storage de fotos.
-* **Recharts:** Dashboards e gráficos de produtividade.
-* **Vercel:** Hospedagem e Deploy com HTTPS (essencial para o GPS).
-* **XLSX:** Exportação de relatórios para Excel.
-
-### 🚀 O que foi feito
-1.  **Dashboard Interativo:** Visualização total das vistorias realizadas por equipe.
-2.  **Segurança Avançada (RLS):** Proteção de dados a nível de linha no banco de dados.
-3.  **Geolocalização:** Captura automática de coordenadas (Latitude/Longitude) no momento da vistoria.
-4.  **Upload de Mídia:** Armazenamento seguro de fotos das vistorias.
-5.  **Exportação de Dados:** Geração de relatórios Excel para auditoria.
-
-### 📋 Passo a Passo (Uso)
-1.  **Login:** Acesse com suas credenciais autorizadas.
-2.  **Nova Vistoria:** Preencha os dados do veículo e tire as fotos necessárias.
-3.  **GPS:** O sistema solicitará permissão de localização; aceite para registrar o local exato.
-4.  **Dashboards:** No painel principal, acompanhe os gráficos de produtividade.
-5.  **Relatório:** Clique no botão de exportar para baixar a planilha de dados.
-
-### 🌐 Do Início ao Deploy
-1.  **Desenvolvimento:** Iniciado com Vite e integrado ao Supabase via variáveis de ambiente.
-2.  **Configuração de Banco:** Criação de tabelas e ativação das políticas de segurança (RLS).
-3.  **Hospedagem:** O projeto foi conectado ao GitHub e deployado na Vercel.
-4.  **Ajuste de Build:** Configurado o script de build para ler variáveis dinâmicas, garantindo a conexão segura com a API.
-
----
 
 ## 🇺🇸 English
 
@@ -69,3 +36,37 @@ A robust application developed to digitize the inspection process, allowing for 
 4.  **Build Tuning:** Configured the build script to read dynamic variables, ensuring secure API connection.
 
 ---
+## 🇧🇷 Português
+
+### 🚚 Sistema de Vistoria de Caminhões
+Um aplicativo robusto desenvolvido para digitalizar o processo de vistoria, permitindo o registro de dados, fotos e localização em tempo real.
+
+### 🛠️ Ferramentas Utilizadas
+* **React + Vite:** Interface rápida e moderna.
+* **Supabase:** Banco de Dados, Autenticação e Storage de fotos.
+* **Recharts:** Dashboards e gráficos de produtividade.
+* **Vercel:** Hospedagem e Deploy com HTTPS (essencial para o GPS).
+* **XLSX:** Exportação de relatórios para Excel.
+
+### 🚀 O que foi feito
+1.  **Dashboard Interativo:** Visualização total das vistorias realizadas por equipe.
+2.  **Segurança Avançada (RLS):** Proteção de dados a nível de linha no banco de dados.
+3.  **Geolocalização:** Captura automática de coordenadas (Latitude/Longitude) no momento da vistoria.
+4.  **Upload de Mídia:** Armazenamento seguro de fotos das vistorias.
+5.  **Exportação de Dados:** Geração de relatórios Excel para auditoria.
+
+### 📋 Passo a Passo (Uso)
+1.  **Login:** Acesse com suas credenciais autorizadas.
+2.  **Nova Vistoria:** Preencha os dados do veículo e tire as fotos necessárias.
+3.  **GPS:** O sistema solicitará permissão de localização; aceite para registrar o local exato.
+4.  **Dashboards:** No painel principal, acompanhe os gráficos de produtividade.
+5.  **Relatório:** Clique no botão de exportar para baixar a planilha de dados.
+
+### 🌐 Do Início ao Deploy
+1.  **Desenvolvimento:** Iniciado com Vite e integrado ao Supabase via variáveis de ambiente.
+2.  **Configuração de Banco:** Criação de tabelas e ativação das políticas de segurança (RLS).
+3.  **Hospedagem:** O projeto foi conectado ao GitHub e deployado na Vercel.
+4.  **Ajuste de Build:** Configurado o script de build para ler variáveis dinâmicas, garantindo a conexão segura com a API.
+
+---
+
