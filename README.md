@@ -1,6 +1,6 @@
-![Screenshot do Dashboard](./public/teladelogin.png)
-![Screenshot do Dashboard](./public/teladevistoria.png)
 
+<img src="./public/teladelogin.png" alt="Dashboard" width="600">
+<img src="./public/teladevistoria.png" alt="Dashboard" width="600">
 
 ## 🇧🇷 Português
 
