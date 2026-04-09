@@ -1,6 +1,6 @@
 
-<img src="./public/teladelogin.png" alt="Dashboard" width="600">
-<img src="./public/teladevistoria.png" alt="Dashboard" width="600">
+<img src="./public/teladelogin.png" alt="Dashboard" width="350">
+<img src="./public/teladevistoria.png" alt="Dashboard" width="350">
 
 ## 🇧🇷 Português
 
