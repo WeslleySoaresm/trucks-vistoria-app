@@ -106,7 +106,7 @@ export default function FormVistoria({ user }) {
       <h2 style={styles.title}>Nova Inspeção</h2>
       
       <div style={styles.inputGroup}>
-        <label>Placa do Veículo</label>
+        <label>Placa</label>
         <input 
           type="text" 
           placeholder="ABC1D23" 
@@ -143,7 +143,7 @@ export default function FormVistoria({ user }) {
       </div>
         {/* Campo de Observação */}
       <div style={styles.inputGroup}>
-            <label style={styles.label}>Observações / Comentários:</label>
+            <label style={styles.label}>Observações:</label>
             <textarea
                 placeholder="Digite aqui detalhes importantes da vistoria..."
                 value={observacao}
