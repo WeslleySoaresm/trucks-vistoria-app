@@ -15,11 +15,12 @@ export default function DashboardFuncionario({ user }) {
     if (!user?.id) return;
     setLoading(true);
     try {
+      console.log("Tentando carregar dados para o user:", user.id);
+    // alert("Iniciando busca no Supabase..."); // Adicione isso para testar na Vercel
       // 1. Busca estatísticas da View
       const { data: dataMeta } = await supabase
         .from('resumo_pessoal_funcionario')
         .select('*')
-        .eq('usuario_id', user.id)
         .maybeSingle();
       
       if (dataMeta) {
