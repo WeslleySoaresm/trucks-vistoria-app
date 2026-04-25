@@ -236,7 +236,7 @@ const styles = {
     margin: '0 auto',
     background: '#1e293b', // Cor sólida de fundo para evitar transparência bugada no mobile
     padding: '20px', 
-    borderRadius: isMobile ? '0' : '24px', // Opcional: remover borda arredondada no celular
+    borderRadius: '24px', // Opcional: remover borda arredondada no celular
     boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
     backdropFilter: 'blur(12px)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
