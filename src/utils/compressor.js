@@ -2,14 +2,13 @@ export async function otimizarImagem(arquivo) {
     const MAX_WIDTH = 1280;
     
     return new Promise((resolve, reject) => {
-        // Usar URL.createObjectURL é mais leve para a memória que FileReader.readAsDataURL
+        // Criar URL temporária é mais leve que ler Base64
         const url = URL.createObjectURL(arquivo);
         const img = new Image();
         
         img.src = url;
-
         img.onload = () => {
-            // Limpa a URL da memória assim que a imagem carrega
+            // Libera a imagem original da memória imediatamente
             URL.revokeObjectURL(url);
 
             const canvas = document.createElement('canvas');
@@ -25,15 +24,12 @@ export async function otimizarImagem(arquivo) {
             canvas.height = height;
             
             const ctx = canvas.getContext('2d');
-            
-            // Configurações de suavização para melhor qualidade em redimensionamento
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
-            
             ctx.drawImage(img, 0, 0, width, height);
 
             canvas.toBlob((blob) => {
-                // Limpeza manual para ajudar o Garbage Collector do celular
+                // Limpeza física do canvas para liberar RAM no mobile
                 canvas.width = 0;
                 canvas.height = 0;
                 resolve(blob);

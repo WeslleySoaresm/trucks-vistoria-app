@@ -38,20 +38,20 @@ export default function FormVistoria({ user }) {
     
     try {
       for (const arquivo of arquivos) {
-        // Otimiza uma por uma
+        // Otimiza uma por uma para poupar RAM no mobile
         const otimizada = await otimizarImagem(arquivo);
         const novoPreview = URL.createObjectURL(otimizada);
         
-        // Atualiza o estado individualmente para o usuário ver o progresso
+        // Atualiza o estado usando a função de callback para evitar perda de frames
         setFotosOtimizadas(prev => [...prev, otimizada]);
         setPreviews(prev => [...prev, novoPreview]);
         
-        // Pequena pausa para o celular não travar a UI
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Pequena pausa para o coletor de lixo (GC) do celular processar a memória
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     } catch (err) {
       console.error("Erro ao processar:", err);
-      alert("Erro ao processar imagens. Tente tirar a foto com uma resolução menor.");
+      alert("Erro ao processar imagens. Tente uma por vez.");
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -59,6 +59,8 @@ export default function FormVistoria({ user }) {
   };
 
   const removerFoto = (index) => {
+    // Revoga a URL do preview para liberar memória
+    URL.revokeObjectURL(previews[index]);
     setFotosOtimizadas(fotosOtimizadas.filter((_, i) => i !== index));
     setPreviews(previews.filter((_, i) => i !== index));
   };
@@ -135,11 +137,9 @@ export default function FormVistoria({ user }) {
   return (
     <div style={styles.container}>
       <div style={styles.formHeader}>
-        <div style={styles.iconCircle}><img 
-      src="/NovaVistoriaLogo.png" 
-      alt="Logo" 
-      style={styles.logoImg} // <-- Adicione isso aqui
-    /></div>
+        <div style={styles.iconCircle}>
+          <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
+        </div>
         <h2 style={styles.title}>Nova Inspeção</h2>
       </div>
       
@@ -232,56 +232,55 @@ const styles = {
   container: { 
     width: '100%',
     maxWidth: '450px', 
-    minHeight: '100vh', // Garante que preencha a tela no mobile
+    minHeight: '100vh',
     margin: '0 auto',
-    background: '#1e293b', // Cor sólida de fundo para evitar transparência bugada no mobile
+    background: '#1a202c', // Cor sólida para evitar erro de transparência/blur no mobile
     padding: '20px', 
-    borderRadius: '24px', // Opcional: remover borda arredondada no celular
+    borderRadius: '24px',
     boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-    backdropFilter: 'blur(12px)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     boxSizing: 'border-box',
-    overflowY: 'auto', // Permite scroll se o teclado do celular abrir
+    overflowY: 'auto',
+    position: 'relative'
   },
   logoImg: {
-    width: '110px',          // Imagem um pouco menor que o círculo
+    width: '110px',
     height: 'auto',
-    filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.4))', // Sombra no escudo
     objectFit: 'contain'
   },
   formHeader: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',    // Garante que o círculo e o título fiquem no meio
+    alignItems: 'center',
     marginBottom: '25px',
     gap: '5px'
   },
   iconCircle: {
-    width: '140px',          // Tamanho fixo para o círculo
-    height: '140px',         // Altura igual à largura
+    width: '140px',
+    height: '140px',
     background: 'rgba(99, 179, 237, 0.1)',
-    borderRadius: '50%',     // 50% é o padrão para círculos perfeitos
+    borderRadius: '50%',
     display: 'flex',
-    alignItems: 'center',    // Centraliza a imagem verticalmente
-    justifyContent: 'center',// Centraliza a imagem horizontalmente
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: '10px',
-    border: '2px solid rgba(99, 179, 237, 0.2)' // Detalhe extra opcional
+    border: '2px solid rgba(99, 179, 237, 0.2)'
   },
   title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
   input: { 
     width: '100%', padding: '14px', borderRadius: '12px', 
-    background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', 
     color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' 
   },
   select: { 
     width: '100%', padding: '14px', borderRadius: '12px', 
-    background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', 
     color: '#fff', fontSize: '16px', boxSizing: 'border-box', cursor: 'pointer', appearance: 'none'
   },
   textarea: { 
     width: '100%', height: '80px', padding: '14px', borderRadius: '12px', 
-    background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', 
     color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box', outline: 'none' 
   },
   uploadArea: { marginTop: '20px', marginBottom: '25px' },
@@ -292,19 +291,17 @@ const styles = {
     border: '1px dashed #63b3ed'
   },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '15px' },
-  thumbWrap: { position: 'relative', paddingTop: '100%' }, // Mantém o aspecto quadrado
+  thumbWrap: { position: 'relative', paddingTop: '100%' },
   img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' },
   btnDel: { 
     position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', 
     color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', 
-    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
   },
   btnSend: { 
     width: '100%', padding: '18px', background: '#48bb78', color: '#fff', 
     border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', 
-    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-    boxShadow: '0 10px 20px -5px rgba(72, 187, 120, 0.4)', transition: 'transform 0.2s'
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
   },
   btnDisabled: { 
     width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', 
