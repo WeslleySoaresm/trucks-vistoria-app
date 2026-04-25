@@ -103,6 +103,7 @@ export default function DashboardFuncionario({ user }) {
 
   return (
     <div style={styles.pageWrapper}>
+      {/* SEÇÃO DE META (Sempre visível) */}
       <div style={styles.cardMeta}>
         <div style={styles.statsNum}>
           <span style={{ ...styles.bigNum, color: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' }}>
@@ -115,41 +116,55 @@ export default function DashboardFuncionario({ user }) {
              <span style={styles.progressText}>{Math.round(stats.porcentagem_meta)}%</span>
           </div>
         </div>
+        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px', marginTop: '10px' }}>
+          {stats.total_vistorias >= META_MENSAL 
+            ? "Objetivo alcançado! Parabéns!" 
+            : `Faltam ${META_MENSAL - stats.total_vistorias} para o objetivo.`}
+        </p>
       </div>
 
-      <h3 style={{ color: '#fff', marginBottom: '15px' }}>Meu Histórico</h3>
+      {/* SEÇÃO DE HISTÓRICO (Título) */}
+      <h3 style={{ color: '#fff', marginBottom: '15px', fontSize: '18px' }}>Meu Histórico</h3>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}><Loader2 size={40} className="animate-spin" color="#63b3ed" /></div>
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <Loader2 size={40} className="animate-spin" color="#63b3ed" />
+        </div>
       ) : (
         <div style={styles.tableWrapper}>
-          {isMobile ? (
+          {/* Se for mobile OU a tela for pequena, renderiza Cards. Senão, Tabela. */}
+          {isMobile || window.innerWidth < 768 ? (
             <div style={styles.mobileList}>
               {vistorias.length > 0 ? vistorias.map((reg) => (
                 <div key={reg.id} style={styles.mobileCard}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <strong style={{ fontSize: '18px', color: '#fff' }}>{reg.placa}</strong>
-                    <span style={styles.badge}>{reg.equipe}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <strong style={{ fontSize: '16px', color: '#fff' }}>{reg.placa}</strong>
+                    <span style={styles.badge}>{reg.equipe || 'Equipe'}</span>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '10px' }}>
-                    <div>📅 {reg.data_formatada}</div>
-                    <div>🛠️ {reg.tipo_servico || 'NP'}</div>
+                  <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
+                    <div style={{ marginBottom: '4px' }}>📅 {reg.data_formatada}</div>
+                    <div>🛠️ {reg.tipo_servico || 'Não informado'}</div>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnActionMobile}>
                       <Camera size={14} /> {reg.qtd_fotos}
                     </button>
                     <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnActionMobile}>
                       <MapPin size={14} /> Mapa
                     </button>
-                    <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181' }}>
+                    <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181', borderColor: 'rgba(252, 129, 129, 0.2)' }}>
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-              )) : <div style={{padding: '20px', textAlign: 'center', color: '#94a3b8'}}>Nenhuma vistoria encontrada.</div>}
+              )) : (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                  Nenhuma vistoria encontrada.
+                </div>
+              )}
             </div>
           ) : (
+            /* TABELA PARA DESKTOP */
             <table style={styles.table}>
               <thead>
                 <tr>
@@ -177,12 +192,10 @@ export default function DashboardFuncionario({ user }) {
               </tbody>
             </table>
           )}
-          {!loading && !isMobile && vistorias.length === 0 && (
-            <div style={{padding: '40px', textAlign: 'center', color: '#94a3b8'}}>Nenhuma vistoria encontrada.</div>
-          )}
         </div>
       )}
 
+      {/* MODAL DE FOTOS (Igual ao anterior) */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -198,7 +211,7 @@ export default function DashboardFuncionario({ user }) {
                   style={styles.fotoItem} 
                   alt="vistoria" 
                 />
-              )) : <p style={{color: '#94a3b8', gridColumn: '1/-1', textAlign: 'center'}}>Nenhuma foto anexada.</p>}
+              )) : <p style={{color: '#94a3b8', textAlign: 'center', gridColumn: '1/-1'}}>Sem fotos.</p>}
             </div>
           </div>
         </div>
