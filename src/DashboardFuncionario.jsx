@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
 
@@ -11,14 +11,8 @@ export default function DashboardFuncionario({ user }) {
 
   const META_MENSAL = 20;
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handleResize);
-    carregarDados();
-    return () => window.removeEventListener('resize', handleResize);
-  }, [user.id]);
-
-  async function carregarDados() {
+  // Envolvemos a função carregarDados em um useCallback
+  const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
       // 1. Busca estatísticas da View
@@ -31,12 +25,11 @@ export default function DashboardFuncionario({ user }) {
       if (dataMeta) {
         setStats({
           total_vistorias: dataMeta.total_vistorias || 0,
-          // Tratando possível variação de nome na View
           porcentagem_meta: dataMeta.porcentagem_meta || dataMeta.Porcentagem_meta || 0
         });
       }
 
-      // 2. Busca as vistorias usando o nome correto: data_vistoria
+      // 2. Busca as vistorias usando a coluna correta: data_vistoria
       const { data, error } = await supabase
         .from('vistorias')
         .select(`
@@ -51,13 +44,12 @@ export default function DashboardFuncionario({ user }) {
           evidencias (url_foto)
         `)
         .eq('usuario_id', user.id)
-        .order('data_vistoria', { ascending: false }); // Nome da coluna corrigido aqui
+        .order('data_vistoria', { ascending: false });
 
       if (error) throw error;
 
       const formatados = data.map(v => ({
         ...v,
-        // Formatação da data usando a coluna correta
         data_formatada: v.data_vistoria ? new Date(v.data_vistoria).toLocaleDateString('pt-BR') : '---',
         placa: v.veiculo_id,
         todas_fotos: v.evidencias ? v.evidencias.map(e => e.url_foto) : [],
@@ -70,7 +62,16 @@ export default function DashboardFuncionario({ user }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user.id]); // Recria a função apenas se o ID do usuário mudar
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    
+    carregarDados(); // Chama a função memorizada
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, [carregarDados]); // Dependência agora é a função useCallback
 
   const removerVistoria = async (id) => {
     if (!window.confirm("Excluir esta vistoria permanentemente?")) return;
@@ -83,7 +84,6 @@ export default function DashboardFuncionario({ user }) {
     }
   };
 
-  // Funções de Estilo e Modal (Mantidas conforme solicitado anteriormente)
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
     window.open(`https://www.google.com/maps?q=${loc}`, '_blank');
@@ -91,7 +91,6 @@ export default function DashboardFuncionario({ user }) {
 
   return (
     <div style={styles.pageWrapper}>
-      {/* CARD DE META */}
       <div style={styles.cardMeta}>
         <div style={styles.statsNum}>
           <span style={{ ...styles.bigNum, color: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' }}>
@@ -155,9 +154,11 @@ export default function DashboardFuncionario({ user }) {
                     <td style={styles.td}><strong>{reg.placa}</strong></td>
                     <td style={styles.td}>{reg.tipo_servico}</td>
                     <td style={styles.td}>
-                      <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnIcon}>📷</button>
-                      <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnIcon}>📍</button>
-                      <button onClick={() => removerVistoria(reg.id)} style={styles.btnIconDel}>🗑️</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnIcon}>📷</button>
+                        <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnIcon}>📍</button>
+                        <button onClick={() => removerVistoria(reg.id)} style={styles.btnIconDel}>🗑️</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -170,7 +171,6 @@ export default function DashboardFuncionario({ user }) {
         </div>
       )}
 
-      {/* MODAL DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
@@ -195,7 +195,6 @@ export default function DashboardFuncionario({ user }) {
   );
 }
 
-// Estilos (simplificados para o exemplo, mantenha os seus originais de design)
 const styles = {
   pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
@@ -212,7 +211,7 @@ const styles = {
   mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
   btnActionMobile: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px' },
   badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' },
-  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer', marginRight: '5px' },
+  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' },
   modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
