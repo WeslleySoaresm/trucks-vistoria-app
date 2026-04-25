@@ -125,7 +125,11 @@ export default function FormVistoria({ user }) {
   return (
     <div style={styles.container}>
       <div style={styles.formHeader}>
-        <div style={styles.iconCircle}><Truck color="#63b3ed" size={24} /></div>
+        <div style={styles.iconCircle}><img 
+      src="/NovaVistoriaLogo.png" 
+      alt="Logo" 
+      style={styles.logoImg} // <-- Adicione isso aqui
+    /></div>
         <h2 style={styles.title}>Nova Inspeção</h2>
       </div>
       
@@ -227,18 +231,29 @@ const styles = {
     border: '1px solid rgba(255, 255, 255, 0.1)',
     boxSizing: 'border-box'
   },
+  logoImg: {
+    width: '110px',          // Imagem um pouco menor que o círculo
+    height: 'auto',
+    filter: 'drop-shadow(0 8px 12px rgba(0,0,0,0.4))', // Sombra no escudo
+    objectFit: 'contain'
+  },
   formHeader: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
+    alignItems: 'center',    // Garante que o círculo e o título fiquem no meio
     marginBottom: '25px',
-    gap: '10px'
+    gap: '5px'
   },
   iconCircle: {
+    width: '140px',          // Tamanho fixo para o círculo
+    height: '140px',         // Altura igual à largura
     background: 'rgba(99, 179, 237, 0.1)',
-    padding: '12px',
-    borderRadius: '50%',
-    display: 'flex'
+    borderRadius: '50%',     // 50% é o padrão para círculos perfeitos
+    display: 'flex',
+    alignItems: 'center',    // Centraliza a imagem verticalmente
+    justifyContent: 'center',// Centraliza a imagem horizontalmente
+    marginBottom: '10px',
+    border: '2px solid rgba(99, 179, 237, 0.2)' // Detalhe extra opcional
   },
   title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
