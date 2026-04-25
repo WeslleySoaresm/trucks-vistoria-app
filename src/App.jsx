@@ -4,8 +4,9 @@ import Login from './Login';
 import FormVistoria from './FormVistoria';
 import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
+import HistoricoVistorias from './HistoricoVistorias'; // 1. IMPORTANTE: Importe o novo componente aqui
 import Instrucoes from './Instrucoes';
-import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle } from 'lucide-react';
+import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History } from 'lucide-react'; // Adicionado History icon
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -76,15 +77,25 @@ export default function App() {
             Painel
           </button>
         ) : (
-          <button 
-            onClick={() => setAbaAtiva('meta')} 
-            style={abaAtiva === 'meta' ? s.tabActive : s.tab}
-          >
-            <Trophy size={18} />
-            Meta
-          </button>
+          <>
+            <button 
+              onClick={() => setAbaAtiva('meta')} 
+              style={abaAtiva === 'meta' ? s.tabActive : s.tab}
+            >
+              <Trophy size={18} />
+              Meta
+            </button>
+            {/* 2. BOTÃO DA NOVA ABA DE HISTÓRICO */}
+            <button 
+              onClick={() => setAbaAtiva('historico')} 
+              style={abaAtiva === 'historico' ? s.tabActive : s.tab}
+            >
+              <History size={18} />
+              Histórico
+            </button>
+          </>
         )}
-
+        
         <button 
           onClick={() => setAbaAtiva('ajuda')} 
           style={abaAtiva === 'ajuda' ? s.tabActive : s.tab}
@@ -106,6 +117,11 @@ export default function App() {
 
         {abaAtiva === 'meta' && !isAdmin && <DashboardFuncionario user={session.user} />}
 
+        {/* 3. RENDERIZAÇÃO DA ABA DE HISTÓRICO */}
+        {abaAtiva === 'historico' && !isAdmin && (
+          <HistoricoVistorias user={session.user} />
+        )}
+
         {abaAtiva === 'ajuda' && <Instrucoes />}
       </main>
     </div>
@@ -116,7 +132,7 @@ export default function App() {
 const s = {
   appWrapper: { 
     minHeight: '100vh', 
-    backgroundColor: '#1a202c', // Fundo Dark profundo
+    backgroundColor: '#1a202c', 
     display: 'flex', 
     flexDirection: 'column', 
     fontFamily: '"Inter", sans-serif' 
@@ -173,7 +189,8 @@ const s = {
     margin: '15px',
     borderRadius: '16px',
     border: '1px solid rgba(255, 255, 255, 0.05)',
-    gap: '8px'
+    gap: '8px',
+    overflowX: 'auto' // Permite scroll se os botões ficarem apertados no celular
   },
   tab: { 
     flex: 1, 
@@ -185,11 +202,13 @@ const s = {
     cursor: 'pointer',
     borderRadius: '12px',
     display: 'flex',
+    flexDirection: 'column', // Empilha ícone e texto para ganhar espaço
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px',
-    fontSize: '14px',
-    transition: 'all 0.3s'
+    gap: '4px',
+    fontSize: '11px', // Fonte menor para caber 4 itens
+    transition: 'all 0.3s',
+    minWidth: '60px'
   },
   tabActive: { 
     flex: 1, 
@@ -201,12 +220,14 @@ const s = {
     cursor: 'pointer',
     borderRadius: '12px',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px',
-    fontSize: '14px',
+    gap: '4px',
+    fontSize: '11px',
     boxShadow: '0 4px 15px rgba(49, 130, 206, 0.4)',
-    transition: 'all 0.3s'
+    transition: 'all 0.3s',
+    minWidth: '60px'
   },
   mainContent: { 
     padding: '0 15px 30px 15px', 
