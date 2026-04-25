@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { otimizarImagem } from './utils/compressor';
+import { Camera, Trash2, Send, CheckCircle, Info, Truck } from 'lucide-react';
 
 export default function FormVistoria({ user }) {
   const [loading, setLoading] = useState(false);
@@ -8,114 +9,114 @@ export default function FormVistoria({ user }) {
   const [cliente, setCliente] = useState('');
   const [equipe, setEquipe] = useState('');
   const [observacao, setObservacao] = useState('');
-  
-  // MUDANÇA: Agora usamos arrays para suportar várias fotos
+  const [tipoServico, setTipoServico] = useState('');
+  const [status, setStatus] = useState('inicial'); 
+
   const [fotosOtimizadas, setFotosOtimizadas] = useState([]); 
   const [previews, setPreviews] = useState([]); 
-
-  const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
   const fileInputRef = useRef(null);
 
-  // 1. FUNÇÃO PARA ADICIONAR FOTOS (Câmera ou Galeria)
+  const tiposServicoDisponiveis = ["On Job", "Primeira Visita", "Procura Artificial", "Indicação"];
+  const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
+  const statusDisponiveis = [
+    { label: "Inicial", value: "inicial" },
+    { label: "Em processo", value: "em_processo" },
+    { label: "Concluído", value: "concluida" }
+  ];
+
   const manipularFotos = async (e) => {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
-
-    // Verifica se não ultrapassa o limite (ex: 10 fotos)
-    if (fotosOtimizadas.length + arquivos.length > 10) {
-      alert("O limite máximo é de 10 fotos por vistoria.");
-      return;
-    }
+    if (fotosOtimizadas.length + arquivos.length > 10) return alert("Limite máximo de 10 fotos.");
 
     setLoading(true);
     try {
       const novasFotos = [];
       const novosPreviews = [];
-
       for (const arquivo of arquivos) {
         const otimizada = await otimizarImagem(arquivo);
         novasFotos.push(otimizada);
         novosPreviews.push(URL.createObjectURL(otimizada));
       }
-
       setFotosOtimizadas([...fotosOtimizadas, ...novasFotos]);
       setPreviews([...previews, ...novosPreviews]);
     } catch (err) {
-      alert("Erro ao processar uma ou mais fotos.");
+      alert("Erro ao processar imagens.");
     } finally {
       setLoading(false);
-      if (fileInputRef.current) fileInputRef.current.value = ""; // Limpa o input para permitir nova seleção
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  // Remover uma foto específica antes de enviar
   const removerFoto = (index) => {
     setFotosOtimizadas(fotosOtimizadas.filter((_, i) => i !== index));
     setPreviews(previews.filter((_, i) => i !== index));
   };
 
-  // 2. FUNÇÃO PARA FINALIZAR (Envia todas as fotos)
   const finalizarVistoria = async () => {
-    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe) {
-      alert("Preencha a placa, a equipe e adicione ao menos uma foto.");
+    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico) {
+      alert("Preencha todos os campos e tire pelo menos 1 foto.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Captura de Localização
-      let localizacaoFormatada = "Não autorizada";
+      let localizacao = "Não autorizada";
       try {
-        const pos = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+        const pos = await new Promise((res, rej) => {
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 });
         });
-        localizacaoFormatada = `${pos.coords.latitude},${pos.coords.longitude}`;
-      } catch (e) { console.warn("GPS falhou"); }
+        localizacao = `${pos.coords.latitude},${pos.coords.longitude}`;
+      } catch (e) { console.warn("Erro GPS"); }
 
-      // Registro do Veículo
+      const placaFormatada = placa.trim().toUpperCase();
+
       await supabase.from('veiculos').upsert({ 
-          placa: placa.trim().toUpperCase(), 
-          cliente_nome: cliente.trim() || 'Não Informado'
+        placa: placaFormatada, 
+        cliente_nome: cliente.trim() || 'Não Informado',
+        modelo: 'Vistoria Mobile' 
       }, { onConflict: 'placa' });
 
-      // Criar a Vistoria primeiro
-      const { data: vistoria, error: errorVistoria } = await supabase
+      const { data: vistoria, error: vError } = await supabase
         .from('vistorias')
         .insert([{ 
-            veiculo_id: placa.trim().toUpperCase(), 
-            usuario_id: user.id,
-            equipe,
-            observacao,
-            localizacao_texto: localizacaoFormatada,
-            status: 'concluida' 
+          veiculo_id: placaFormatada, 
+          usuario_id: user.id,
+          equipe: equipe,
+          tipo_servico: tipoServico,
+          observacao: observacao,
+          localizacao_texto: localizacao,
+          status: status 
         }])
         .select().single();
 
-      if (errorVistoria) throw errorVistoria;
+      if (vError) throw vError;
 
-      // Upload de TODAS as fotos e registro das evidências
-      for (const [index, fotoBlob] of fotosOtimizadas.entries()) {
-        const fileName = `${placa.trim()}_${Date.now()}_${index}.jpg`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
+      const promisesEvidencias = fotosOtimizadas.map(async (foto, i) => {
+        const fileName = `${placaFormatada}_${Date.now()}_${i}.jpg`;
+        const { data: upData, error: upError } = await supabase.storage
           .from('vistorias')
-          .upload(fileName, fotoBlob);
+          .upload(fileName, foto);
 
-        if (!uploadError) {
-          await supabase.from('evidencias').insert([{ 
-            vistoria_id: vistoria.id, 
-            url_foto: uploadData.path 
-          }]);
-        }
-      }
+        if (upError) throw upError;
 
-      alert("✅ Vistoria com " + fotosOtimizadas.length + " fotos salva!");
+        return supabase.from('evidencias').insert([{ 
+          vistoria_id: vistoria.id, 
+          url_foto: upData.path 
+        }]);
+      });
+
+      await Promise.all(promisesEvidencias);
+
+      alert("Vistoria finalizada com sucesso!");
       
-      // Resetar form
-      setPlaca(''); setCliente(''); setObservacao('');
+      setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
       setFotosOtimizadas([]); setPreviews([]);
+
     } catch (err) {
-      alert("Erro ao salvar: " + err.message);
+      console.error(err);
+      alert("Erro ao enviar: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -123,35 +124,73 @@ export default function FormVistoria({ user }) {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Nova Inspeção</h2>
+      <div style={styles.formHeader}>
+        <div style={styles.iconCircle}><Truck color="#63b3ed" size={24} /></div>
+        <h2 style={styles.title}>Nova Inspeção</h2>
+      </div>
       
-      {/* Inputs de texto (Placa, Cliente, Equipe, Obs) - Mantidos iguais */}
-      <input type="text" placeholder="Placa" value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} style={styles.input} />
-      <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.input}>
-         <option value="">Equipe...</option>
-         {equipesDisponiveis.map(eq => <option key={eq} value={eq}>{eq}</option>)}
-      </select>
-      <textarea placeholder="Observações" value={observacao} onChange={(e) => setObservacao(e.target.value)} style={styles.textarea} />
+      <div style={styles.inputGroup}>
+        <input 
+          type="text" 
+          placeholder="Placa do Veículo" 
+          value={placa} 
+          onChange={(e) => setPlaca(e.target.value.toUpperCase())} 
+          style={styles.input} 
+        />
+        <input 
+          type="text" 
+          placeholder="Nome do Cliente" 
+          value={cliente} 
+          onChange={(e) => setCliente(e.target.value)} 
+          style={styles.input} 
+        />
+        
+        <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
+          <option value="" disabled>Selecione a Equipe</option>
+          {equipesDisponiveis.map(eq => <option key={eq} value={eq}>Equipe {eq}</option>)}
+        </select>
+      
+        <select value={tipoServico} onChange={(e) => setTipoServico(e.target.value)} style={styles.select}>
+          <option value="" disabled>Tipo de Serviço</option>
+          {tiposServicoDisponiveis.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+        </select>
+        
+        <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select}>
+          {statusDisponiveis.map(s => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
 
-      {/* ÁREA DE FOTOS */}
+        <textarea 
+          placeholder="Observações adicionais..." 
+          value={observacao} 
+          onChange={(e) => setObservacao(e.target.value)} 
+          style={styles.textarea} 
+        />
+      </div>
+
       <div style={styles.uploadArea}>
-        <label htmlFor="foto-input" style={styles.buttonAdd}>➕ ADICIONAR FOTOS</label>
-        {/* MUDANÇA: 'multiple' permite várias, e sem 'capture' abre a galeria por padrão no celular */}
+        <label htmlFor="foto-input" style={styles.buttonAdd}>
+          <Camera size={20} />
+          ADICIONAR FOTOS
+        </label>
         <input 
           id="foto-input" 
-          ref={fileInputRef} 
+          ref={fileInputRef}
           type="file" 
           accept="image/*" 
           multiple 
           onChange={manipularFotos} 
           style={{ display: 'none' }} 
         />
-        
-        <div style={styles.gridPreviews}>
+
+        <div style={styles.grid}>
           {previews.map((url, index) => (
-            <div key={index} style={styles.thumbContainer}>
-              <img src={url} alt="preview" style={styles.thumb} />
-              <button onClick={() => removerFoto(index)} style={styles.btnRemove}>X</button>
+            <div key={index} style={styles.thumbWrap}>
+              <img src={url} alt="preview" style={styles.img} />
+              <button onClick={() => removerFoto(index)} style={styles.btnDel}>
+                <Trash2 size={14} />
+              </button>
             </div>
           ))}
         </div>
@@ -159,24 +198,90 @@ export default function FormVistoria({ user }) {
 
       <button 
         onClick={finalizarVistoria} 
-        disabled={loading || fotosOtimizadas.length === 0} 
-        style={loading ? styles.buttonDisabled : styles.buttonFinalizar}
+        disabled={loading || fotosOtimizadas.length === 0}
+        style={loading ? styles.btnDisabled : styles.btnSend}
       >
-        {loading ? "Enviando..." : `✅ FINALIZAR (${fotosOtimizadas.length} FOTOS)`}
+        {loading ? (
+          "PROCESSANDO..."
+        ) : (
+          <>
+            <CheckCircle size={20} />
+            FINALIZAR ({fotosOtimizadas.length}/10)
+          </>
+        )}
       </button>
     </div>
   );
 }
 
 const styles = {
-  container: { padding: '20px', maxWidth: '400px', margin: '0 auto', background: '#fff', borderRadius: '12px' },
-  input: { width: '100%', padding: '12px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' },
-  textarea: { width: '100%', height: '60px', padding: '12px', marginBottom: '10px', borderRadius: '8px', border: '1px solid #ddd', boxSizing: 'border-box' },
-  buttonAdd: { display: 'block', textAlign: 'center', background: '#6c757d', color: '#fff', padding: '12px', borderRadius: '8px', cursor: 'pointer', marginBottom: '15px' },
-  gridPreviews: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '15px' },
-  thumbContainer: { position: 'relative', width: '100%', height: '100px' },
-  thumb: { width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' },
-  btnRemove: { position: 'absolute', top: '-5px', right: '-5px', background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', cursor: 'pointer' },
-  buttonFinalizar: { width: '100%', background: '#28a745', color: '#fff', padding: '15px', borderRadius: '8px', border: 'none', fontWeight: 'bold' },
-  buttonDisabled: { width: '100%', background: '#ccc', color: '#fff', padding: '15px', borderRadius: '8px', border: 'none' }
+  container: { 
+    width: '100%',
+    maxWidth: '450px', 
+    margin: '0 auto',
+    background: 'rgba(30, 41, 59, 0.7)', 
+    padding: '30px', 
+    borderRadius: '24px', 
+    boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxSizing: 'border-box'
+  },
+  formHeader: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '25px',
+    gap: '10px'
+  },
+  iconCircle: {
+    background: 'rgba(99, 179, 237, 0.1)',
+    padding: '12px',
+    borderRadius: '50%',
+    display: 'flex'
+  },
+  title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  input: { 
+    width: '100%', padding: '14px', borderRadius: '12px', 
+    background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+    color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' 
+  },
+  select: { 
+    width: '100%', padding: '14px', borderRadius: '12px', 
+    background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+    color: '#fff', fontSize: '16px', boxSizing: 'border-box', cursor: 'pointer', appearance: 'none'
+  },
+  textarea: { 
+    width: '100%', height: '80px', padding: '14px', borderRadius: '12px', 
+    background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', 
+    color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box', outline: 'none' 
+  },
+  uploadArea: { marginTop: '20px', marginBottom: '25px' },
+  buttonAdd: { 
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+    background: 'rgba(66, 153, 225, 0.15)', color: '#63b3ed', padding: '14px', 
+    borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '14px',
+    border: '1px dashed #63b3ed'
+  },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '15px' },
+  thumbWrap: { position: 'relative', paddingTop: '100%' }, // Mantém o aspecto quadrado
+  img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' },
+  btnDel: { 
+    position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', 
+    color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', 
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+  },
+  btnSend: { 
+    width: '100%', padding: '18px', background: '#48bb78', color: '#fff', 
+    border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', 
+    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+    boxShadow: '0 10px 20px -5px rgba(72, 187, 120, 0.4)', transition: 'transform 0.2s'
+  },
+  btnDisabled: { 
+    width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', 
+    color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed',
+    fontWeight: '900'
+  }
 };

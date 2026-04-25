@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
+import { Lock, Mail, Loader2 } from 'lucide-react'; // Ícones para um ar mais premium
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -17,8 +18,6 @@ export default function Login() {
       });
 
       if (error) throw error;
-      
-      // Se não houver erro, o App.jsx detectará a mudança de sessão automaticamente
     } catch (error) {
       alert("Erro ao entrar: " + error.message);
     } finally {
@@ -27,34 +26,55 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>Sistema de Vistoria</h2>
-        <p style={styles.subtitle}>Acesse com seu e-mail e senha</p>
+    <div style={styles.pageWrapper}>
+      <div style={styles.glassCard}>
         
+        {/* LOGO AJUSTADA - Removido o círculo restritivo */}
+        <div style={styles.logoContainer}>
+          <img 
+            src="/public/logoInicial.png" 
+            alt="TruckVistoria Logo" 
+            style={styles.logoImg} 
+          />
+        </div>
+
+        <div style={styles.headerText}>
+          
+          <p style={styles.subtitle}>Gestão de frotas e vistorias técnicas</p>
+        </div>
+
         <form onSubmit={handleLogin} style={styles.form}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>E-mail</label>
-            <input
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={styles.input}
-            />
+            <label style={styles.label}>E-mail Institucional</label>
+            <div style={styles.inputWrapper}>
+              <Mail size={18} style={styles.inputIcon} />
+              <input
+                type="email"
+                placeholder="nome@empresa.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={styles.input}
+              />
+            </div>
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Senha</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={styles.input}
-            />
+            <div style={styles.labelRow}>
+              <label style={styles.label}>Senha de Acesso</label>
+              <span style={styles.forgotPass}>Esqueceu a senha?</span>
+            </div>
+            <div style={styles.inputWrapper}>
+              <Lock size={18} style={styles.inputIcon} />
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={styles.input}
+              />
+            </div>
           </div>
 
           <button 
@@ -62,65 +82,161 @@ export default function Login() {
             disabled={loading} 
             style={loading ? styles.buttonDisabled : styles.button}
           >
-            {loading ? "Verificando..." : "ENTRAR"}
+            {loading ? (
+              <>
+                <Loader2 size={20} style={styles.spin} />
+                <span>Verificando...</span>
+              </>
+            ) : (
+              "ENTRAR NO SISTEMA"
+            )}
           </button>
         </form>
+
+        <div style={styles.footer}>
+          <p style={styles.footerText}>© 2026 TruckVistoria Pro - v2.4.0</p>
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
+  pageWrapper: {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    height: '100vh',
-    backgroundColor: '#f0f2f5',
-    padding: '20px'
+    minHeight: '100vh',
+    width: '100%',
+    backgroundColor: '#1a202c',
+    backgroundImage: 'radial-gradient(circle at top right, #2d3748, #1a202c)',
+    padding: '20px',
+    boxSizing: 'border-box',
+    fontFamily: '"Inter", sans-serif',
   },
-  card: {
-    backgroundColor: '#fff',
-    padding: '40px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+  glassCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    padding: '40px 30px',
+    borderRadius: '28px',
+    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
     width: '100%',
     maxWidth: '400px',
-    textAlign: 'center'
+    position: 'relative',
   },
-  title: { margin: '0 0 10px 0', color: '#1a1a1a' },
-  subtitle: { margin: '0 0 30px 0', color: '#666', fontSize: '14px' },
-  form: { textAlign: 'left' },
+  logoContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '20px',
+  },
+  logoImg: {
+    width: '160px', // Aumentado para dar destaque ao escudo
+    height: 'auto',
+    filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.3))',
+  },
+  headerText: {
+    textAlign: 'center',
+    marginBottom: '30px',
+  },
+  title: { 
+    margin: '0', 
+    color: '#fff', 
+    fontSize: '26px', 
+    fontWeight: '800',
+    letterSpacing: '-0.5px'
+  },
+  subtitle: { 
+    margin: '5px 0 0 0', 
+    color: '#94a3b8', 
+    fontSize: '14px',
+  },
+  form: { width: '100%' },
   inputGroup: { marginBottom: '20px' },
-  label: { display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '14px' },
+  labelRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    marginBottom: '8px',
+  },
+  label: { 
+    color: '#cbd5e0', 
+    fontWeight: '600', 
+    fontSize: '12px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em'
+  },
+  inputWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center'
+  },
+  inputIcon: {
+    position: 'absolute',
+    left: '14px',
+    color: '#718096'
+  },
   input: {
     width: '100%',
-    padding: '12px',
-    borderRadius: '4px',
-    border: '1px solid #ddd',
+    padding: '14px 14px 14px 45px', // Espaço para o ícone
+    borderRadius: '12px',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     boxSizing: 'border-box',
-    fontSize: '16px'
+    fontSize: '15px',
+    color: '#fff',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+  },
+  forgotPass: {
+    color: '#63b3ed',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: '500'
   },
   button: {
     width: '100%',
-    padding: '14px',
-    backgroundColor: '#007bff',
+    padding: '16px',
+    backgroundColor: '#3182ce',
     color: '#fff',
     border: 'none',
-    borderRadius: '4px',
-    fontWeight: 'bold',
+    borderRadius: '14px',
+    fontWeight: '700',
     cursor: 'pointer',
-    fontSize: '16px',
-    marginTop: '10px'
+    fontSize: '15px',
+    marginTop: '10px',
+    boxShadow: '0 10px 15px -3px rgba(49, 130, 206, 0.4)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '10px'
   },
   buttonDisabled: {
     width: '100%',
-    padding: '14px',
-    backgroundColor: '#ccc',
-    color: '#fff',
+    padding: '16px',
+    backgroundColor: '#4a5568',
+    color: '#a0aec0',
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: '14px',
     cursor: 'not-allowed',
-    marginTop: '10px'
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '10px'
+  },
+  footer: {
+    marginTop: '30px',
+    textAlign: 'center',
+    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+    paddingTop: '20px'
+  },
+  footerText: {
+    color: '#718096',
+    fontSize: '11px',
+    opacity: 0.8
+  },
+  spin: {
+    animation: 'spin 1s linear infinite',
   }
 };
+
