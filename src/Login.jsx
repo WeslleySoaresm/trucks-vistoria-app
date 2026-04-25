@@ -32,7 +32,7 @@ export default function Login() {
         {/* LOGO AJUSTADA - Removido o círculo restritivo */}
         <div style={styles.logoContainer}>
           <img 
-            src="/public/logoInicial.png" 
+            src="./public/logoInicial.png" 
             alt="TruckVistoria Logo" 
             style={styles.logoImg} 
           />
