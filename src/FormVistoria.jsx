@@ -28,6 +28,7 @@ export default function FormVistoria({ user }) {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
     
+    // Verifica limite
     if (fotosOtimizadas.length + arquivos.length > 10) {
       alert("Limite máximo de 10 fotos.");
       return;
@@ -50,7 +51,7 @@ export default function FormVistoria({ user }) {
       }
     } catch (err) {
       console.error("Erro ao processar:", err);
-      alert("Memória cheia. Tente enviar menos fotos ou reiniciar o navegador.");
+      alert("Memória cheia ou erro na câmera. Tente tirar a foto novamente.");
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -190,14 +191,15 @@ export default function FormVistoria({ user }) {
       <div style={styles.uploadArea}>
         <label htmlFor="foto-input" style={styles.buttonAdd}>
           <Camera size={20} />
-          ADICIONAR FOTOS
+          ABRIR CÂMERA
         </label>
+        {/* capture="environment" abre a câmera traseira diretamente e reduz carga na RAM */}
         <input 
           id="foto-input" 
           ref={fileInputRef}
           type="file" 
           accept="image/*" 
-          multiple 
+          capture="environment"
           onChange={manipularFotos} 
           style={{ display: 'none' }} 
         />
