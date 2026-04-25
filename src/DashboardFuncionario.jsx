@@ -6,7 +6,7 @@ export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
   const [vistorias, setVistorias] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false); // Iniciamos como false para evitar hidratação incorreta
+  const [isMobile, setIsMobile] = useState(false);
   const [fotosModal, setFotosModal] = useState(null);
 
   const META_MENSAL = 20;
@@ -15,12 +15,11 @@ export default function DashboardFuncionario({ user }) {
     if (!user?.id) return;
     setLoading(true);
     try {
-      console.log("Tentando carregar dados para o user:", user.id);
-    // alert("Iniciando busca no Supabase..."); // Adicione isso para testar na Vercel
-      // 1. Busca estatísticas da View
+      // 1. Busca estatísticas da View (Garantindo filtro por usuário para não pegar de outros)
       const { data: dataMeta } = await supabase
         .from('resumo_pessoal_funcionario')
         .select('*')
+        .eq('usuario_id', user.id)
         .maybeSingle();
       
       if (dataMeta) {
@@ -30,7 +29,7 @@ export default function DashboardFuncionario({ user }) {
         });
       }
 
-      // 2. Busca vistorias
+      // 2. Busca vistorias (Filtro por usuario_id para o histórico pessoal)
       const { data, error } = await supabase
         .from('vistorias')
         .select(`
@@ -66,17 +65,12 @@ export default function DashboardFuncionario({ user }) {
   }, [user?.id]);
 
   useEffect(() => {
-    // Função para verificar mobile
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-
-    // Executa imediatamente
     checkMobile();
-    
     window.addEventListener('resize', checkMobile);
     carregarDados();
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, [carregarDados]);
 
@@ -85,26 +79,27 @@ export default function DashboardFuncionario({ user }) {
     const { error } = await supabase.from('vistorias').delete().eq('id', id);
     if (!error) {
       setVistorias(prev => prev.filter(v => v.id !== id));
-      setStats(prev => ({ 
-        ...prev, 
-        total_vistorias: Math.max(0, prev.total_vistorias - 1),
-        porcentagem_meta: Math.max(0, ((prev.total_vistorias - 1) / META_MENSAL) * 100)
-      }));
-    } else {
-      alert("Erro ao excluir.");
+      setStats(prev => {
+        const novoTotal = Math.max(0, prev.total_vistorias - 1);
+        return { 
+          ...prev, 
+          total_vistorias: novoTotal,
+          porcentagem_meta: (novoTotal / META_MENSAL) * 100
+        };
+      });
     }
   };
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    // Removido o 0 extra e corrigida a interpolação da URL
+    // CORREÇÃO: Removido o '1' e adicionado o '$' para interpolação correta
     const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
   return (
     <div style={styles.pageWrapper}>
-      {/* SEÇÃO DE META (Sempre visível) */}
+      {/* CARD DE META */}
       <div style={styles.cardMeta}>
         <div style={styles.statsNum}>
           <span style={{ ...styles.bigNum, color: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' }}>
@@ -113,38 +108,39 @@ export default function DashboardFuncionario({ user }) {
           <span style={styles.subNum}> / {META_MENSAL} vistorias</span>
         </div>
         <div style={styles.progressContainer}>
-          <div style={{ ...styles.progressBar, width: `${Math.min(stats.porcentagem_meta, 100)}%`, background: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' }}>
+          <div style={{ 
+            ...styles.progressBar, 
+            width: `${Math.min(stats.porcentagem_meta, 100)}%`, 
+            background: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' 
+          }}>
              <span style={styles.progressText}>{Math.round(stats.porcentagem_meta)}%</span>
           </div>
         </div>
-        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px', marginTop: '10px' }}>
+        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
           {stats.total_vistorias >= META_MENSAL 
-            ? "Objetivo alcançado! Parabéns!" 
+            ? "Objetivo alcançado!" 
             : `Faltam ${META_MENSAL - stats.total_vistorias} para o objetivo.`}
         </p>
       </div>
 
-      {/* SEÇÃO DE HISTÓRICO (Título) */}
       <h3 style={{ color: '#fff', marginBottom: '15px', fontSize: '18px' }}>Meu Histórico</h3>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <Loader2 size={40} className="animate-spin" color="#63b3ed" />
-        </div>
+        <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
       ) : (
         <div style={styles.tableWrapper}>
-          {/* Se for mobile OU a tela for pequena, renderiza Cards. Senão, Tabela. */}
-          {isMobile || window.innerWidth < 768 ? (
+          {/* LÓGICA DE RENDERIZAÇÃO MOBILE/DESKTOP */}
+          {(isMobile || window.innerWidth < 768) ? (
             <div style={styles.mobileList}>
               {vistorias.length > 0 ? vistorias.map((reg) => (
                 <div key={reg.id} style={styles.mobileCard}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <strong style={{ fontSize: '16px', color: '#fff' }}>{reg.placa}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <strong style={{ color: '#fff' }}>{reg.placa}</strong>
                     <span style={styles.badge}>{reg.equipe || 'Equipe'}</span>
                   </div>
                   <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
-                    <div style={{ marginBottom: '4px' }}>📅 {reg.data_formatada}</div>
-                    <div>🛠️ {reg.tipo_servico || 'Não informado'}</div>
+                    <div>📅 {reg.data_formatada}</div>
+                    <div>🛠️ {reg.tipo_servico || 'Geral'}</div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnActionMobile}>
@@ -153,19 +149,14 @@ export default function DashboardFuncionario({ user }) {
                     <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnActionMobile}>
                       <MapPin size={14} /> Mapa
                     </button>
-                    <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181', borderColor: 'rgba(252, 129, 129, 0.2)' }}>
+                    <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181' }}>
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
-              )) : (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                  Nenhuma vistoria encontrada.
-                </div>
-              )}
+              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro.</div>}
             </div>
           ) : (
-            /* TABELA PARA DESKTOP */
             <table style={styles.table}>
               <thead>
                 <tr>
@@ -196,23 +187,18 @@ export default function DashboardFuncionario({ user }) {
         </div>
       )}
 
-      {/* MODAL DE FOTOS (Igual ao anterior) */}
+      {/* MODAL DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3 style={{ color: '#fff', margin: 0 }}>Fotos - {fotosModal.placa}</h3>
-              <button onClick={() => setFotosModal(null)} style={{background: 'none', border: 'none', color: '#fff', cursor: 'pointer'}}><X /></button>
+              <h3 style={{ color: '#fff', margin: 0 }}>{fotosModal.placa}</h3>
+              <button onClick={() => setFotosModal(null)} style={{background: 'none', border: 'none', color: '#fff'}}><X /></button>
             </div>
             <div style={styles.galeria}>
-              {fotosModal.fotos.length > 0 ? fotosModal.fotos.map((url, i) => (
-                <img 
-                  key={i}
-                  src={supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl} 
-                  style={styles.fotoItem} 
-                  alt="vistoria" 
-                />
-              )) : <p style={{color: '#94a3b8', textAlign: 'center', gridColumn: '1/-1'}}>Sem fotos.</p>}
+              {fotosModal.fotos.map((url, i) => (
+                <img key={i} src={supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl} style={styles.fotoItem} alt="vistoria" />
+              ))}
             </div>
           </div>
         </div>
@@ -222,26 +208,26 @@ export default function DashboardFuncionario({ user }) {
 }
 
 const styles = {
-  pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', boxSizing: 'border-box' },
+  pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
   bigNum: { fontSize: '40px', fontWeight: 'bold' },
   subNum: { color: '#94a3b8', fontSize: '14px' },
-  progressContainer: { background: '#0f172a', borderRadius: '15px', height: '25px', margin: '15px 0', overflow: 'hidden', position: 'relative' },
-  progressBar: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s ease-out' },
-  progressText: { color: '#fff', fontWeight: 'bold', fontSize: '11px', zIndex: 2 },
-  tableWrapper: { background: 'rgba(30, 41, 59, 0.95)', borderRadius: '20px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' },
+  progressContainer: { background: '#0f172a', borderRadius: '15px', height: '25px', margin: '15px 0', overflow: 'hidden' },
+  progressBar: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s ease' },
+  progressText: { color: '#fff', fontWeight: 'bold', fontSize: '11px' },
+  tableWrapper: { background: 'rgba(30, 41, 59, 0.95)', borderRadius: '20px', overflow: 'hidden', width: '100%' },
   table: { width: '100%', borderCollapse: 'collapse' },
-  th: { padding: '15px', textAlign: 'left', color: '#94a3b8', fontSize: '11px', background: 'rgba(0,0,0,0.2)', textTransform: 'uppercase' },
+  th: { padding: '15px', textAlign: 'left', color: '#94a3b8', fontSize: '11px', background: 'rgba(0,0,0,0.2)' },
   td: { padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#e2e8f0' },
-  mobileList: { display: 'flex', flexDirection: 'column', gap: '15px', padding: '15px', width: '100%', boxSizing: 'border-box' },
-  mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)', width: '100%', boxSizing: 'border-box' },
-  btnActionMobile: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px' },
-  badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' },
-  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
-  btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' },
-  modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '100%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' },
-  galeria: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' },
+  mobileList: { display: 'flex', flexDirection: 'column', gap: '15px', padding: '15px' },
+  mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
+  btnActionMobile: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px' },
+  badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px' },
+  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px' },
+  btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
+  modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },
+  galeria: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' },
   fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' }
 };
