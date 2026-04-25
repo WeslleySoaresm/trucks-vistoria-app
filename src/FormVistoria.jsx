@@ -28,7 +28,7 @@ export default function FormVistoria({ user }) {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
     
-    // Verifica limite
+    // Verifica limite antes de começar o processamento pesado
     if (fotosOtimizadas.length + arquivos.length > 10) {
       alert("Limite máximo de 10 fotos.");
       return;
@@ -38,31 +38,33 @@ export default function FormVistoria({ user }) {
     
     try {
       for (const arquivo of arquivos) {
-        // Otimiza uma por uma
+        // Otimiza uma por uma para não sobrecarregar a CPU/RAM
         const otimizada = await otimizarImagem(arquivo);
         const novoPreview = URL.createObjectURL(otimizada);
         
-        // Atualização de estado segura
+        // Atualização de estado usando o valor anterior (mais seguro para loops)
         setFotosOtimizadas(prev => [...prev, otimizada]);
         setPreviews(prev => [...prev, novoPreview]);
         
-        // Delay maior para o hardware do celular processar o Canvas anterior
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Delay crucial para que o Garbage Collector do Chrome/Safari 
+        // consiga limpar os restos do Canvas anterior antes da próxima foto
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
     } catch (err) {
-      console.error("Erro ao processar:", err);
-      alert("Memória cheia ou erro na câmera. Tente tirar a foto novamente.");
+      console.error("Erro ao processar imagem:", err);
+      alert("O celular ficou sem memória. Tente fechar outros apps ou enviar fotos uma a uma.");
     } finally {
       setLoading(false);
+      // Limpa o input para permitir tirar a mesma foto se necessário
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const removerFoto = (index) => {
-    // IMPORTANTE: Libera a memória da URL criada
+    // Revoga a URL para liberar memória do navegador imediatamente
     URL.revokeObjectURL(previews[index]);
-    setFotosOtimizadas(fotosOtimizadas.filter((_, i) => i !== index));
-    setPreviews(previews.filter((_, i) => i !== index));
+    setFotosOtimizadas(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const finalizarVistoria = async () => {
@@ -77,21 +79,22 @@ export default function FormVistoria({ user }) {
       let localizacao = "Não autorizada";
       try {
         const pos = await new Promise((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 });
+          // enableHighAccuracy: false ajuda a não travar o GPS em conexões lentas
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, enableHighAccuracy: false });
         });
         localizacao = `${pos.coords.latitude},${pos.coords.longitude}`;
-      } catch (e) { console.warn("GPS timeout"); }
+      } catch (e) { console.warn("GPS falhou ou foi negado."); }
 
       const placaFormatada = placa.trim().toUpperCase();
 
-      // 1. Upsert Veículo
+      // 1. Upsert Veículo (Garante que o veículo existe na base)
       await supabase.from('veiculos').upsert({ 
         placa: placaFormatada, 
         cliente_nome: cliente.trim() || 'Não Informado',
         modelo: 'Vistoria Mobile' 
       }, { onConflict: 'placa' });
 
-      // 2. Insert Vistoria
+      // 2. Insert Vistoria principal
       const { data: vistoria, error: vError } = await supabase
         .from('vistorias')
         .insert([{ 
@@ -107,17 +110,22 @@ export default function FormVistoria({ user }) {
 
       if (vError) throw vError;
 
-      // 3. Upload de fotos SEQUENCIAL (Crucial para mobile não dar tela preta)
+      // 3. Upload de fotos SEQUENCIAL
+      // Jamais use Promise.all aqui, pois o mobile não aguenta 10 uploads simultâneos
       for (let i = 0; i < fotosOtimizadas.length; i++) {
         const foto = fotosOtimizadas[i];
         const fileName = `${placaFormatada}_${Date.now()}_${i}.jpg`;
         
         const { data: upData, error: upError } = await supabase.storage
           .from('vistorias')
-          .upload(fileName, foto);
+          .upload(fileName, foto, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (upError) throw upError;
 
+        // Vincula a foto à vistoria
         await supabase.from('evidencias').insert([{ 
           vistoria_id: vistoria.id, 
           url_foto: upData.path 
@@ -126,14 +134,14 @@ export default function FormVistoria({ user }) {
 
       alert("Vistoria finalizada com sucesso!");
       
-      // Limpeza de memória final
+      // Limpeza de memória final antes de resetar o estado
       previews.forEach(url => URL.revokeObjectURL(url));
       setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
       setFotosOtimizadas([]); setPreviews([]);
 
     } catch (err) {
-      console.error(err);
-      alert("Erro ao enviar: " + err.message);
+      console.error("Erro fatal no envio:", err);
+      alert("Erro ao enviar: " + (err.message || "Verifique sua conexão."));
     } finally {
       setLoading(false);
     }
@@ -193,7 +201,7 @@ export default function FormVistoria({ user }) {
           <Camera size={20} />
           ABRIR CÂMERA
         </label>
-        {/* capture="environment" abre a câmera traseira diretamente e reduz carga na RAM */}
+        {/* capture="environment" abre a câmera traseira diretamente */}
         <input 
           id="foto-input" 
           ref={fileInputRef}
@@ -236,18 +244,10 @@ export default function FormVistoria({ user }) {
 
 const styles = {
   container: { 
-    width: '100%',
-    maxWidth: '450px', 
-    minHeight: '100vh',
-    margin: '0 auto',
-    background: '#1a202c', 
-    padding: '20px', 
-    borderRadius: '24px',
-    boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    boxSizing: 'border-box',
-    overflowY: 'auto',
-    position: 'relative'
+    width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto',
+    background: '#1a202c', padding: '20px', borderRadius: '24px',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)',
+    boxSizing: 'border-box', overflowY: 'auto', position: 'relative'
   },
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
   formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
@@ -259,43 +259,36 @@ const styles = {
   title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
   input: { 
-    width: '100%', padding: '14px', borderRadius: '12px', 
-    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', 
-    color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' 
+    width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', 
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' 
   },
   select: { 
-    width: '100%', padding: '14px', borderRadius: '12px', 
-    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', 
-    color: '#fff', fontSize: '16px', boxSizing: 'border-box', cursor: 'pointer'
+    width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', 
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', cursor: 'pointer'
   },
   textarea: { 
-    width: '100%', height: '80px', padding: '14px', borderRadius: '12px', 
-    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', 
-    color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box' 
+    width: '100%', height: '80px', padding: '14px', borderRadius: '12px', background: '#0f172a', 
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box' 
   },
   uploadArea: { marginTop: '20px', marginBottom: '25px' },
   buttonAdd: { 
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
     background: 'rgba(66, 153, 225, 0.15)', color: '#63b3ed', padding: '14px', 
-    borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '14px',
-    border: '1px dashed #63b3ed'
+    borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '14px', border: '1px dashed #63b3ed'
   },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '15px' },
   thumbWrap: { position: 'relative', paddingTop: '100%' },
   img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' },
   btnDel: { 
     position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', 
-    color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', 
-    display: 'flex', alignItems: 'center', justifyContent: 'center'
+    color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center'
   },
   btnSend: { 
     width: '100%', padding: '18px', background: '#48bb78', color: '#fff', 
-    border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', 
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
+    border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
   },
   btnDisabled: { 
     width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', 
-    color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed',
-    fontWeight: '900'
+    color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed', fontWeight: '900'
   }
 };
