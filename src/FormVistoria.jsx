@@ -27,21 +27,31 @@ export default function FormVistoria({ user }) {
   const manipularFotos = async (e) => {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
-    if (fotosOtimizadas.length + arquivos.length > 10) return alert("Limite máximo de 10 fotos.");
+    
+    // Verifica limite
+    if (fotosOtimizadas.length + arquivos.length > 10) {
+      alert("Limite máximo de 10 fotos.");
+      return;
+    }
 
     setLoading(true);
+    
     try {
-      const novasFotos = [];
-      const novosPreviews = [];
       for (const arquivo of arquivos) {
+        // Otimiza uma por uma
         const otimizada = await otimizarImagem(arquivo);
-        novasFotos.push(otimizada);
-        novosPreviews.push(URL.createObjectURL(otimizada));
+        const novoPreview = URL.createObjectURL(otimizada);
+        
+        // Atualiza o estado individualmente para o usuário ver o progresso
+        setFotosOtimizadas(prev => [...prev, otimizada]);
+        setPreviews(prev => [...prev, novoPreview]);
+        
+        // Pequena pausa para o celular não travar a UI
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
-      setFotosOtimizadas([...fotosOtimizadas, ...novasFotos]);
-      setPreviews([...previews, ...novosPreviews]);
     } catch (err) {
-      alert("Erro ao processar imagens.");
+      console.error("Erro ao processar:", err);
+      alert("Erro ao processar imagens. Tente tirar a foto com uma resolução menor.");
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -222,14 +232,16 @@ const styles = {
   container: { 
     width: '100%',
     maxWidth: '450px', 
+    minHeight: '100vh', // Garante que preencha a tela no mobile
     margin: '0 auto',
-    background: 'rgba(30, 41, 59, 0.7)', 
-    padding: '30px', 
-    borderRadius: '24px', 
+    background: '#1e293b', // Cor sólida de fundo para evitar transparência bugada no mobile
+    padding: '20px', 
+    borderRadius: isMobile ? '0' : '24px', // Opcional: remover borda arredondada no celular
     boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
     backdropFilter: 'blur(12px)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
+    overflowY: 'auto', // Permite scroll se o teclado do celular abrir
   },
   logoImg: {
     width: '110px',          // Imagem um pouco menor que o círculo
