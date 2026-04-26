@@ -7,6 +7,7 @@ import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; // 1. IMPORTANTE: Importe o novo componente aqui
 import Instrucoes from './Instrucoes';
 import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History } from 'lucide-react'; // Adicionado History icon
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -124,6 +125,7 @@ export default function App() {
 
         {abaAtiva === 'ajuda' && <Instrucoes />}
       </main>
+      <SpeedInsights />
     </div>
   );
 }
