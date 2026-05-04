@@ -4,7 +4,7 @@ import { otimizarImagem } from './utils/compressor';
 import { Camera, Trash2, Send, CheckCircle, Truck } from 'lucide-react';
 
 // Ajuste para a URL da sua API (Local ou Produção)
-const API_URL = 'http://localhost:5208/api/Vistoria'; 
+const API_URL = 'https://trucks-vistoria-app-1.onrender.com/api'; 
 
 export default function FormVistoria({ user }) {
   const [loading, setLoading] = useState(false);
