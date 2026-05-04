@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from './supabaseClient'; // Mantido apenas para gerar as URLs das fotos
 import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
+
+// URL da sua API .NET
+const API_URL = 'http://localhost:5000/api'; 
 
 export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
@@ -15,59 +18,47 @@ export default function DashboardFuncionario({ user }) {
     if (!user?.id) return;
     setLoading(true);
     try {
-      // 1. Busca estatísticas da View (Garantindo filtro por usuário para não pegar de outros)
-      const { data: dataMeta } = await supabase
-        .from('resumo_pessoal_funcionario')
-        .select('*')
-        .eq('usuario_id', user.id)
-        .maybeSingle();
+      // 1. Busca vistorias da API .NET (Substitui as tabelas do Supabase)
+      const response = await fetch(`${API_URL}/Vistoria`);
+      if (!response.ok) throw new Error("Erro ao conectar com a API");
       
-      if (dataMeta) {
-        setStats({
-          total_vistorias: dataMeta.total_vistorias || 0,
-          porcentagem_meta: dataMeta.porcentagem_meta || dataMeta.Porcentagem_meta || 0
-        });
-      }
+      const data = await response.json();
 
-      // 2. Busca vistorias (Filtro por usuario_id para o histórico pessoal)
-      const { data, error } = await supabase
-        .from('vistorias')
-        .select(`
-          id, 
-          data_vistoria, 
-          veiculo_id, 
-          tipo_servico, 
-          status, 
-          equipe, 
-          observacao, 
-          localizacao_texto,
-          evidencias (url_foto)
-        `)
-        .eq('usuario_id', user.id)
-        .order('data_vistoria', { ascending: false });
+      // Filtra as vistorias pertencentes ao usuário logado
+      const minhasVistorias = data.filter(v => v.usuarioId === user.id);
 
-      if (error) throw error;
-
-      const formatados = data.map(v => ({
-        ...v,
-        data_formatada: v.data_vistoria ? new Date(v.data_vistoria).toLocaleDateString('pt-BR') : '---',
-        placa: v.veiculo_id,
-        todas_fotos: v.evidencias ? v.evidencias.map(e => e.url_foto) : [],
+      const formatados = minhasVistorias.map(v => ({
+        id: v.id,
+        data_formatada: v.dataCriacao ? new Date(v.dataCriacao).toLocaleDateString('pt-BR') : '---',
+        placa: v.placa,
+        tipo_servico: v.tipoServico,
+        status: v.status,
+        equipe: v.equipe,
+        observacao: v.observacao,
+        localizacao_texto: v.localizacao,
+        // As evidências no C# vem como objetos { id, urlFoto, vistoriaId }
+        todas_fotos: v.evidencias ? v.evidencias.map(e => e.urlFoto) : [],
         qtd_fotos: v.evidencias ? v.evidencias.length : 0
       }));
 
       setVistorias(formatados);
+
+      // 2. Cálculo das Estatísticas (Funcionalidade de Meta mantida)
+      const total = formatados.length;
+      setStats({
+        total_vistorias: total,
+        porcentagem_meta: (total / META_MENSAL) * 100
+      });
+
     } catch (err) {
-      console.error("Erro ao carregar dados:", err.message);
+      console.error("Erro ao carregar dados da API .NET:", err.message);
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     carregarDados();
@@ -76,23 +67,33 @@ export default function DashboardFuncionario({ user }) {
 
   const removerVistoria = async (id) => {
     if (!window.confirm("Excluir esta vistoria permanentemente?")) return;
-    const { error } = await supabase.from('vistorias').delete().eq('id', id);
-    if (!error) {
-      setVistorias(prev => prev.filter(v => v.id !== id));
-      setStats(prev => {
-        const novoTotal = Math.max(0, prev.total_vistorias - 1);
-        return { 
-          ...prev, 
-          total_vistorias: novoTotal,
-          porcentagem_meta: (novoTotal / META_MENSAL) * 100
-        };
+    
+    try {
+      // Chama o DELETE da sua API C#
+      const response = await fetch(`${API_URL}/Vistoria/${id}`, {
+        method: 'DELETE'
       });
+
+      if (response.ok) {
+        setVistorias(prev => prev.filter(v => v.id !== id));
+        setStats(prev => {
+          const novoTotal = Math.max(0, prev.total_vistorias - 1);
+          return { 
+            ...prev, 
+            total_vistorias: novoTotal,
+            porcentagem_meta: (novoTotal / META_MENSAL) * 100
+          };
+        });
+      } else {
+        alert("Erro ao excluir no servidor.");
+      }
+    } catch (err) {
+      console.error("Erro ao remover:", err);
     }
   };
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    // CORREÇÃO: Removido o '1' e adicionado o '$' para interpolação correta
     const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
@@ -129,7 +130,6 @@ export default function DashboardFuncionario({ user }) {
         <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
       ) : (
         <div style={styles.tableWrapper}>
-          {/* LÓGICA DE RENDERIZAÇÃO MOBILE/DESKTOP */}
           {(isMobile || window.innerWidth < 768) ? (
             <div style={styles.mobileList}>
               {vistorias.length > 0 ? vistorias.map((reg) => (
@@ -154,7 +154,7 @@ export default function DashboardFuncionario({ user }) {
                     </button>
                   </div>
                 </div>
-              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro.</div>}
+              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado na API.</div>}
             </div>
           ) : (
             <table style={styles.table}>
@@ -187,7 +187,7 @@ export default function DashboardFuncionario({ user }) {
         </div>
       )}
 
-      {/* MODAL DE FOTOS */}
+      {/* MODAL DE FOTOS (Mantendo a geração de URL Pública do Supabase Storage) */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -197,7 +197,12 @@ export default function DashboardFuncionario({ user }) {
             </div>
             <div style={styles.galeria}>
               {fotosModal.fotos.map((url, i) => (
-                <img key={i} src={supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl} style={styles.fotoItem} alt="vistoria" />
+                <img 
+                   key={i} 
+                   src={supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl} 
+                   style={styles.fotoItem} 
+                   alt="vistoria" 
+                />
               ))}
             </div>
           </div>
@@ -207,6 +212,7 @@ export default function DashboardFuncionario({ user }) {
   );
 }
 
+// Estilos mantidos originais
 const styles = {
   pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },

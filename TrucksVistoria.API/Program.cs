@@ -11,9 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReact", policy =>
+    options.AddPolicy("VercelPolicy", policy =>
     {
-        policy.AllowAnyOrigin() // Em produção, coloque a URL do seu site
+        policy.WithOrigins("https://trucks-vistoria-app.vercel.app/") // Em produção, coloque a URL do seu site
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -33,7 +33,7 @@ builder.Services.AddControllers();
 
 
 var app = builder.Build();
-
+app.UseCors("VercelPolicy"); // Aplica a política de CORS que criamos para permitir o React acessar a API
 
 //configuração do swagger UI
 if (app.Environment.IsDevelopment())
