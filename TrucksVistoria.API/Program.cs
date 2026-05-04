@@ -10,7 +10,8 @@ builder.Services.AddCors(options =>
     options.AddPolicy("VercelPolicy", policy =>
     {
         // REMOVIDA a barra "/" do final da URL
-        policy.WithOrigins("https://trucks-vistoria-app.vercel.app") 
+        policy.WithOrigins("https://trucks-vistoria-app.vercel.app",
+        "https://trucks-vistoria-9l7kqa9r4-weslleysoaresms-projects.vercel.app") 
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -39,7 +40,7 @@ if (app.Environment.IsDevelopment())
 
 // Removido o UseHttpsRedirection se estiver usando ngrok (evita conflitos de certificado local)
 // app.UseHttpsRedirection(); 
-
+app.UseCors("ProductionPolicy");
 app.UseAuthorization();
 app.MapControllers();
 
