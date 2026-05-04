@@ -10,8 +10,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("VercelPolicy", policy =>
     {
         // REMOVIDA a barra "/" do final da URL
-        policy.WithOrigins("https://trucks-vistoria-app.vercel.app",
-        "https://trucks-vistoria-9l7kqa9r4-weslleysoaresms-projects.vercel.app") 
+        policy.WithOrigins(
+        "https://trucks-vistoria-9l7kqa9r4-weslleysoaresms-projects.vercel.app", 
+         "https://trucks-vistoria-app.vercel.app") 
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -30,7 +31,7 @@ var app = builder.Build();
 // --- ORDEM DE MIDDLEWARE É CRUCIAL ---
 
 // 3. Aplica o CORS logo no início
-app.UseCors("VercelPolicy"); 
+
 
 if (app.Environment.IsDevelopment())
 {
@@ -40,6 +41,7 @@ if (app.Environment.IsDevelopment())
 
 // Removido o UseHttpsRedirection se estiver usando ngrok (evita conflitos de certificado local)
 // app.UseHttpsRedirection(); 
+app.UseCors("VercelPolicy"); 
 app.UseCors("ProductionPolicy");
 app.UseAuthorization();
 app.MapControllers();

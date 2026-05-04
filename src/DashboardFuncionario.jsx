@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'; // Mantido apenas para gerar as URL
 import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
 
 // URL da sua API .NET
-const API_URL = 'https://trucks-vistoria-app-1.onrender.com/api'; 
+const API_URL = 'https://trucks-vistoria-app-1.onrender.com'; 
 
 export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });

@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 
 // URL da sua API .NET
-const API_URL = 'https://trucks-vistoria-app-1.onrender.com/api'; 
+const API_URL = 'https://trucks-vistoria-app-1.onrender.com'; 
 
 export default function Dashboard() {
   const [registrosRaw, setRegistrosRaw] = useState([]);
