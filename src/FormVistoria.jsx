@@ -1,249 +1,250 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { supabase } from './supabaseClient'; // Mantido para suporte a URLs do Storage
-import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { supabase } from './supabaseClient'; // Mantido apenas para o Storage das fotos
+import { otimizarImagem } from './utils/compressor';
+import { Camera, Trash2, Send, CheckCircle, Truck } from 'lucide-react';
 
-// URL da sua API .NET (Certifique-se de que o CORS no Render permite a Vercel)
-const API_URL = 'https://trucks-vistoria-app-1.onrender.com'; 
+// Ajuste para a URL da sua API (Local ou Produção)
+const API_URL = 'https://trucks-vistoria-app-1.onrender.com/api'; 
 
-export default function DashboardFuncionario({ user }) {
-  const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
-  const [vistorias, setVistorias] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const [fotosModal, setFotosModal] = useState(null);
+export default function FormVistoria({ user }) {
+  const [loading, setLoading] = useState(false);
+  const [placa, setPlaca] = useState('');
+  const [cliente, setCliente] = useState('');
+  const [equipe, setEquipe] = useState('');
+  const [observacao, setObservacao] = useState('');
+  const [tipoServico, setTipoServico] = useState('');
+  const [status, setStatus] = useState('inicial'); 
 
-  const META_MENSAL = 20;
+  const [fotosOtimizadas, setFotosOtimizadas] = useState([]); 
+  const [previews, setPreviews] = useState([]); 
+  const fileInputRef = useRef(null);
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const carregarDados = useCallback(async () => {
-    if (!user?.id) return;
+  const tiposServicoDisponiveis = ["On Job", "Primeira Visita", "Procura Artificial", "Indicação"];
+  const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
+  const statusDisponiveis = [
+    { label: "Inicial", value: "inicial" },
+    { label: "Em processo", value: "em_processo" },
+    { label: "Concluído", value: "concluida" }
+  ];
+
+  const manipularFotos = async (e) => {
+    const arquivos = Array.from(e.target.files);
+    if (arquivos.length === 0) return;
+    if (fotosOtimizadas.length + arquivos.length > 10) {
+      alert("Limite máximo de 10 fotos.");
+      return;
+    }
+
     setLoading(true);
     try {
-      // 1. Busca vistorias da API .NET
-      // Importante: O endpoint no seu C# é /api/Vistoria
-      const response = await fetch(`${API_URL}/api/Vistoria`);
-      if (!response.ok) throw new Error("Erro ao conectar com a API");
-      
-      const data = await response.json();
+      for (const arquivo of arquivos) {
+        const otimizada = await otimizarImagem(arquivo);
+        const novoPreview = URL.createObjectURL(otimizada);
+        
+        setFotosOtimizadas(prev => [...prev, otimizada]);
+        setPreviews(prev => [...prev, novoPreview]);
+        
+        // Delay para evitar crash de memória no mobile
+        await new Promise(resolve => setTimeout(resolve, 600));
+      }
+    } catch (err) {
+      console.error("Erro ao processar imagem:", err);
+      alert("O celular ficou sem memória. Tente enviar fotos uma a uma.");
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
-      // Filtra as vistorias pertencentes ao usuário logado (C# retorna usuarioId em camelCase)
-      const minhasVistorias = data.filter(v => v.usuarioId === user.id);
+  const removerFoto = (index) => {
+    URL.revokeObjectURL(previews[index]);
+    setFotosOtimizadas(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
-      const formatados = minhasVistorias.map(v => ({
-        id: v.id,
-        data_formatada: v.dataCriacao ? new Date(v.dataCriacao).toLocaleDateString('pt-BR') : '---',
-        placa: v.placa,
-        tipo_servico: v.tipoServico,
-        status: v.status,
-        equipe: v.equipe,
-        observacao: v.observacao,
-        localizacao_texto: v.localizacao,
-        // Mapeia a lista de objetos de evidências do C# para uma lista de strings (URLs)
-        todas_fotos: v.evidencias ? v.evidencias.map(e => e.urlFoto) : [],
-        qtd_fotos: v.evidencias ? v.evidencias.length : 0
-      }));
+  const finalizarVistoria = async () => {
+    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico) {
+      alert("Preencha todos os campos e tire pelo menos 1 foto.");
+      return;
+    }
 
-      setVistorias(formatados);
+    setLoading(true);
 
-      // 2. Cálculo das Estatísticas
-      const total = formatados.length;
-      setStats({
-        total_vistorias: total,
-        porcentagem_meta: (total / META_MENSAL) * 100
+    try {
+      // 1. GPS (Funcionalidade mantida)
+      let localizacao = "Não autorizada";
+      try {
+        const pos = await new Promise((res, rej) => {
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, enableHighAccuracy: false });
+        });
+        localizacao = `${pos.coords.latitude},${pos.coords.longitude}`;
+      } catch (e) { console.warn("GPS falhou."); }
+
+      const placaFormatada = placa.trim().toUpperCase();
+      const urlsFotosParaBanco = [];
+
+      // 2. Upload de fotos SEQUENCIAL para o Supabase Storage
+      for (let i = 0; i < fotosOtimizadas.length; i++) {
+        const foto = fotosOtimizadas[i];
+        const fileName = `${placaFormatada}_${Date.now()}_${i}.jpg`;
+        
+        const { data: upData, error: upError } = await supabase.storage
+          .from('vistorias')
+          .upload(fileName, foto);
+
+        if (upError) throw upError;
+        urlsFotosParaBanco.push(upData.path); // Guardamos o caminho retornado
+      }
+
+      // 3. Envio para a API .NET (Substitui os múltiplos inserts do Supabase)
+      const payload = {
+        Placa: placaFormatada,
+        Cliente: cliente.trim() || 'Não Informado',
+        UsuarioId: user.id, // ID do seu novo sistema de Login
+        Equipe: equipe,
+        TipoServico: tipoServico,
+        Observacao: observacao,
+        Localizacao: localizacao,
+        Status: status,
+        Evidencias: urlsFotosParaBanco // Lista de strings enviada para o C#
+      };
+
+      const response = await fetch(`${API_URL}/Vistoria`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
+      if (!response.ok) {
+        const erroMsg = await response.text();
+        throw new Error(erroMsg || "Erro ao salvar na API .NET");
+      }
+
+      alert("Vistoria enviada com sucesso para o novo servidor!");
+      
+      // Limpeza de memória e estado
+      previews.forEach(url => URL.revokeObjectURL(url));
+      setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
+      setFotosOtimizadas([]); setPreviews([]);
+
     } catch (err) {
-      console.error("Erro ao carregar dados da API .NET:", err.message);
+      console.error("Erro fatal:", err);
+      alert("Erro ao enviar: " + err.message);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    carregarDados();
-    return () => window.removeEventListener('resize', checkMobile);
-  }, [carregarDados]);
-
-  const removerVistoria = async (id) => {
-    if (!window.confirm("Excluir esta vistoria permanentemente?")) return;
-    
-    try {
-      // Chama o DELETE da sua API C# (api/Vistoria/{id})
-      const response = await fetch(`${API_URL}/api/Vistoria/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        setVistorias(prev => prev.filter(v => v.id !== id));
-        setStats(prev => {
-          const novoTotal = Math.max(0, prev.total_vistorias - 1);
-          return { 
-            ...prev, 
-            total_vistorias: novoTotal,
-            porcentagem_meta: (novoTotal / META_MENSAL) * 100
-          };
-        });
-      } else {
-        alert("Erro ao excluir no servidor.");
-      }
-    } catch (err) {
-      console.error("Erro ao remover:", err);
-    }
-  };
-
-  const abrirMapa = (loc) => {
-    if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    // Correção na montagem da URL do Google Maps
-    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
-    window.open(url, '_blank');
   };
 
   return (
-    <div style={styles.pageWrapper}>
-      {/* CARD DE META */}
-      <div style={styles.cardMeta}>
-        <div style={styles.statsNum}>
-          <span style={{ ...styles.bigNum, color: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' }}>
-            {stats.total_vistorias}
-          </span>
-          <span style={styles.subNum}> / {META_MENSAL} vistorias</span>
+    <div style={styles.container}>
+      {/* O JSX permanece IDENTICO ao seu original para manter o design */}
+      <div style={styles.formHeader}>
+        <div style={styles.iconCircle}>
+          <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
         </div>
-        <div style={styles.progressContainer}>
-          <div style={{ 
-            ...styles.progressBar, 
-            width: `${Math.min(stats.porcentagem_meta, 100)}%`, 
-            background: stats.porcentagem_meta >= 80 ? '#48bb78' : '#ed8936' 
-          }}>
-             <span style={styles.progressText}>{Math.round(stats.porcentagem_meta)}%</span>
-          </div>
-        </div>
-        <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px' }}>
-          {stats.total_vistorias >= META_MENSAL 
-            ? "Objetivo alcançado!" 
-            : `Faltam ${META_MENSAL - stats.total_vistorias} para o objetivo.`}
-        </p>
+        <h2 style={styles.title}>Nova Inspeção</h2>
+      </div>
+      
+      <div style={styles.inputGroup}>
+        <input 
+          type="text" 
+          placeholder="Placa do Veículo" 
+          value={placa} 
+          onChange={(e) => setPlaca(e.target.value.toUpperCase())} 
+          style={styles.input} 
+        />
+        <input 
+          type="text" 
+          placeholder="Nome do Cliente" 
+          value={cliente} 
+          onChange={(e) => setCliente(e.target.value)} 
+          style={styles.input} 
+        />
+        
+        <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
+          <option value="" disabled>Selecione a Equipe</option>
+          {equipesDisponiveis.map(eq => <option key={eq} value={eq}>Equipe {eq}</option>)}
+        </select>
+      
+        <select value={tipoServico} onChange={(e) => setTipoServico(e.target.value)} style={styles.select}>
+          <option value="" disabled>Tipo de Serviço</option>
+          {tiposServicoDisponiveis.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+        </select>
+        
+        <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select}>
+          {statusDisponiveis.map(s => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+
+        <textarea 
+          placeholder="Observações adicionais..." 
+          value={observacao} 
+          onChange={(e) => setObservacao(e.target.value)} 
+          style={styles.textarea} 
+        />
       </div>
 
-      <h3 style={{ color: '#fff', marginBottom: '15px', fontSize: '18px' }}>Meu Histórico</h3>
+      <div style={styles.uploadArea}>
+        <label htmlFor="foto-input" style={styles.buttonAdd}>
+          <Camera size={20} />
+          ABRIR CÂMERA
+        </label>
+        <input 
+          id="foto-input" 
+          ref={fileInputRef}
+          type="file" 
+          accept="image/*" 
+          capture="environment"
+          onChange={manipularFotos} 
+          style={{ display: 'none' }} 
+        />
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
-      ) : (
-        <div style={styles.tableWrapper}>
-          {isMobile ? (
-            <div style={styles.mobileList}>
-              {vistorias.length > 0 ? vistorias.map((reg) => (
-                <div key={reg.id} style={styles.mobileCard}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <strong style={{ color: '#fff' }}>{reg.placa}</strong>
-                    <span style={styles.badge}>{reg.equipe || 'Equipe'}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
-                    <div>📅 {reg.data_formatada}</div>
-                    <div>🛠️ {reg.tipo_servico || 'Geral'}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnActionMobile}>
-                      <Camera size={14} /> {reg.qtd_fotos}
-                    </button>
-                    <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnActionMobile}>
-                      <MapPin size={14} /> Mapa
-                    </button>
-                    <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181' }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado.</div>}
+        <div style={styles.grid}>
+          {previews.map((url, index) => (
+            <div key={index} style={styles.thumbWrap}>
+              <img src={url} alt="preview" style={styles.img} />
+              <button onClick={() => removerFoto(index)} style={styles.btnDel}>
+                <Trash2 size={14} />
+              </button>
             </div>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Data</th>
-                  <th style={styles.th}>Placa</th>
-                  <th style={styles.th}>Serviço</th>
-                  <th style={styles.th}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vistorias.map((reg) => (
-                  <tr key={reg.id}>
-                    <td style={styles.td}>{reg.data_formatada}</td>
-                    <td style={styles.td}><strong>{reg.placa}</strong></td>
-                    <td style={styles.td}>{reg.tipo_servico}</td>
-                    <td style={styles.td}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnIcon}>📷</button>
-                        <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnIcon}>📍</button>
-                        <button onClick={() => removerVistoria(reg.id)} style={styles.btnIconDel}>🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          ))}
         </div>
-      )}
+      </div>
 
-      {/* MODAL DE FOTOS */}
-      {fotosModal && (
-        <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
-          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h3 style={{ color: '#fff', margin: 0 }}>Placa: {fotosModal.placa}</h3>
-              <button onClick={() => setFotosModal(null)} style={{background: 'none', border: 'none', color: '#fff'}}><X /></button>
-            </div>
-            <div style={styles.galeria}>
-              {fotosModal.fotos.map((url, i) => {
-                // Se a URL já for completa (HTTP), usa ela. Se for só o nome do arquivo, gera via Supabase.
-                const finalUrl = url.startsWith('http') 
-                  ? url 
-                  : supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl;
-
-                return (
-                  <img 
-                     key={i} 
-                     src={finalUrl} 
-                     style={styles.fotoItem} 
-                     alt="evidencia" 
-                     onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Erro+na+Foto'; }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      <button 
+        onClick={finalizarVistoria} 
+        disabled={loading || fotosOtimizadas.length === 0}
+        style={loading ? styles.btnDisabled : styles.btnSend}
+      >
+        {loading ? "ENVIANDO DADOS..." : (
+          <>
+            <CheckCircle size={20} />
+            FINALIZAR ({fotosOtimizadas.length}/10)
+          </>
+        )}
+      </button>
     </div>
   );
 }
 
+// Estilos mantidos exatamente como os seus
 const styles = {
-  pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box' },
-  cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
-  bigNum: { fontSize: '40px', fontWeight: 'bold' },
-  subNum: { color: '#94a3b8', fontSize: '14px' },
-  progressContainer: { background: '#0f172a', borderRadius: '15px', height: '25px', margin: '15px 0', overflow: 'hidden' },
-  progressBar: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s ease' },
-  progressText: { color: '#fff', fontWeight: 'bold', fontSize: '11px' },
-  tableWrapper: { background: 'rgba(30, 41, 59, 0.95)', borderRadius: '20px', overflow: 'hidden', width: '100%' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: { padding: '15px', textAlign: 'left', color: '#94a3b8', fontSize: '11px', background: 'rgba(0,0,0,0.2)' },
-  td: { padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#e2e8f0' },
-  mobileList: { display: 'flex', flexDirection: 'column', gap: '15px', padding: '15px' },
-  mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
-  btnActionMobile: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px' },
-  badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px' },
-  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-  btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
-  modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' },
-  galeria: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' },
-  fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' }
+  container: { width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto', position: 'relative' },
+  logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
+  formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
+  iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', border: '2px solid rgba(99, 179, 237, 0.2)' },
+  title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
+  input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' },
+  select: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', cursor: 'pointer' },
+  textarea: { width: '100%', height: '80px', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box' },
+  uploadArea: { marginTop: '20px', marginBottom: '25px' },
+  buttonAdd: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(66, 153, 225, 0.15)', color: '#63b3ed', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '14px', border: '1px dashed #63b3ed' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '15px' },
+  thumbWrap: { position: 'relative', paddingTop: '100%' },
+  img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' },
+  btnDel: { position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  btnSend: { width: '100%', padding: '18px', background: '#48bb78', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
+  btnDisabled: { width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed', fontWeight: '900' }
 };
