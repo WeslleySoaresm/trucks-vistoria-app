@@ -1,0 +1,6 @@
+@TrucksVistoria.API_HostAddress = http://localhost:5208
+
+GET {{TrucksVistoria.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

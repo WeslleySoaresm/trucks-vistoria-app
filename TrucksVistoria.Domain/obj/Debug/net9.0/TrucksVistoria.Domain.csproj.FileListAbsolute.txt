@@ -1,0 +1,12 @@
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/bin/Debug/net9.0/TrucksVistoria.Domain.deps.json
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/bin/Debug/net9.0/TrucksVistoria.Domain.dll
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/bin/Debug/net9.0/TrucksVistoria.Domain.pdb
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.AssemblyInfoInputs.cache
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.AssemblyInfo.cs
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.csproj.CoreCompileInputs.cache
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.sourcelink.json
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.dll
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/refint/TrucksVistoria.Domain.dll
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/TrucksVistoria.Domain.pdb
+/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/Debug/net9.0/ref/TrucksVistoria.Domain.dll
