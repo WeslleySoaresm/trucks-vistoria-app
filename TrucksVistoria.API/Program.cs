@@ -7,12 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Configuração do CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("VercelPolicy", policy =>
+    options.AddPolicy("PublicPolicy", policy =>
     {
-        policy.WithOrigins("https://trucks-vistoria-ljnxinmrl-weslleysoaresms-projects.vercel.app") // URL do log
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials(); // Importante se houver cookies/auth
+        policy.AllowAnyOrigin() // Permite Vercel, localhost, etc.
+              .AllowAnyMethod() // Permite GET, POST, DELETE, OPTIONS
+              .AllowAnyHeader(); // Permite Content-Type, Authorization, etc.
     });
 });
 
@@ -41,7 +40,7 @@ if (app.Environment.IsDevelopment())
 
 // Removido o UseHttpsRedirection se estiver usando ngrok (evita conflitos de certificado local)
 // app.UseHttpsRedirection(); 
-app.UseCors("VercelPolicy"); 
+app.UseCors("PublicPolicy"); 
 app.UseAuthorization();
 app.MapControllers();
 
