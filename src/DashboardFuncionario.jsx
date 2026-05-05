@@ -14,13 +14,14 @@ export default function DashboardFuncionario({ user }) {
 
   const META_MENSAL = 20;
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const carregarDados = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     try {
       // 1. Busca vistorias da API .NET
       // Importante: O endpoint no seu C# é /api/Vistoria
-      const response = await fetch(`${API_URL}/api/Vistoria`);
+      const response = await fetch(`${API_URL}/Vistoria`);
       if (!response.ok) throw new Error("Erro ao conectar com a API");
       
       const data = await response.json();
@@ -71,7 +72,7 @@ export default function DashboardFuncionario({ user }) {
     
     try {
       // Chama o DELETE da sua API C# (api/Vistoria/{id})
-      const response = await fetch(`${API_URL}/api/Vistoria/${id}`, {
+      const response = await fetch(`${API_URL}/Vistoria/${id}`, {
         method: 'DELETE'
       });
 
