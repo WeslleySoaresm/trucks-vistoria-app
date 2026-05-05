@@ -9,7 +9,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("PublicPolicy", policy =>
     {
-        policy.WithOrigins() // Permite Vercel, localhost, etc.
+        policy.AllowAnyOrigin() // Permite Vercel, localhost, etc.
               .AllowAnyMethod() // Permite GET, POST, DELETE, OPTIONS
               .AllowAnyHeader(); // Permite Content-Type, Authorization, etc.
     });
