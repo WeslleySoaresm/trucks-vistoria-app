@@ -9,7 +9,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("PublicPolicy", policy =>
     {
-        policy.AllowAnyOrigin("https://trucks-vistoria-app.vercel.app") // Permite Vercel, localhost, etc.
+        policy.WithOrigins("https://trucks-vistoria-app.vercel.app") // Permite Vercel, localhost, etc.
               .AllowAnyMethod() // Permite GET, POST, DELETE, OPTIONS
               .AllowAnyHeader(); // Permite Content-Type, Authorization, etc.
     });
