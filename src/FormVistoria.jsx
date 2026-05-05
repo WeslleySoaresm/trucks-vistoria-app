@@ -100,7 +100,7 @@ export default function FormVistoria({ user }) {
       const payload = {
         Placa: placaFormatada,
         Cliente: cliente.trim() || 'Não Informado',
-        UsuarioId: user.id, // ID do seu novo sistema de Login
+        UsuarioId: "eb9dca42-6d21-46c9-bf10-44692cbf4a55", // ID do seu novo sistema de Login
         Equipe: equipe,
         TipoServico: tipoServico,
         Observacao: observacao,
