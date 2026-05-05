@@ -9,7 +9,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("PublicPolicy", policy =>
     {
-        policy.AllowAnyOrigin() // Permite Vercel, localhost, etc.
+        policy.AllowAnyOrigin('https://trucks-vistoria-app.vercel.app', 'https://trucks-vistoria-app-1.onrender.com/api', 'https://webhook.site/e4d2c39a-4c04-47a0-b092-27b5e9b3b046') // Permite Vercel, localhost, etc.
               .AllowAnyMethod() // Permite GET, POST, DELETE, OPTIONS
               .AllowAnyHeader(); // Permite Content-Type, Authorization, etc.
     });
@@ -26,22 +26,23 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
+
+// 1. O CORS deve ser quase a primeira coisa
 app.UseRouting();
-// --- ORDEM DE MIDDLEWARE É CRUCIAL ---
 
-// 3. Aplica o CORS logo no início
+// Use o nome da política que você criou (ex: "PublicPolicy")
+app.UseCors("PublicPolicy"); 
 
-
+// 2. Swagger e Redirecionamentos
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "TrucksVistoria.API v1"));
+    app.UseSwaggerUI();
 }
 
-// Removido o UseHttpsRedirection se estiver usando ngrok (evita conflitos de certificado local)
-// app.UseHttpsRedirection(); 
-app.UseCors("PublicPolicy"); 
+// 3. Autenticação e Autorização DEVEM vir DEPOIS do CORS
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

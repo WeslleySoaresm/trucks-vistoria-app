@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient'; // Mantido para suporte a URLs do S
 import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
 
 // URL da sua API .NET (Certifique-se de que o CORS no Render permite a Vercel)
-const API_URL = 'https://trucks-vistoria-app-1.onrender.com/api'; 
+const API_URL = 'https://webhook.site/e4d2c39a-4c04-47a0-b092-27b5e9b3b046'; 
 
 export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
