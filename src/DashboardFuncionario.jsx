@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { supabase } from './supabaseClient'; // Mantido apenas para gerar as URLs das fotos
+import { supabase } from './supabaseClient'; // Mantido para suporte a URLs do Storage
 import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
 
-// URL da sua API .NET
+// URL da sua API .NET (Certifique-se de que o CORS no Render permite a Vercel)
 const API_URL = 'https://trucks-vistoria-app-1.onrender.com'; 
 
 export default function DashboardFuncionario({ user }) {
@@ -18,13 +18,14 @@ export default function DashboardFuncionario({ user }) {
     if (!user?.id) return;
     setLoading(true);
     try {
-      // 1. Busca vistorias da API .NET (Substitui as tabelas do Supabase)
-      const response = await fetch(`${API_URL}/Vistoria`);
+      // 1. Busca vistorias da API .NET
+      // Importante: O endpoint no seu C# é /api/Vistoria
+      const response = await fetch(`${API_URL}/api/Vistoria`);
       if (!response.ok) throw new Error("Erro ao conectar com a API");
       
       const data = await response.json();
 
-      // Filtra as vistorias pertencentes ao usuário logado
+      // Filtra as vistorias pertencentes ao usuário logado (C# retorna usuarioId em camelCase)
       const minhasVistorias = data.filter(v => v.usuarioId === user.id);
 
       const formatados = minhasVistorias.map(v => ({
@@ -36,14 +37,14 @@ export default function DashboardFuncionario({ user }) {
         equipe: v.equipe,
         observacao: v.observacao,
         localizacao_texto: v.localizacao,
-        // As evidências no C# vem como objetos { id, urlFoto, vistoriaId }
+        // Mapeia a lista de objetos de evidências do C# para uma lista de strings (URLs)
         todas_fotos: v.evidencias ? v.evidencias.map(e => e.urlFoto) : [],
         qtd_fotos: v.evidencias ? v.evidencias.length : 0
       }));
 
       setVistorias(formatados);
 
-      // 2. Cálculo das Estatísticas (Funcionalidade de Meta mantida)
+      // 2. Cálculo das Estatísticas
       const total = formatados.length;
       setStats({
         total_vistorias: total,
@@ -69,8 +70,8 @@ export default function DashboardFuncionario({ user }) {
     if (!window.confirm("Excluir esta vistoria permanentemente?")) return;
     
     try {
-      // Chama o DELETE da sua API C#
-      const response = await fetch(`${API_URL}/Vistoria/${id}`, {
+      // Chama o DELETE da sua API C# (api/Vistoria/{id})
+      const response = await fetch(`${API_URL}/api/Vistoria/${id}`, {
         method: 'DELETE'
       });
 
@@ -94,6 +95,7 @@ export default function DashboardFuncionario({ user }) {
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
+    // Correção na montagem da URL do Google Maps
     const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
@@ -130,7 +132,7 @@ export default function DashboardFuncionario({ user }) {
         <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
       ) : (
         <div style={styles.tableWrapper}>
-          {(isMobile || window.innerWidth < 768) ? (
+          {isMobile ? (
             <div style={styles.mobileList}>
               {vistorias.length > 0 ? vistorias.map((reg) => (
                 <div key={reg.id} style={styles.mobileCard}>
@@ -154,7 +156,7 @@ export default function DashboardFuncionario({ user }) {
                     </button>
                   </div>
                 </div>
-              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado na API.</div>}
+              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado.</div>}
             </div>
           ) : (
             <table style={styles.table}>
@@ -187,23 +189,31 @@ export default function DashboardFuncionario({ user }) {
         </div>
       )}
 
-      {/* MODAL DE FOTOS (Mantendo a geração de URL Pública do Supabase Storage) */}
+      {/* MODAL DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
             <div style={styles.modalHeader}>
-              <h3 style={{ color: '#fff', margin: 0 }}>{fotosModal.placa}</h3>
+              <h3 style={{ color: '#fff', margin: 0 }}>Placa: {fotosModal.placa}</h3>
               <button onClick={() => setFotosModal(null)} style={{background: 'none', border: 'none', color: '#fff'}}><X /></button>
             </div>
             <div style={styles.galeria}>
-              {fotosModal.fotos.map((url, i) => (
-                <img 
-                   key={i} 
-                   src={supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl} 
-                   style={styles.fotoItem} 
-                   alt="vistoria" 
-                />
-              ))}
+              {fotosModal.fotos.map((url, i) => {
+                // Se a URL já for completa (HTTP), usa ela. Se for só o nome do arquivo, gera via Supabase.
+                const finalUrl = url.startsWith('http') 
+                  ? url 
+                  : supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl;
+
+                return (
+                  <img 
+                     key={i} 
+                     src={finalUrl} 
+                     style={styles.fotoItem} 
+                     alt="evidencia" 
+                     onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Erro+na+Foto'; }}
+                  />
+                );
+              })}
             </div>
           </div>
         </div>
@@ -212,7 +222,6 @@ export default function DashboardFuncionario({ user }) {
   );
 }
 
-// Estilos mantidos originais
 const styles = {
   pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
@@ -229,11 +238,11 @@ const styles = {
   mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
   btnActionMobile: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px' },
   badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px' },
-  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px' },
-  btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px' },
+  btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
+  btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
   modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' },
   galeria: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' },
   fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' }
 };
