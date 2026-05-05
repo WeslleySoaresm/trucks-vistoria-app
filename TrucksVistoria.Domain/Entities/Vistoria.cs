@@ -4,7 +4,7 @@ namespace TrucksVistoria.Domain.Entities;
 // Entidade principal da aplicação, representando uma vistoria de caminhão
 public class Vistoria
 {
-    public Guid Id { get; set; } = Guid.NewGuid(); // O ? indica que o Id pode ser nulo, útil para quando a vistoria ainda não foi salva no banco
+    public Guid? Id { get; set; } = Guid.NewGuid(); // O ? indica que o Id pode ser nulo, útil para quando a vistoria ainda não foi salva no banco
     public string Placa { get; set; } = string.Empty;
     public string Equipe { get; set; } = string.Empty;
     public string Cliente { get; set; } = string.Empty;

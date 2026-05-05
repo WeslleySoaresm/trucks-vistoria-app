@@ -70,7 +70,7 @@ public class VistoriaController : ControllerBase
                 {
                     var evidencia = new Evidencia
                     {
-                        VistoriaId = novaVistoria.Id, // Usando .Value pois o Id na Entity pode ser Guid?
+                        VistoriaId = novaVistoria.Id.Value, // Usando .Value pois o Id na Entity pode ser Guid?
                         UrlFoto = fotoUrl
                     };
                     _context.Evidencias.Add(evidencia);
