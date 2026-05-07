@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient'; // Mantido para o Storage das fotos
+import { FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, Cell
@@ -7,7 +9,6 @@ import {
 
 // URL da sua API .NET
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
-
 
 export default function Dashboard() {
   const [registrosRaw, setRegistrosRaw] = useState([]);
@@ -18,26 +19,31 @@ export default function Dashboard() {
 
   // --- LÓGICA DE EXPORTAÇÃO EXCEL ---
   const exportarExcel = () => {
-    // 1. Preparamos os dados para o Excel (filtrando e renomeando colunas)
-    const dadosParaExportar = dadosExibidos.map(reg => ({
-      'Data': reg.data_formatada,
-      'Placa': reg.placa,
-      'Equipe': reg.equipe,
-      'Serviço': reg.tipo_servico || 'On Job',
-      'Status': reg.status || 'Concluída',
-      'Observação': reg.observacao || '-',
-      'Localização': reg.localizacao_texto,
-      'Total Fotos': reg.qtd_fotos
-    }));
+    try {
+      // 1. Preparamos os dados para o Excel (filtrando e renomeando colunas)
+      const dadosParaExportar = dadosExibidos.map(reg => ({
+        'Data': reg.data_formatada,
+        'Placa': reg.placa,
+        'Equipe': reg.equipe,
+        'Serviço': reg.tipo_servico || 'On Job',
+        'Status': reg.status || 'Concluída',
+        'Observação': reg.observacao || '-',
+        'Localização': reg.localizacao_texto,
+        'Total Fotos': reg.qtd_fotos
+      }));
 
-    // 2. Criamos a planilha
-    const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Vistorias");
+      // 2. Criamos a planilha
+      const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vistorias");
 
-    // 3. Geramos o arquivo e baixamos
-    const nomeArquivo = `Relatorio_Vistorias_${equipeFiltrada}_${new Date().toLocaleDateString()}.xlsx`;
-    XLSX.writeFile(wb, nomeArquivo);
+      // 3. Geramos o arquivo e baixamos
+      const nomeArquivo = `Relatorio_Vistorias_${equipeFiltrada}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+      XLSX.writeFile(wb, nomeArquivo);
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error);
+      alert("Erro ao gerar o arquivo Excel.");
+    }
   };
 
   useEffect(() => {
@@ -47,27 +53,23 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  
-  //Busca dados
+  // Busca dados
   async function buscarDados() {
     try {
       setLoading(true);
-      // Busca da sua nova API C#
       const response = await fetch(`${API_URL}/Vistoria`);
       if (!response.ok) throw new Error("Erro ao buscar dados da API");
       
       const data = await response.json();
       
       // Ajustamos o mapeamento para que o restante do código funcione
-      // A API retorna camelCase (usuarioId, dataCriacao, etc)
       const dataFormatada = data.map(v => ({
         ...v,
         data_vistoria: v.dataCriacao, 
-        funcionario_email: v.usuarioId, // Ou o e-mail se você incluiu no Get
+        funcionario_email: v.usuarioId,
         cliente_nome: v.cliente || "Não Informado",
         localizacao_texto: v.localizacao,
         tipo_servico: v.tipoServico,
-        // No C# as evidências vêm como uma lista de objetos
         evidencias_lista: v.evidencias || [] 
       }));
 
@@ -79,9 +81,7 @@ export default function Dashboard() {
     }
   }
 
-  // --- LÓGICA DE AGRUPAMENTO (Mantida 100%) ---
-  // Nota: Como o C# já traz a vistoria agrupada com suas evidências, 
-  // simplificamos para usar a estrutura da API
+  // --- LÓGICA DE AGRUPAMENTO ---
   const listaVistorias = registrosRaw.map(v => ({
     ...v,
     data_formatada: new Date(v.data_vistoria).toLocaleDateString('pt-BR'),
@@ -116,7 +116,7 @@ export default function Dashboard() {
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    const url = loc.includes('http') ? loc : `https://www.google.com/maps?q=${encodeURIComponent(loc)}`;
+    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
@@ -136,7 +136,7 @@ export default function Dashboard() {
     alert("Funcionalidade de exclusão em massa deve ser implementada na API.");
   }
 
-  // --- DADOS GRÁFICOS (Funcionalidades mantidas) ---
+  // --- DADOS GRÁFICOS ---
   const prodEquipe = listaVistorias.reduce((acc, curr) => {
     const eq = curr.equipe || "S/N";
     acc[eq] = (acc[eq] || 0) + 1;
@@ -152,7 +152,7 @@ export default function Dashboard() {
     return { bg: '#edf2f7', color: '#4a5568' };
   };
 
-  if (loading) return <p style={{padding: '20px', color: '#fff'}}>Carregando estatísticas da API .NET...</p>;
+  if (loading) return <div style={{padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh'}}>Carregando estatísticas da API .NET...</div>;
 
   return (
     <div style={styles.pageWrapper}>
@@ -184,12 +184,12 @@ export default function Dashboard() {
 
       {/* CARDS DE RESUMO */}
       <div style={styles.rowCards}>
-        <div onClick={() => setEquipeFiltrada('TODAS')} style={{...styles.cardResumo, borderLeftColor: '#666', opacity: equipeFiltrada === 'TODAS' ? 1 : 0.6}}>
+        <div onClick={() => setEquipeFiltrada('TODAS')} style={{...styles.cardResumo, borderLeftColor: '#666', opacity: equipeFiltrada === 'TODAS' ? 1 : 0.6, cursor: 'pointer'}}>
           <small style={styles.cardLabel}>Geral</small>
           <div style={styles.cardNum}>{listaVistorias.length}</div>
         </div>
         {graficoEquipe.map((item, idx) => (
-          <div key={idx} onClick={() => setEquipeFiltrada(item.name.replace('Equipe ', ''))} style={{...styles.cardResumo, borderLeftColor: COLORS[idx % COLORS.length], opacity: equipeFiltrada === item.name.replace('Equipe ', '') ? 1 : 0.6}}>
+          <div key={idx} onClick={() => setEquipeFiltrada(item.name.replace('Equipe ', ''))} style={{...styles.cardResumo, borderLeftColor: COLORS[idx % COLORS.length], opacity: equipeFiltrada === item.name.replace('Equipe ', '') ? 1 : 0.6, cursor: 'pointer'}}>
             <small style={styles.cardLabel}>{item.name}</small>
             <div style={styles.cardNum}>{item.value}</div>
           </div>
@@ -218,8 +218,6 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
-
-      
 
       {/* PAINEL DE GESTÃO */}
       {equipeFiltrada !== 'TODAS' && (
@@ -303,7 +301,6 @@ export default function Dashboard() {
   );
 }
 
-// Estilos mantidos 100% conforme o original
 const styles = {
   btnExcel: {
     display: 'flex',
@@ -320,7 +317,7 @@ const styles = {
     transition: 'background 0.3s'
   },
   pageWrapper: { minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
-  rowCards: { display: 'flex', gap: '15px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '10px', WebkitOverflowScrolling: 'touch' },
+  rowCards: { display: 'flex', gap: '15px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '10px' },
   cardResumo: { background: 'rgba(30, 41, 59, 0.9)', padding: '15px', borderRadius: '16px', minWidth: '120px', borderLeft: '5px solid', flexShrink: 0 },
   cardLabel: { color: '#cbd5e0', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' },
   cardNum: { color: '#ffffff', fontSize: '24px', fontWeight: 'bold' },
@@ -333,7 +330,7 @@ const styles = {
   td: { padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#e2e8f0' },
   mobileList: { padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' },
   mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
-  btnActionMobile: { flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px' },
+  btnActionMobile: { flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' },
   badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' },
   statusBadge: { padding: '3px 10px', borderRadius: '50px', fontSize: '10px', fontWeight: 'bold' },
   btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
@@ -345,7 +342,7 @@ const styles = {
   btnCloseTop: { background: 'none', border: 'none', color: '#fff', fontSize: '28px', cursor: 'pointer' },
   galeria: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' },
   fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '10px' },
-  btnDownloadSmall: { width: '100%', marginTop: '5px', background: 'transparent', border: '1px solid #3182ce', color: '#3182ce', padding: '5px', borderRadius: '5px', fontSize: '10px' },
+  btnDownloadSmall: { width: '100%', marginTop: '5px', background: 'transparent', border: '1px solid #3182ce', color: '#3182ce', padding: '5px', borderRadius: '5px', fontSize: '10px', cursor: 'pointer' },
   panelAcoes: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.15)', padding: '15px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #e53e3e' },
   panelAcoesText: { color: '#fff', fontSize: '13px' },
   btnExcluirMassa: { background: '#e53e3e', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }
