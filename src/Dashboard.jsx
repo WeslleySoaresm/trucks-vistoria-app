@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from './supabaseClient'; // Mantido para o Storage das fotos
+import { supabase } from './supabaseClient';
 import { FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -17,35 +17,7 @@ export default function Dashboard() {
   const [fotosModal, setFotosModal] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // --- LÓGICA DE EXPORTAÇÃO EXCEL ---
-  const exportarExcel = () => {
-    try {
-      // 1. Preparamos os dados para o Excel (filtrando e renomeando colunas)
-      const dadosParaExportar = dadosExibidos.map(reg => ({
-        'Data': reg.data_formatada,
-        'Placa': reg.placa,
-        'Equipe': reg.equipe,
-        'Serviço': reg.tipo_servico || 'On Job',
-        'Status': reg.status || 'Concluída',
-        'Observação': reg.observacao || '-',
-        'Localização': reg.localizacao_texto,
-        'Total Fotos': reg.qtd_fotos
-      }));
-
-      // 2. Criamos a planilha
-      const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Vistorias");
-
-      // 3. Geramos o arquivo e baixamos
-      const nomeArquivo = `Relatorio_Vistorias_${equipeFiltrada}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
-      XLSX.writeFile(wb, nomeArquivo);
-    } catch (error) {
-      console.error("Erro ao exportar Excel:", error);
-      alert("Erro ao gerar o arquivo Excel.");
-    }
-  };
-
+  // --- EFEITOS E BUSCA ---
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -53,7 +25,6 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Busca dados
   async function buscarDados() {
     try {
       setLoading(true);
@@ -62,13 +33,13 @@ export default function Dashboard() {
       
       const data = await response.json();
       
-      // Ajustamos o mapeamento para que o restante do código funcione
       const dataFormatada = data.map(v => ({
         ...v,
+        id: v.id,
         data_vistoria: v.dataCriacao, 
         funcionario_email: v.usuarioId,
         cliente_nome: v.cliente || "Não Informado",
-        localizacao_texto: v.localizacao,
+        localizacao_texto: v.localizacao || "Não autorizada",
         tipo_servico: v.tipoServico,
         evidencias_lista: v.evidencias || [] 
       }));
@@ -81,19 +52,44 @@ export default function Dashboard() {
     }
   }
 
-  // --- LÓGICA DE AGRUPAMENTO ---
+  // --- PROCESSAMENTO DE DADOS ---
   const listaVistorias = registrosRaw.map(v => ({
     ...v,
-    data_formatada: new Date(v.data_vistoria).toLocaleDateString('pt-BR'),
-    qtd_fotos: v.evidencias_lista.length,
-    todas_fotos: v.evidencias_lista.map(e => e.urlFoto)
+    data_formatada: v.data_vistoria ? new Date(v.data_vistoria).toLocaleDateString('pt-BR') : 'N/D',
+    qtd_fotos: v.evidencias_lista?.length || 0,
+    todas_fotos: v.evidencias_lista?.map(e => e.urlFoto) || []
   }));
 
   const dadosExibidos = equipeFiltrada === 'TODAS' 
     ? listaVistorias 
     : listaVistorias.filter(r => (r.equipe || "S/N") === equipeFiltrada);
 
-  // --- DOWNLOAD E MAPA ---
+  // --- LÓGICA DE EXPORTAÇÃO EXCEL ---
+  const exportarExcel = () => {
+    try {
+      const dadosParaExportar = dadosExibidos.map(reg => ({
+        'Data': reg.data_formatada,
+        'Placa': reg.placa,
+        'Equipe': reg.equipe,
+        'Serviço': reg.tipo_servico || 'On Job',
+        'Status': reg.status || 'Concluída',
+        'Observação': reg.observacao || '-',
+        'Localização': reg.localizacao_texto,
+        'Total Fotos': reg.qtd_fotos
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Vistorias");
+      const nomeArquivo = `Relatorio_${equipeFiltrada}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, nomeArquivo);
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error);
+      alert("Erro ao gerar o arquivo Excel.");
+    }
+  };
+
+  // --- FOTOS E MAPA ---
   const baixarFoto = async (path, placa) => {
     const { data } = supabase.storage.from('vistorias').getPublicUrl(path);
     try {
@@ -120,9 +116,9 @@ export default function Dashboard() {
     window.open(url, '_blank');
   };
 
+  // --- EXCLUSÕES ---
   async function removerVistoria(id) {
     if (!window.confirm(`Excluir este registro permanentemente?`)) return;
-    
     try {
       const response = await fetch(`${API_URL}/Vistoria/${id}`, { method: 'DELETE' });
       if (response.ok) buscarDados();
@@ -130,65 +126,56 @@ export default function Dashboard() {
     } catch (err) { console.error(err); }
   }
 
+  // --- AJUSTE NA EXCLUSÃO EM MASSA ---
   async function excluirTudoEquipe() {
-  if (equipeFiltrada === 'TODAS') return;
+    if (equipeFiltrada === 'TODAS') return;
+    const idsParaExcluir = dadosExibidos.map(reg => reg.id);
+    if (idsParaExcluir.length === 0) return alert("Não há registros nesta equipe.");
 
-  // 1. Pegamos apenas os IDs dos registros que estão aparecendo na tela (daquela equipe)
-  const idsParaExcluir = dadosExibidos.map(reg => reg.id);
+    const confirmar = window.confirm(`ATENÇÃO: Você está prestes a excluir TODOS os ${idsParaExcluir.length} registros da Equipe ${equipeFiltrada}. Confirmar?`);
+    if (!confirmar) return;
 
-  if (idsParaExcluir.length === 0) {
-    alert("Não há registros para excluir nesta equipe.");
-    return;
-  }
+    try {
+      setLoading(true);
+      // Ajuste: URL específica para ação em massa para evitar conflito com DELETE individual
+      const response = await fetch(`${API_URL}/Vistoria/bulk-delete`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(idsParaExcluir),
+      });
 
-  const confirmar = window.confirm(
-    `ATENÇÃO: Você está prestes a excluir TODOS os ${idsParaExcluir.length} registros da Equipe ${equipeFiltrada}. Confirmar?`
-  );
-
-  if (!confirmar) return;
-
-  try {
-    setLoading(true);
-    const response = await fetch(`${API_URL}/Vistoria/bulk-delete`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(idsParaExcluir), // Enviamos o array de IDs
-    });
-
-    if (response.ok) {
-      alert("Exclusão em massa realizada com sucesso!");
-      await buscarDados(); // Recarrega a lista
-    } else {
-      const erro = await response.text();
-      alert("Erro na exclusão em massa: " + erro);
+      if (response.ok) {
+        alert("Exclusão em massa realizada com sucesso!");
+        await buscarDados();
+      } else {
+        const erro = await response.text();
+        alert("Erro na exclusão: " + erro);
+      }
+    } catch (err) {
+      alert("Erro de conexão com o servidor.");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    alert("Erro de conexão com o servidor.");
-  } finally {
-    setLoading(false);
   }
-}
 
-  // --- DADOS GRÁFICOS ---
+  // --- GRÁFICOS ---
   const prodEquipe = listaVistorias.reduce((acc, curr) => {
     const eq = curr.equipe || "S/N";
     acc[eq] = (acc[eq] || 0) + 1;
     return acc;
   }, {});
   const graficoEquipe = Object.entries(prodEquipe).map(([name, value]) => ({ name: `Equipe ${name}`, value }));
-
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   const getStatusStyle = (status) => {
-    if (status?.toLowerCase() === 'concluida' || status?.toLowerCase() === 'concluido') 
-      return { bg: '#c6f6d5', color: '#22543d' };
+    if (status?.toLowerCase().includes('conclui')) return { bg: '#c6f6d5', color: '#22543d' };
     return { bg: '#edf2f7', color: '#4a5568' };
   };
 
-  if (loading) return <div style={{padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh'}}>Carregando estatísticas...</div>;
+  if (loading) return <div style={styles.loading}>Carregando estatísticas...</div>;
 
   return (
     <div style={styles.pageWrapper}>
@@ -201,7 +188,7 @@ export default function Dashboard() {
               <div style={{flex: 1}}>
                 <h3 style={{margin: 0, color: '#fff', fontSize: isMobile ? '16px' : '20px'}}>Fotos: {fotosModal.placa}</h3>
                 <button onClick={() => baixarTodasAsFotos(fotosModal.fotos, fotosModal.placa)} style={styles.btnBaixarTudo}>
-                  📥 Baixar ({fotosModal.fotos.length})
+                  📥 Baixar Tudo ({fotosModal.fotos.length})
                 </button>
               </div>
               <button onClick={() => setFotosModal(null)} style={styles.btnCloseTop}>×</button>
@@ -232,7 +219,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* GRÁFICO COM BOTÃO EXCEL */}
+      {/* GRÁFICO E EXPORTAÇÃO */}
       <div style={{...styles.gridGraficos, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'}}>
         <div style={{...styles.chartBoxFull, gridColumn: isMobile ? 'auto' : 'span 2'}}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
@@ -262,7 +249,7 @@ export default function Dashboard() {
             <span style={styles.panelAcoesIcon}>⚠️</span>
             <span style={styles.panelAcoesText}>EQUIPE: <strong>{equipeFiltrada}</strong></span>
           </div>
-          <button onClick={excluirTudoEquipe} style={styles.btnExcluirMassa}>Limpar Tudo</button>
+          <button onClick={excluirTudoEquipe} style={styles.btnExcluirMassa}>Limpar Tudo desta Equipe</button>
         </div>
       )}
 
@@ -321,9 +308,9 @@ export default function Dashboard() {
                     </td>
                     <td style={styles.td}>
                       <div style={{display: 'flex', gap: '8px'}}>
-                        <button onClick={() => setFotosModal({fotos: reg.todas_fotos, placa: reg.placa})} style={styles.btnIcon}>📷</button>
-                        <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnIcon}>📍</button>
-                        <button onClick={() => removerVistoria(reg.id)} style={styles.btnIconDel}>🗑️</button>
+                        <button onClick={() => setFotosModal({fotos: reg.todas_fotos, placa: reg.placa})} title="Ver Fotos" style={styles.btnIcon}>📷</button>
+                        <button onClick={() => abrirMapa(reg.localizacao_texto)} title="Abrir Mapa" style={styles.btnIcon}>📍</button>
+                        <button onClick={() => removerVistoria(reg.id)} title="Excluir" style={styles.btnIconDel}>🗑️</button>
                       </div>
                     </td>
                   </tr>
@@ -337,21 +324,9 @@ export default function Dashboard() {
   );
 }
 
+// --- ESTILOS MANTIDOS ---
 const styles = {
-  btnExcel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backgroundColor: '#276749',
-    color: '#fff',
-    border: 'none',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    fontSize: '11px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    transition: 'background 0.3s'
-  },
+  loading: { padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh' },
   pageWrapper: { minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
   rowCards: { display: 'flex', gap: '15px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '10px' },
   cardResumo: { background: 'rgba(30, 41, 59, 0.9)', padding: '15px', borderRadius: '16px', minWidth: '120px', borderLeft: '5px solid', flexShrink: 0 },
@@ -360,18 +335,18 @@ const styles = {
   gridGraficos: { display: 'grid', gap: '20px', marginBottom: '20px' },
   chartBoxFull: { background: 'rgba(30, 41, 59, 0.85)', padding: '20px', borderRadius: '20px', border: '1px solid rgba(255, 255, 255, 0.1)' },
   chartTitle: { color: '#ffffff', fontSize: '14px', marginBottom: '15px', textAlign: 'center' },
+  btnExcel: { display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#276749', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' },
   tableWrapper: { background: 'rgba(30, 41, 59, 0.95)', borderRadius: '20px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.1)' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '15px', textAlign: 'left', color: '#fff', fontSize: '11px', background: 'rgba(0,0,0,0.2)' },
   td: { padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#e2e8f0' },
-  mobileList: { padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' },
-  mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
-  btnActionMobile: { flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' },
   badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' },
   statusBadge: { padding: '3px 10px', borderRadius: '50px', fontSize: '10px', fontWeight: 'bold' },
   btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '10px' },
+  panelAcoes: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.15)', padding: '15px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #e53e3e' },
+  btnExcluirMassa: { background: '#e53e3e', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 },
   modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' },
   modalHeader: { display: 'flex', marginBottom: '20px', alignItems: 'flex-start' },
   btnBaixarTudo: { marginTop: '10px', padding: '8px 15px', background: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
@@ -379,7 +354,7 @@ const styles = {
   galeria: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' },
   fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '10px' },
   btnDownloadSmall: { width: '100%', marginTop: '5px', background: 'transparent', border: '1px solid #3182ce', color: '#3182ce', padding: '5px', borderRadius: '5px', fontSize: '10px', cursor: 'pointer' },
-  panelAcoes: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.15)', padding: '15px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #e53e3e' },
-  panelAcoesText: { color: '#fff', fontSize: '13px' },
-  btnExcluirMassa: { background: '#e53e3e', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }
+  mobileList: { padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' },
+  mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
+  btnActionMobile: { flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }
 };
