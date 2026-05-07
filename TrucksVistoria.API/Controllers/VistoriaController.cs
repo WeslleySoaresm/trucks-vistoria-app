@@ -90,7 +90,7 @@ public class VistoriaController : ControllerBase
 
 
     // Deleta tudo relacionado à vistoria: Vistoria + Evidências (se existirem)
-    [HttpDelete("bulk-delete")]
+[HttpDelete("bulk-delete")]
 public async Task<IActionResult> DeleteMultiple([FromBody] List<int> ids)
 {
     if (ids == null || ids.Count == 0)
