@@ -8,6 +8,7 @@ import {
 // URL da sua API .NET
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
+
 export default function Dashboard() {
   const [registrosRaw, setRegistrosRaw] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,13 +16,39 @@ export default function Dashboard() {
   const [fotosModal, setFotosModal] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // --- LÓGICA DE EXPORTAÇÃO EXCEL ---
+  const exportarExcel = () => {
+    // 1. Preparamos os dados para o Excel (filtrando e renomeando colunas)
+    const dadosParaExportar = dadosExibidos.map(reg => ({
+      'Data': reg.data_formatada,
+      'Placa': reg.placa,
+      'Equipe': reg.equipe,
+      'Serviço': reg.tipo_servico || 'On Job',
+      'Status': reg.status || 'Concluída',
+      'Observação': reg.observacao || '-',
+      'Localização': reg.localizacao_texto,
+      'Total Fotos': reg.qtd_fotos
+    }));
+
+    // 2. Criamos a planilha
+    const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Vistorias");
+
+    // 3. Geramos o arquivo e baixamos
+    const nomeArquivo = `Relatorio_Vistorias_${equipeFiltrada}_${new Date().toLocaleDateString()}.xlsx`;
+    XLSX.writeFile(wb, nomeArquivo);
+  };
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     buscarDados();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
+  
+  
+  //Busca dados
   async function buscarDados() {
     try {
       setLoading(true);
@@ -169,10 +196,15 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* GRÁFICO */}
+      {/* GRÁFICO COM BOTÃO EXCEL */}
       <div style={{...styles.gridGraficos, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'}}>
         <div style={{...styles.chartBoxFull, gridColumn: isMobile ? 'auto' : 'span 2'}}>
-          <h3 style={styles.chartTitle}>Produtividade por Equipe (API .NET)</h3>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+            <h3 style={{...styles.chartTitle, margin: 0}}>Produtividade por Equipe</h3>
+            <button onClick={exportarExcel} style={styles.btnExcel}>
+              <FileDown size={16} /> EXCEL
+            </button>
+          </div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={graficoEquipe} layout={isMobile ? "horizontal" : "vertical"}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)"/>
@@ -186,6 +218,8 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      
 
       {/* PAINEL DE GESTÃO */}
       {equipeFiltrada !== 'TODAS' && (
@@ -271,6 +305,20 @@ export default function Dashboard() {
 
 // Estilos mantidos 100% conforme o original
 const styles = {
+  btnExcel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    backgroundColor: '#276749',
+    color: '#fff',
+    border: 'none',
+    padding: '8px 12px',
+    borderRadius: '8px',
+    fontSize: '11px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    transition: 'background 0.3s'
+  },
   pageWrapper: { minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
   rowCards: { display: 'flex', gap: '15px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '10px', WebkitOverflowScrolling: 'touch' },
   cardResumo: { background: 'rgba(30, 41, 59, 0.9)', padding: '15px', borderRadius: '16px', minWidth: '120px', borderLeft: '5px solid', flexShrink: 0 },

@@ -5,6 +5,7 @@ import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
 // URL da sua API .NET (Certifique-se de que o CORS no Render permite a Vercel)
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
+
 export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
   const [vistorias, setVistorias] = useState([]);
