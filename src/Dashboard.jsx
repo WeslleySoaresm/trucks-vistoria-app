@@ -131,10 +131,46 @@ export default function Dashboard() {
   }
 
   async function excluirTudoEquipe() {
-    if (equipeFiltrada === 'TODAS') return;
-    if (!window.confirm(`Confirmar exclusão TOTAL da Equipe ${equipeFiltrada}?`)) return;
-    alert("Funcionalidade de exclusão em massa deve ser implementada na API.");
+  if (equipeFiltrada === 'TODAS') return;
+
+  // 1. Pegamos apenas os IDs dos registros que estão aparecendo na tela (daquela equipe)
+  const idsParaExcluir = dadosExibidos.map(reg => reg.id);
+
+  if (idsParaExcluir.length === 0) {
+    alert("Não há registros para excluir nesta equipe.");
+    return;
   }
+
+  const confirmar = window.confirm(
+    `ATENÇÃO: Você está prestes a excluir TODOS os ${idsParaExcluir.length} registros da Equipe ${equipeFiltrada}. Confirmar?`
+  );
+
+  if (!confirmar) return;
+
+  try {
+    setLoading(true);
+    const response = await fetch(`${API_URL}/Vistoria/bulk-delete`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(idsParaExcluir), // Enviamos o array de IDs
+    });
+
+    if (response.ok) {
+      alert("Exclusão em massa realizada com sucesso!");
+      await buscarDados(); // Recarrega a lista
+    } else {
+      const erro = await response.text();
+      alert("Erro na exclusão em massa: " + erro);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erro de conexão com o servidor.");
+  } finally {
+    setLoading(false);
+  }
+}
 
   // --- DADOS GRÁFICOS ---
   const prodEquipe = listaVistorias.reduce((acc, curr) => {

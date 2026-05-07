@@ -88,6 +88,36 @@ public class VistoriaController : ControllerBase
         }
     }
 
+
+    // Deleta tudo relacionado à vistoria: Vistoria + Evidências (se existirem)
+    [HttpDelete("bulk-delete")]
+public async Task<IActionResult> DeleteMultiple([FromBody] List<int> ids)
+{
+    if (ids == null || ids.Count == 0)
+        return BadRequest("Nenhum ID fornecido.");
+
+    try
+    {
+        // Busca todas as vistorias que estão na lista de IDs
+        var vistorias = await _context.Vistorias
+            .Where(v => ids.Contains(v.Id))
+            .ToListAsync();
+
+        if (vistorias.Count == 0)
+            return NotFound("Nenhum registro encontrado para os IDs informados.");
+
+        _context.Vistorias.RemoveRange(vistorias);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = $"{vistorias.Count} registros excluídos com sucesso." });
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, $"Erro interno: {ex.Message}");
+    }
+}
+
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> ExcluirVistoria(Guid id)
     {
@@ -118,6 +148,8 @@ public class VistoriaController : ControllerBase
             return BadRequest($"Erro: {ex.Message}");
         }
     }
+
+    
 } // <--- Classe fecha aqui
 
 public class VistoriaRequest
