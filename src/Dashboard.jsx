@@ -152,7 +152,7 @@ export default function Dashboard() {
     return { bg: '#edf2f7', color: '#4a5568' };
   };
 
-  if (loading) return <div style={{padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh'}}>Carregando estatísticas da API .NET...</div>;
+  if (loading) return <div style={{padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh'}}>Carregando estatísticas...</div>;
 
   return (
     <div style={styles.pageWrapper}>
