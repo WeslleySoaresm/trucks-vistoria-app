@@ -51,7 +51,7 @@ public class VistoriaController : ControllerBase
             var novaVistoria = new Vistoria
             {
                 Placa = request.Placa,
-                UsuarioId = request.UsuarioId,
+                UsuarioId = Guid.Parse(request.UsuarioId.Trim()), // Convertendo string para Guid
                 Equipe = request.Equipe,
                 TipoServico = request.TipoServico,
                 Observacao = request.Observacao,
@@ -169,6 +169,6 @@ public class VistoriaRequest
     public string Observacao { get; set; } = string.Empty;
     public string Localizacao { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
-    public Guid UsuarioId { get; set; } 
+    public string UsuarioId { get; set; } = string.Empty;
     public List<string> Evidencias { get; set; } = new();
 }
