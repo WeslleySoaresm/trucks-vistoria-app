@@ -142,7 +142,7 @@ export default function Dashboard() {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          
         },
         body: JSON.stringify(idsParaExcluir),
       });
