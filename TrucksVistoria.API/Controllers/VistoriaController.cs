@@ -28,66 +28,93 @@ public class VistoriaController : ControllerBase
         return Ok(vistorias);
     }
 
-    [HttpPost]
-    public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
+[HttpPost]
+public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
+{
+    using var transaction = await _context.Database.BeginTransactionAsync();
+
+    try
     {
-        using var transaction = await _context.Database.BeginTransactionAsync();
-
-        try
+        // 1. Validar e converter o UsuarioId vindo do Front-end
+        if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
         {
-            // 1. Upsert do Veículo
-            var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
-            if (veiculo == null)
-            {
-                veiculo = new Veiculo 
-                { 
-                    Placa = request.Placa, 
-                    ClienteNome = request.Cliente ?? "Não Informado" 
-                };
-                _context.Veiculos.Add(veiculo);
-            }
+            return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
+        }
 
-            // 2. Criar a Vistoria
-            var novaVistoria = new Vistoria
+        // 2. Garantir que o Usuário existe no banco de dados local (Evita quebra de Chave Estrangeira)
+        var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.Id == usuarioGuid);
+        if (!usuarioExiste)
+        {
+            // Se o usuário vindo do Supabase não existir na tabela local do C#, nós criamos ele na hora
+            var novoUsuario = new Usuario
             {
-                Placa = request.Placa,
-                UsuarioId = Guid.Parse(request.UsuarioId.Trim()), // Convertendo string para Guid
-                Equipe = request.Equipe,
-                TipoServico = request.TipoServico,
-                Observacao = request.Observacao,
-                Localizacao = request.Localizacao,
-                Status = request.Status,
-                DataCriacao = DateTime.UtcNow
+                Id = usuarioGuid,
+                Email = "usuario.mobile@sistema.com", // Email genérico temporário ou trate no payload se necessário
+                Nome = "Usuário Mobile"
             };
-
-            _context.Vistorias.Add(novaVistoria);
+            _context.Usuarios.Add(novoUsuario);
             await _context.SaveChangesAsync();
-
-            // 3. Vincular Evidências
-            if (request.Evidencias != null && request.Evidencias.Any())
-            {
-                foreach (var fotoUrl in request.Evidencias)
-                {
-                    var evidencia = new Evidencia
-                    {
-                        VistoriaId = novaVistoria.Id.Value, // Usando .Value pois o Id na Entity pode ser Guid?
-                        UrlFoto = fotoUrl
-                    };
-                    _context.Evidencias.Add(evidencia);
-                }
-                await _context.SaveChangesAsync();
-            }
-
-            await transaction.CommitAsync();
-            return Ok(new { message = "Vistoria salva com sucesso!", id = novaVistoria.Id });
         }
-        catch (Exception ex)
+
+        // 3. Upsert do Veículo
+        var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
+        if (veiculo == null)
         {
-            await transaction.RollbackAsync();
-            return BadRequest($"Erro ao processar: {ex.Message}");
+            veiculo = new Veiculo 
+            { 
+                Placa = request.Placa, 
+                ClienteNome = request.Cliente ?? "Não Informado" 
+            };
+            _context.Veiculos.Add(veiculo);
+            await _context.SaveChangesAsync(); // Salva o veículo primeiro
         }
-    }
 
+        // 4. Criar a Vistoria gerando explicitamente um novo GUID de ID
+        var idVistoriaNova = Guid.NewGuid();
+        var novaVistoria = new Vistoria
+        {
+            Id = idVistoriaNova, // FORÇA UM ID NOVO ÚNICO PARA EVITAR DUPLICIDADE NO BANCO
+            Placa = request.Placa,
+            UsuarioId = usuarioGuid,
+            Equipe = request.Equipe,
+            TipoServico = request.TipoServico,
+            Observacao = request.Observacao,
+            Localizacao = request.Localizacao,
+            Status = request.Status,
+            DataCriacao = DateTime.UtcNow
+        };
+
+        _context.Vistorias.Add(novaVistoria);
+        await _context.SaveChangesAsync();
+
+        // 5. Vincular Evidências
+        if (request.Evidencias != null && request.Evidencias.Any())
+        {
+            foreach (var fotoUrl in request.Evidencias)
+            {
+                var evidencia = new Evidencia
+                {
+                    Id = Guid.NewGuid(), // Força um ID novo para a evidência também
+                    VistoriaId = idVistoriaNova, 
+                    UrlFoto = fotoUrl
+                };
+                _context.Evidencias.Add(evidencia);
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        await transaction.CommitAsync();
+        return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
+    }
+    catch (Exception ex)
+    {
+        await transaction.RollbackAsync();
+        
+        // Retorna a exceção interna detalhada para sabermos exatamente qual campo quebrou caso ainda persista
+        var mensagemErro = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+        return BadRequest($"Erro ao processar no banco: {mensagemErro}");
+    }
+}
 
     // Deleta tudo relacionado à vistoria: Vistoria + Evidências (se existirem)
 // Alterado para "acoes/excluir-massa" para matar o conflito de rotas de vez
