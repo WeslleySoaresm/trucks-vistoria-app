@@ -91,34 +91,42 @@ public class VistoriaController : ControllerBase
 
     // Deleta tudo relacionado à vistoria: Vistoria + Evidências (se existirem)
 [HttpDelete("bulk-delete")]
-public async Task<IActionResult> DeleteMultiple([FromBody] List<int> ids)
-{
-    if (ids == null || ids.Count == 0)
-        return BadRequest("Nenhum ID fornecido.");
-
-    try
+    public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
     {
-        // Busca todas as vistorias que estão na lista de IDs
-        var vistorias = await _context.Vistorias
-            .Where(v => ids.Contains(v.Id))
-            .ToListAsync();
+        if (ids == null || ids.Count == 0)
+            return BadRequest("Nenhum ID fornecido.");
 
-        if (vistorias.Count == 0)
-            return NotFound("Nenhum registro encontrado para os IDs informados.");
+        try
+        {
+            var vistorias = await _context.Vistorias
+                .Include(v => v.Evidencias)
+                .Where(v => ids.Contains(v.Id))
+                .ToListAsync();
 
-        _context.Vistorias.RemoveRange(vistorias);
-        await _context.SaveChangesAsync();
+            if (vistorias.Count == 0)
+                return NotFound("Nenhum registro encontrado para os IDs informados.");
 
-        return Ok(new { message = $"{vistorias.Count} registros excluídos com sucesso." });
+            foreach (var v in vistorias)
+            {
+                if (v.Evidencias != null && v.Evidencias.Any())
+                {
+                    _context.Evidencias.RemoveRange(v.Evidencias);
+                }
+            }
+
+            _context.Vistorias.RemoveRange(vistorias);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = $"{vistorias.Count} registros excluídos com sucesso." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Erro interno: {ex.Message}");
+        }
     }
-    catch (Exception ex)
-    {
-        return StatusCode(500, $"Erro interno: {ex.Message}");
-    }
-}
 
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:guid}")] // Exclui uma vistoria específica e suas evidências relacionadas
     public async Task<IActionResult> ExcluirVistoria(Guid id)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
