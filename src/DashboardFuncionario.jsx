@@ -2,9 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabaseClient'; // Mantido para suporte a URLs do Storage
 import { Trash2, Loader2, Camera, MapPin, X } from 'lucide-react';
 
-// URL da sua API .NET (Certifique-se de que o CORS no Render permite a Vercel)
+// URL da sua API .NET
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
-
 
 export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
@@ -21,14 +20,17 @@ export default function DashboardFuncionario({ user }) {
     setLoading(true);
     try {
       // 1. Busca vistorias da API .NET
-      // Importante: O endpoint no seu C# é /api/Vistoria
       const response = await fetch(`${API_URL}/Vistoria`);
       if (!response.ok) throw new Error("Erro ao conectar com a API");
       
       const data = await response.json();
 
-      // Filtra as vistorias pertencentes ao usuário logado (C# retorna usuarioId em camelCase)
-      const minhasVistorias = data.filter(v => v.usuarioId === user.id);
+      // CORREÇÃO CRÍTICA DA COMPARAÇÃO DE GUID/ID:
+      // Converte ambos para string, remove espaços e força caixa baixa para evitar falhas no filtro.
+      const minhasVistorias = data.filter(v => {
+        if (!v.usuarioId || !user.id) return false;
+        return String(v.usuarioId).trim().toLowerCase() === String(user.id).trim().toLowerCase();
+      });
 
       const formatados = minhasVistorias.map(v => ({
         id: v.id,
@@ -39,14 +41,13 @@ export default function DashboardFuncionario({ user }) {
         equipe: v.equipe,
         observacao: v.observacao,
         localizacao_texto: v.localizacao,
-        // Mapeia a lista de objetos de evidências do C# para uma lista de strings (URLs)
         todas_fotos: v.evidencias ? v.evidencias.map(e => e.urlFoto) : [],
         qtd_fotos: v.evidencias ? v.evidencias.length : 0
       }));
 
       setVistorias(formatados);
 
-      // 2. Cálculo das Estatísticas
+      // 2. Cálculo das Estatísticas baseado nos dados já filtrados e formatados
       const total = formatados.length;
       setStats({
         total_vistorias: total,
@@ -97,7 +98,6 @@ export default function DashboardFuncionario({ user }) {
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    // Correção na montagem da URL do Google Maps
     const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
@@ -201,7 +201,6 @@ export default function DashboardFuncionario({ user }) {
             </div>
             <div style={styles.galeria}>
               {fotosModal.fotos.map((url, i) => {
-                // Se a URL já for completa (HTTP), usa ela. Se for só o nome do arquivo, gera via Supabase.
                 const finalUrl = url.startsWith('http') 
                   ? url 
                   : supabase.storage.from('vistorias').getPublicUrl(url).data.publicUrl;
@@ -224,6 +223,7 @@ export default function DashboardFuncionario({ user }) {
   );
 }
 
+// Estilos mantidos intactos conforme código fornecido
 const styles = {
   pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },

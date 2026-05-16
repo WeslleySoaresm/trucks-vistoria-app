@@ -138,7 +138,7 @@ export default function FormVistoria({ user }) {
   };
 
   return (
-    <div style={styles.container}>
+    <div translate="no" className="notranslate" style={styles.container}>
       {/* O JSX permanece IDENTICO ao seu original para manter o design */}
       <div style={styles.formHeader}>
         <div style={styles.iconCircle}>

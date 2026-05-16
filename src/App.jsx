@@ -4,9 +4,9 @@ import Login from './Login';
 import FormVistoria from './FormVistoria';
 import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
-import HistoricoVistorias from './HistoricoVistorias'; // 1. IMPORTANTE: Importe o novo componente aqui
+import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History } from 'lucide-react'; // Adicionado History icon
+import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History } from 'lucide-react'; 
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -15,6 +15,17 @@ export default function App() {
   const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
 
   useEffect(() => {
+    // 1. Adiciona a classe 'notranslate' na tag <html> principal do navegador
+    document.documentElement.classList.add('notranslate');
+    document.documentElement.setAttribute('lang', 'pt-BR');
+
+    // 2. Cria e injeta a meta tag que avisa o Google Tradutor para não traduzir
+    const meta = document.createElement('meta');
+    meta.name = "google";
+    meta.content = "notranslate";
+    document.head.appendChild(meta);
+
+    // 3. Gerenciamento de Sessão do Supabase
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -24,7 +35,14 @@ export default function App() {
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    // Função de limpeza (cleanup) ao desmontar o componente
+    return () => {
+      document.documentElement.classList.remove('notranslate');
+      if (document.head.contains(meta)) {
+        document.head.removeChild(meta);
+      }
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) return <div style={s.loadingScreen}>Iniciando sistema...</div>;
@@ -85,7 +103,6 @@ export default function App() {
               <Trophy size={18} />
               Meta
             </button>
-            {/* 2. BOTÃO DA NOVA ABA DE HISTÓRICO */}
             <button 
               onClick={() => setAbaAtiva('historico')} 
               style={abaAtiva === 'historico' ? s.tabActive : s.tab}
@@ -117,7 +134,6 @@ export default function App() {
 
         {abaAtiva === 'meta' && !isAdmin && <DashboardFuncionario user={session.user} />}
 
-        {/* 3. RENDERIZAÇÃO DA ABA DE HISTÓRICO */}
         {abaAtiva === 'historico' && !isAdmin && (
           <HistoricoVistorias user={session.user} />
         )}
@@ -190,7 +206,7 @@ const s = {
     borderRadius: '16px',
     border: '1px solid rgba(255, 255, 255, 0.05)',
     gap: '8px',
-    overflowX: 'auto' // Permite scroll se os botões ficarem apertados no celular
+    overflowX: 'auto' 
   },
   tab: { 
     flex: 1, 
@@ -202,11 +218,11 @@ const s = {
     cursor: 'pointer',
     borderRadius: '12px',
     display: 'flex',
-    flexDirection: 'column', // Empilha ícone e texto para ganhar espaço
+    flexDirection: 'column', 
     alignItems: 'center',
     justifyContent: 'center',
     gap: '4px',
-    fontSize: '11px', // Fonte menor para caber 4 itens
+    fontSize: '11px', 
     transition: 'all 0.3s',
     minWidth: '60px'
   },

@@ -90,7 +90,8 @@ public class VistoriaController : ControllerBase
 
 
     // Deleta tudo relacionado à vistoria: Vistoria + Evidências (se existirem)
-[HttpDelete("bulk-delete")]
+// Alterado para "acoes/excluir-massa" para matar o conflito de rotas de vez
+    [HttpDelete("acoes/excluir-massa")]
     public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
     {
         if (ids == null || ids.Count == 0)
@@ -124,7 +125,6 @@ public class VistoriaController : ControllerBase
             return StatusCode(500, $"Erro interno: {ex.Message}");
         }
     }
-
 
     [HttpDelete("{id:guid}")] // Exclui uma vistoria específica e suas evidências relacionadas
     public async Task<IActionResult> ExcluirVistoria(Guid id)

@@ -138,11 +138,10 @@ export default function Dashboard() {
     try {
       setLoading(true);
       // Ajuste: URL específica para ação em massa para evitar conflito com DELETE individual
-      const response = await fetch(`${API_URL}/Vistoria/bulk-delete`, {
+      const response = await fetch(`${API_URL}/Vistoria/acoes/excluir-massa`,{
         method: 'DELETE',
         headers: { 
-          'Content-Type': 'application/json',
-          
+          'Content-Type': 'application/json' 
         },
         body: JSON.stringify(idsParaExcluir),
       });
