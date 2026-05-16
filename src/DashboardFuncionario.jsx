@@ -14,7 +14,6 @@ export default function DashboardFuncionario({ user }) {
 
   const META_MENSAL = 20;
 
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const carregarDados = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
@@ -25,25 +24,38 @@ export default function DashboardFuncionario({ user }) {
       
       const data = await response.json();
 
-      // CORREÇÃO CRÍTICA DA COMPARAÇÃO DE GUID/ID:
-      // Converte ambos para string, remove espaços e força caixa baixa para evitar falhas no filtro.
+      // BLINDAGEM DE PROPRIEDADE: Aceita tanto 'usuarioId' quanto 'UsuarioId' vindos do C#
       const minhasVistorias = data.filter(v => {
-        if (!v.usuarioId || !user.id) return false;
-        return String(v.usuarioId).trim().toLowerCase() === String(user.id).trim().toLowerCase();
+        const idDoUsuarioNoBanco = v.usuarioId || v.UsuarioId;
+        if (!idDoUsuarioNoBanco || !user.id) return false;
+        
+        return String(idDoUsuarioNoBanco).trim().toLowerCase() === String(user.id).trim().toLowerCase();
       });
 
-      const formatados = minhasVistorias.map(v => ({
-        id: v.id,
-        data_formatada: v.dataCriacao ? new Date(v.dataCriacao).toLocaleDateString('pt-BR') : '---',
-        placa: v.placa,
-        tipo_servico: v.tipoServico,
-        status: v.status,
-        equipe: v.equipe,
-        observacao: v.observacao,
-        localizacao_texto: v.localizacao,
-        todas_fotos: v.evidencias ? v.evidencias.map(e => e.urlFoto) : [],
-        qtd_fotos: v.evidencias ? v.evidencias.length : 0
-      }));
+      // MAPEAMENTO SEGURO: Aceita propriedades em camelCase ou PascalCase
+      const formatados = minhasVistorias.map(v => {
+        const dataCriacao = v.dataCriacao || v.DataCriacao;
+        const placa = v.placa || v.Placa;
+        const tipoServico = v.tipoServico || v.TipoServico;
+        const status = v.status || v.Status;
+        const equipe = v.equipe || v.Equipe;
+        const observacao = v.observacao || v.Observacao;
+        const localizacao = v.localizacao || v.Localizacao;
+        const evidencias = v.evidencias || v.Evidencias;
+
+        return {
+          id: v.id || v.Id,
+          data_formatada: dataCriacao ? new Date(dataCriacao).toLocaleDateString('pt-BR') : '---',
+          placa: placa || '---',
+          tipo_servico: tipoServico || 'Geral',
+          status: status,
+          equipe: equipe,
+          observacao: observacao,
+          localizacao_texto: localizacao,
+          todas_fotos: evidencias ? evidencias.map(e => e.urlFoto || e.UrlFoto) : [],
+          qtd_fotos: evidencias ? evidencias.length : 0
+        };
+      });
 
       setVistorias(formatados);
 
@@ -73,7 +85,6 @@ export default function DashboardFuncionario({ user }) {
     if (!window.confirm("Excluir esta vistoria permanentemente?")) return;
     
     try {
-      // Chama o DELETE da sua API C# (api/Vistoria/{id})
       const response = await fetch(`${API_URL}/Vistoria/${id}`, {
         method: 'DELETE'
       });
@@ -171,7 +182,7 @@ export default function DashboardFuncionario({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {vistorias.map((reg) => (
+                {vistorias.length > 0 ? vistorias.map((reg) => (
                   <tr key={reg.id}>
                     <td style={styles.td}>{reg.data_formatada}</td>
                     <td style={styles.td}><strong>{reg.placa}</strong></td>
@@ -184,7 +195,11 @@ export default function DashboardFuncionario({ user }) {
                       </div>
                     </td>
                   </tr>
-                ))}
+                )) : (
+                  <tr>
+                    <td colSpan="4" style={{...styles.td, textAlign: 'center', color: '#94a3b8'}}>Nenhuma vistoria vinculada a este usuário.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           )}
@@ -223,7 +238,6 @@ export default function DashboardFuncionario({ user }) {
   );
 }
 
-// Estilos mantidos intactos conforme código fornecido
 const styles = {
   pageWrapper: { padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
