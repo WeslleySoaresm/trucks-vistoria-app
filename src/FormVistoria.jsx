@@ -99,16 +99,17 @@ export default function FormVistoria({ user }) {
       }
 
       // 3. Envio para a API .NET (Substitui os múltiplos inserts do Supabase)
+      // 3. Envio para a API .NET
       const payload = {
-        Placa: placaFormatada,
-        Cliente: cliente.trim() || 'Não Informado',
-        UsuarioId: user?.id ? user.id : "3fa85f64-5717-4562-b3fc-2c963f66afa7", // ID do seu novo sistema de Login
-        Equipe: equipe,
-        TipoServico: tipoServico,
-        Observacao: observacao,
-        Localizacao: localizacao,
-        Status: status,
-        Evidencias: urlsFotosParaBanco // Lista de strings enviada para o C#
+        Placa: String(placaFormatada).trim(),
+        Cliente: String(cliente).trim() || 'Não Informado',
+        UsuarioId: user?.id ? String(user.id).trim() : "3fa85f64-5717-4562-b3fc-2c963f66afa7", 
+        Equipe: String(equipe || 'Geral').trim(),
+        TipoServico: String(tipoServico || 'On Job').trim(),
+        Observacao: String(observacao || '').trim(),
+        Localizacao: String(localizacao || 'Não autorizada').trim(),
+        Status: String(status || 'inicial').trim(),
+        Evidencias: urlsFotosParaBanco || []
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {

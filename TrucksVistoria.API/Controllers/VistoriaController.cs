@@ -31,8 +31,7 @@ public class VistoriaController : ControllerBase
 [HttpPost]
 public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
 {
-    using var transaction = await _context.Database.BeginTransactionAsync();
-
+    // Removemos a transação explícita temporariamente para isolar exatamente onde ocorre o erro
     try
     {
         // 1. Validar e converter o UsuarioId vindo do Front-end
@@ -41,15 +40,14 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
             return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
         }
 
-        // 2. Garantir que o Usuário existe no banco de dados local (Evita quebra de Chave Estrangeira)
+        // 2. Garantir que o Usuário existe no banco de dados local
         var usuarioExiste = await _context.Usuarios.AnyAsync(u => u.Id == usuarioGuid);
         if (!usuarioExiste)
         {
-            // Se o usuário vindo do Supabase não existir na tabela local do C#, nós criamos ele na hora
             var novoUsuario = new Usuario
             {
                 Id = usuarioGuid,
-                Email = "usuario.mobile@sistema.com", // Email genérico temporário ou trate no payload se necessário
+                Email = $"usuario.{usuarioGuid.ToString().Substring(0,8)}@sistema.com", 
                 Nome = "Usuário Mobile"
             };
             _context.Usuarios.Add(novoUsuario);
@@ -63,24 +61,24 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
             veiculo = new Veiculo 
             { 
                 Placa = request.Placa, 
-                ClienteNome = request.Cliente ?? "Não Informado" 
+                ClienteNome = string.IsNullOrWhiteSpace(request.Cliente) ? "Não Informado" : request.Cliente
             };
             _context.Veiculos.Add(veiculo);
-            await _context.SaveChangesAsync(); // Salva o veículo primeiro
+            await _context.SaveChangesAsync(); 
         }
 
-        // 4. Criar a Vistoria gerando explicitamente um novo GUID de ID
+        // 4. Criar a Vistoria gerando um novo GUID explicitamente
         var idVistoriaNova = Guid.NewGuid();
         var novaVistoria = new Vistoria
         {
-            Id = idVistoriaNova, // FORÇA UM ID NOVO ÚNICO PARA EVITAR DUPLICIDADE NO BANCO
+            Id = idVistoriaNova, 
             Placa = request.Placa,
             UsuarioId = usuarioGuid,
-            Equipe = request.Equipe,
-            TipoServico = request.TipoServico,
-            Observacao = request.Observacao,
-            Localizacao = request.Localizacao,
-            Status = request.Status,
+            Equipe = request.Equipe ?? "Geral",
+            TipoServico = request.TipoServico ?? "Geral",
+            Observacao = request.Observacao ?? "",
+            Localizacao = request.Localizacao ?? "Não autorizada",
+            Status = request.Status ?? "inicial",
             DataCriacao = DateTime.UtcNow
         };
 
@@ -94,7 +92,7 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
             {
                 var evidencia = new Evidencia
                 {
-                    Id = Guid.NewGuid(), // Força um ID novo para a evidência também
+                    Id = Guid.NewGuid(), 
                     VistoriaId = idVistoriaNova, 
                     UrlFoto = fotoUrl
                 };
@@ -103,19 +101,22 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
             await _context.SaveChangesAsync();
         }
 
-        await transaction.CommitAsync();
         return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
+    }
+    catch (DbUpdateException dbEx)
+    {
+        // Captura erros específicos do Banco de Dados (Campos nulos, tamanho excedido, FK)
+        var erroInterno = dbEx.InnerException != null ? dbEx.InnerException.Message : dbEx.Message;
+        Console.WriteLine($"[Erro de Banco]: {erroInterno}");
+        return BadRequest($"Erro de banco de dados: {erroInterno}");
     }
     catch (Exception ex)
     {
-        await transaction.RollbackAsync();
-        
-        // Retorna a exceção interna detalhada para sabermos exatamente qual campo quebrou caso ainda persista
         var mensagemErro = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-        return BadRequest($"Erro ao processar no banco: {mensagemErro}");
+        Console.WriteLine($"[Erro Geral]: {mensagemErro}");
+        return BadRequest($"Erro ao processar: {mensagemErro}");
     }
 }
-
     // Deleta tudo relacionado à vistoria: Vistoria + Evidências (se existirem)
 // Alterado para "acoes/excluir-massa" para matar o conflito de rotas de vez
     [HttpDelete("acoes/excluir-massa")]
