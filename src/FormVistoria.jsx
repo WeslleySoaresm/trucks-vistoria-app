@@ -178,22 +178,22 @@ export default function FormVistoria({ user }) {
       const payload = {
         Placa: String(placaFormatada).trim(),
         Cliente: nomeClienteFinal, 
-        UsuarioId: user?.id || "00000000-0000-0000-0000-000000000000", // Garante o formato estável de Guid para o C#
+        UsuarioId: user?.id || "00000000-0000-0000-0000-000000000000", // Mantém o formato estável de Guid
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
         Localizacao: String(localizacao).trim(),
         Status: String(status).trim(),
-        // Transforma o array simples em objetos aninhados que batem com a classe List<Evidencia> do C#
-        Evidencias: urlsFotosParaBanco.map(path => ({
-          UrlFoto: path
-        }))
+        
+        // Se o .NET reclamou que esperava String no índice [0], mandamos a lista limpa de caminhos de texto
+        Evidencias: urlsFotosParaBanco.map(path => String(path)) 
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        // Envelopa o payload dentro de "request" se o seu controller exigir o parâmetro com esse nome
+        body: JSON.stringify({ request: payload }) 
       });
 
       if (!response.ok) {
