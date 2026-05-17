@@ -44,7 +44,6 @@ export default function FormVistoria({ user }) {
   }, []);
 
   // Puxa todos os clientes que já foram registrados em vistorias existentes da API
-  // Puxa todos os clientes da API lendo a propriedade do DashboardVistoria
   useEffect(() => {
     async function carregarClientesExistentes() {
       try {
@@ -57,8 +56,8 @@ export default function FormVistoria({ user }) {
           ...new Set(
             data
               .map(v => {
-                // Foca na propriedade que o DashboardVistoria expõe
-                const valorCliente = v.clienteNome || v.ClienteNome;
+                // Mapeia baseado na propriedade 'cliente' da classe Vistoria do C#
+                const valorCliente = v.cliente || v.Cliente || v.clienteNome || v.ClienteNome;
                 return valorCliente ? valorCliente.toString().toUpperCase().trim() : "";
               })
               .filter(nome => nome !== "" && nome !== "NÃO INFORMADO")
@@ -176,28 +175,25 @@ export default function FormVistoria({ user }) {
       }
 
       // Payload estrito combinando o modelo do backend .NET
-      // Tratamento do GUID de usuário para evitar o erro 400
-      let usuarioIdFinal = "00000000-0000-0000-0000-000000000000";
-      if (user?.id && user.id !== "Sistema") {
-        usuarioIdFinal = user.id;
-      }
+      // GUID padrão caso o id do usuário venha nulo/inválido de alguma forma
+      const usuarioIdFinal = user?.id && user.id !== "Sistema" ? user.id : "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 
-      // Payload que mapeia perfeitamente a classe Vistoria do C#
+      // Payload estrito combinando perfeitamente com a API .NET
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal,     // Propriedade da classe Vistoria
-        ClienteNome: nomeClienteFinal, // Fallback preventivo caso mude o backend
+        Cliente: nomeClienteFinal, // Mantido como Cliente, mapeado via [Column] no C#
         UsuarioId: usuarioIdFinal, 
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
         Localizacao: String(localizacao).trim(),
         Status: String(status).trim(),
-        // Enviando array de objetos se o .NET exigir a classe Evidencia, 
-        // ou strings puras se for mapeamento customizado. (Abaixo como objetos classe Evidencia)
-        Evidencias: urlsFotosParaBanco.map(path => ({ UrlFoto: String(path) }))
+        // 🔥 CORREÇÃO: Enviando uma lista de objetos estruturados, e não strings puras
+        Evidencias: urlsFotosParaBanco.map(path => ({
+          UrlFoto: String(path)
+        }))
       };
-      
+
       const response = await fetch(`${API_URL}/Vistoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
