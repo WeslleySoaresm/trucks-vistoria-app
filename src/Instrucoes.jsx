@@ -65,12 +65,16 @@ export default function Instrucoes() {
         <ItemFAQ 
           icone={CameraOff}
           pergunta="Clica em tirar foto e fica preto ?" 
-          resposta="Às vezes, ao abrir o site pela primeira vez, você pode ter clicado em Bloquear ou Agora não na janela pop-up de permissão. O Chrome guarda essa decisão para aquele endereço específico.
-                    Como resolver:
-                    No Chrome do iPhone, acesse a página do seu formulário de vistoria.
-                    Na barra de endereços (onde fica a URL), clique no ícone de engrenagem, cadeado ou três pontos que aparece ao lado do link.
-                    Procure por Configurações do Site ou Permissões.
-                    Verifique se a Câmera está definida como Bloqueada e mude para Permitir ou Perguntar.
+          resposta="O iOS é extremamente rígido com privacidade. Mesmo que você já tenha dado permissão no passado, o Chrome pode ter bloqueado o acesso ao site específico ou desativado o acesso à câmera globalmente dentro do app.
+                     Como resolver:
+
+                      Abra os Ajustes do seu iPhone.
+
+                      Role a tela para baixo até encontrar o aplicativo Chrome e toque nele.
+
+                      Certifique-se de que a chave ao lado de Câmera está ativada (verde).
+
+                      Volte ao Chrome, recarregue a página do formulário e veja se ele pede a permissão novamente.
 
                     "/>
 
