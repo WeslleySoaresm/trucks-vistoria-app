@@ -52,11 +52,14 @@ export default function FormVistoria({ user }) {
         
         const data = await response.json();
         
-        // Extrai os clientes de forma dinâmica tirando duplicados e nulos
+        // Extrai os clientes de forma dinâmica suportando variações de propriedades do C#
         const clientesFiltrados = [
           ...new Set(
             data
-              .map(v => v.cliente ? v.cliente.toString().toUpperCase().trim() : "")
+              .map(v => {
+                const valorCliente = v.cliente || v.Cliente || "";
+                return valorCliente ? valorCliente.toString().toUpperCase().trim() : "";
+              })
               .filter(nome => nome !== "" && nome !== "NÃO INFORMADO")
           )
         ].sort();
@@ -171,17 +174,20 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
-      // Payload estrito combinando o modelo do backend .NET
+      // Payload estrito combinando perfeitamente com o modelo da classe Vistoria.cs e Evidencia.cs
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal, // Enviado em uppercase definitivo
-        UsuarioId: user?.id || "Sistema", 
+        Cliente: nomeClienteFinal, 
+        UsuarioId: user?.id || "00000000-0000-0000-0000-000000000000", // Garante o formato estável de Guid para o C#
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
         Localizacao: String(localizacao).trim(),
         Status: String(status).trim(),
-        Evidencias: urlsFotosParaBanco
+        // Transforma o array simples em objetos aninhados que batem com a classe List<Evidencia> do C#
+        Evidencias: urlsFotosParaBanco.map(path => ({
+          UrlFoto: path
+        }))
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {

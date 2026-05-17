@@ -28,7 +28,7 @@ public class VistoriaController : ControllerBase
         return Ok(vistorias);
     }
 
-    // CRIAR VISTORIA (Direto e simplificado após a remoção da CONSTRAINT no banco)
+// CRIAR VISTORIA (Direto e simplificado após a remoção da CONSTRAINT no banco)
 [HttpPost]
 public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
 {
@@ -185,6 +185,28 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
         {
             await transaction.RollbackAsync();
             return BadRequest($"Erro ao excluir: {ex.Message}");
+        }
+    }
+    
+    // HISTÓRICO DE CLIENTES (Busca direta na tabela de vistorias para mostrar os clientes já digitados)
+    [HttpGet("clientes-historico")]
+    public async Task<IActionResult> GetClientesHistorico()
+    {
+        try
+        {
+            // Vai buscar direto na tabela de vistorias todos os clientes já digitados
+            var clientes = await _context.Vistorias
+                .Where(v => !string.IsNullOrEmpty(v.Cliente))
+                .Select(v => v.Cliente.Trim().ToUpper())
+                .Distinct() // Remove os nomes duplicados
+                .OrderBy(nome => nome)
+                .ToListAsync();
+
+            return Ok(clientes);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Erro ao buscar histórico: {ex.Message}");
         }
     }
 } 

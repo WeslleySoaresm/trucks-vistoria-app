@@ -41,14 +41,15 @@ export default function Dashboard() {
         const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "";
 
         // Trata flexibilidade da API .NET (aceita 'cliente' ou 'Cliente')
-        const valorCliente = v.cliente || v.Cliente || "";
+        const clienteFinal = v.cliente || v.Cliente || "NÃO INFORMADO";
 
         return {
           ...v,
           id: v.id,
           data_vistoria: v.dataCriacao, 
           funcionario_email: v.usuarioId,
-          cliente_nome: valorCliente.toString().trim() ? valorCliente.toString().toUpperCase().trim() : "NÃO INFORMADO",
+          // CORRIGIDO: Agora aponta para 'clienteFinal' que possui a string tratada
+          cliente_nome: clienteFinal.toString().trim() ? clienteFinal.toString().toUpperCase().trim() : "NÃO INFORMADO",
           localizacao_texto: v.localizacao || "Não autorizada",
           tipo_servico: v.tipoServico,
           observacao: observacaoFinal, 
@@ -160,7 +161,7 @@ export default function Dashboard() {
       }
     } catch (err) {
       alert("Erro de conexão com o servidor.");
-    } {
+    } finally {
       setLoading(false);
     }
   }
@@ -361,5 +362,10 @@ const styles = {
   btnDownloadSmall: { width: '100%', marginTop: '5px', background: 'transparent', border: '1px solid #3182ce', color: '#3182ce', padding: '5px', borderRadius: '5px', fontSize: '10px', cursor: 'pointer' },
   mobileList: { padding: '15px', display: 'flex', flexDirection: 'column', gap: '15px' },
   mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
-  btnActionMobile: { flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }
+  btnActionMobile: { flex: 1, padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' },
+  panelAcoesInfo: { display: 'flex', alignItems: 'center', gap: '8px' },
+  panelAcoesText: { color: '#fff', fontSize: '13px' },
+  panelAcoesIcon: { fontSize: '16px' },
+  headerRow: { background: 'rgba(0,0,0,0.1)' },
+  fotoContainer: { display: 'flex', flexDirection: 'column', alignItems: 'center' }
 };
