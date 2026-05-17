@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
-import { FileDown } from 'lucide-react';
+import { FileDown, CheckCircle2, XCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
@@ -16,12 +16,23 @@ export default function Dashboard() {
   const [fotosModal, setFotosModal] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+  // NOVO ESTADO PARA NOTIFICAÇÕES VISUAIS E ELEGANTES
+  const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
     buscarDados();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // FUNÇÃO AUXILIAR PARA DISPARAR O BANNER NA TELA
+  const dispararNotificacao = (tipo, mensagem) => {
+    setNotificacao({ exibir: true, tipo, mensagem });
+    setTimeout(() => {
+      setNotificacao({ exibir: false, tipo: '', mensagem: '' });
+    }, 3000);
+  };
   
   async function buscarDados() {
     try {
@@ -39,11 +50,7 @@ export default function Dashboard() {
         }
 
         const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "";
-
-        // 🔥 CORREÇÃO: Captura todas as possíveis variações vindas do .NET (clienteNome, ClienteNome, cliente, etc.)
         const clienteFinal = v.clienteNome || v.ClienteNome || v.cliente || v.Cliente || "NÃO INFORMADO";
-
-        // 🔥 CORREÇÃO: Mapeia a data vinda tanto de 'dataCriacao' quanto de 'data_vitoria' do banco
         const dataFinal = v.dataCriacao || v.data_vitoria || v.data_vistoria;
 
         return {
@@ -62,6 +69,7 @@ export default function Dashboard() {
       setRegistrosRaw(dataFormatada);
     } catch (error) {
       console.error("Erro na integração:", error.message);
+      dispararNotificacao('erro', 'Falha ao carregar registros do servidor.');
     } finally {
       setLoading(false);
     }
@@ -98,8 +106,9 @@ export default function Dashboard() {
       
       const nomeArquivo = `Relatorio_${equipeFiltrada}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
+      dispararNotificacao('sucesso', 'Planilha exportada com sucesso!');
     } catch (error) {
-      alert("Erro ao gerar o arquivo Excel.");
+      dispararNotificacao('erro', 'Erro ao gerar o arquivo Excel.');
     }
   };
 
@@ -115,18 +124,23 @@ export default function Dashboard() {
       link.click();
       document.body.removeChild(link);
     } catch (err) { 
-      alert("Erro ao baixar foto"); 
+      dispararNotificacao('erro', 'Erro ao baixar imagem do Storage.');
     }
   };
 
   const baixarTodasAsFotos = (fotos, placa) => {
+    if(!fotos || fotos.length === 0) return;
+    dispararNotificacao('sucesso', `Baixando pacote de ${fotos.length} fotos...`);
     fotos.forEach((f, index) => {
       setTimeout(() => baixarFoto(f, placa), index * 500);
     });
   };
 
   const abrirMapa = (loc) => {
-    if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
+    if (!loc || loc === "Não autorizada") {
+      dispararNotificacao('erro', 'Coordenadas de GPS indisponíveis para este registro.');
+      return;
+    }
     const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
@@ -135,15 +149,25 @@ export default function Dashboard() {
     if (!window.confirm(`Excluir este registro permanentemente?`)) return;
     try {
       const response = await fetch(`${API_URL}/Vistoria/${id}`, { method: 'DELETE' });
-      if (response.ok) buscarDados();
-      else alert("Erro ao excluir na API.");
-    } catch (err) { console.error(err); }
+      if (response.ok) {
+        dispararNotificacao('sucesso', 'Registro removido com sucesso!');
+        buscarDados();
+      } else {
+        dispararNotificacao('erro', 'A API recusou a exclusão.');
+      }
+    } catch (err) { 
+      console.error(err);
+      dispararNotificacao('erro', 'Falha na comunicação com o servidor.');
+    }
   }
 
   async function excluirTudoEquipe() {
     if (equipeFiltrada === 'TODAS') return;
     const idsParaExcluir = dadosExibidos.map(reg => reg.id);
-    if (idsParaExcluir.length === 0) return alert("Não há registros nesta equipe.");
+    if (idsParaExcluir.length === 0) {
+      dispararNotificacao('erro', 'Não há registros nesta equipe.');
+      return;
+    }
 
     if (!window.confirm(`ATENÇÃO: Excluir TODOS os ${idsParaExcluir.length} registros da Equipe ${equipeFiltrada}?`)) return;
 
@@ -156,13 +180,13 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        alert("Exclusão em massa realizada com sucesso!");
+        dispararNotificacao('sucesso', 'Limpeza em massa concluída!');
         await buscarDados();
       } else {
-        alert("Erro na exclusão de registros.");
+        dispararNotificacao('erro', 'Erro ao remover bloco de vistorias.');
       }
     } catch (err) {
-      alert("Erro de conexão com o servidor.");
+      dispararNotificacao('erro', 'Erro de conexão com o servidor.');
     } finally {
       setLoading(false);
     }
@@ -187,6 +211,27 @@ export default function Dashboard() {
 
   return (
     <div style={styles.pageWrapper}>
+      
+      {/* BANNER DE NOTIFICAÇÃO PROFISSIONAL */}
+      {notificacao.exibir && (
+        <div style={{
+          ...styles.toastOverlay,
+          backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
+        }}>
+          {notificacao.tipo === 'sucesso' ? (
+            <div style={styles.toastContent}>
+              <CheckCircle2 size={48} color="#fff" />
+              <span style={styles.toastText}>{notificacao.mensagem}</span>
+            </div>
+          ) : (
+            <div style={styles.toastContent}>
+              <XCircle size={48} color="#fff" />
+              <span style={styles.toastText}>{notificacao.mensagem}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* MODAL DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
@@ -335,7 +380,13 @@ export default function Dashboard() {
 
 const styles = {
   loading: { padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh' },
-  pageWrapper: { minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
+  pageWrapper: { position: 'relative', minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
+  
+  // ESTILOS ADICIONADOS PARA A NOTIFICAÇÃO FLUTUANTE
+  toastOverlay: { position: 'fixed', top: '25px', left: '50%', transform: 'translateX(-50%)', padding: '16px 32px', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, boxShadow: '0 15px 35px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' },
+  toastContent: { display: 'flex', alignItems: 'center', gap: '14px' },
+  toastText: { color: '#fff', fontWeight: '700', fontSize: '15px', letterSpacing: '0.2px' },
+
   rowCards: { display: 'flex', gap: '15px', marginBottom: '20px', overflowX: 'auto', paddingBottom: '10px' },
   cardResumo: { background: 'rgba(30, 41, 59, 0.9)', padding: '15px', borderRadius: '16px', minWidth: '120px', borderLeft: '5px solid', flexShrink: 0 },
   cardLabel: { color: '#cbd5e0', fontSize: '10px', textTransform: 'uppercase', fontWeight: 'bold' },
