@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HelpCircle, ChevronDown, ChevronUp, Camera, MapPin, CheckCircle, MessageCircle } from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronUp, Camera, MapPin, CheckCircle, MessageCircle, CameraOff } from 'lucide-react';
 
 const ItemFAQ = ({ pergunta, resposta, icone: Icone }) => {
   const [aberto, setAberto] = useState(false);
@@ -61,12 +61,26 @@ export default function Instrucoes() {
           pergunta="A foto não está carregando, o que fazer?" 
           resposta="Verifique se você tem sinal de internet. Se estiver em local sem sinal, aguarde chegar em uma área melhor para enviar. Tente também limpar o cache do navegador." 
         />
+        
+        <ItemFAQ 
+          icone={CameraOff}
+          pergunta="Clica em tirar foto e fica preto ?" 
+          resposta="Às vezes, ao abrir o site pela primeira vez, você pode ter clicado em Bloquear ou Agora não na janela pop-up de permissão. O Chrome guarda essa decisão para aquele endereço específico.
+                    Como resolver:
+                    No Chrome do iPhone, acesse a página do seu formulário de vistoria.
+                    Na barra de endereços (onde fica a URL), clique no ícone de engrenagem, cadeado ou três pontos que aparece ao lado do link.
+                    Procure por Configurações do Site ou Permissões.
+                    Verifique se a Câmera está definida como Bloqueada e mude para Permitir ou Perguntar.
+
+                    "/>
 
         <ItemFAQ 
           icone={HelpCircle}
           pergunta="Como vejo minha meta?" 
           resposta="Na aba 'Meta', você acompanha quantas vistorias já fez no mês e quanto falta para atingir o objetivo de 20 vistorias." 
         />
+
+        
       </div>
 
       {/* RODAPÉ COM BOTÃO DE SUPORTE */}
