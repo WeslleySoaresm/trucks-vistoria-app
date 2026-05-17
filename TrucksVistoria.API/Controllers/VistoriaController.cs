@@ -28,98 +28,100 @@ public class VistoriaController : ControllerBase
         return Ok(vistorias);
     }
 
-// CRIAR VISTORIA (Direto e simplificado após a remoção da CONSTRAINT no banco)
-[HttpPost]
-public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
-{
-    var idVistoriaNova = Guid.NewGuid();
-    try
+    // CRIAR VISTORIA
+    [HttpPost]
+    public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
-        {
-            return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
-        }
-
-        // 1. Garantir a existência do Veículo (Upsert)
+        var idVistoriaNova = Guid.NewGuid();
         try
         {
-            var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
-            if (veiculo == null)
+            if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
             {
-                veiculo = new Veiculo 
-                { 
-                    Placa = request.Placa, 
-                    .ClienteNome = string.IsNullOrWhiteSpace(request.ClienteNome) ? "Não Informado" : request.ClienteNome
-                };
-                _context.Veiculos.Add(veiculo);
+                return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
+            }
+
+            // Captura o nome do cliente independente de vir como Cliente ou ClienteNome do React
+            var nomeDoClienteFinal = !string.IsNullOrWhiteSpace(request.ClienteNome) 
+                ? request.ClienteNome 
+                : (!string.IsNullOrWhiteSpace(request.Cliente) ? request.Cliente : "Não Informado");
+
+            // 1. Garantir a existência do Veículo (Upsert)
+            try
+            {
+                var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
+                if (veiculo == null)
+                {
+                    veiculo = new Veiculo 
+                    { 
+                        Placa = request.Placa, 
+                        ClienteNome = nomeDoClienteFinal // 🔥 CORRIGIDO: Removido o "." que quebrava o build
+                    };
+                    _context.Veiculos.Add(veiculo);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception exVeiculo) { Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}"); }
+
+            // 2. Verificar antecipadamente se o utilizador existe na tabela local
+            var usuarioExiste = await _context.Set<Usuario>().AnyAsync(u => u.Id == usuarioGuid);
+            
+            Guid idParaSalvar = usuarioGuid;
+
+            if (!usuarioExiste)
+            {
+                var usuarioValido = await _context.Set<Usuario>().FirstOrDefaultAsync();
+                idParaSalvar = usuarioValido != null ? usuarioValido.Id : Guid.Parse("99999999-9999-9999-9999-999999999999");
+            }
+
+            // 3. Montar o objeto da Vistoria
+            var novaVistoria = new Vistoria
+            {
+                Id = idVistoriaNova, 
+                Placa = request.Placa,
+                ClienteNome = nomeDoClienteFinal, // 🔥 CORRIGIDO: Agora a vistoria salva o nome digitado!
+                UsuarioId = idParaSalvar, 
+                Equipe = request.Equipe ?? "Geral",
+                TipoServico = request.TipoServico ?? "Geral",
+                Observacao = request.Observacao ?? "", 
+                Localizacao = request.Localizacao ?? "Não autorizada",
+                Status = request.Status ?? "inicial",
+                DataCriacao = DateTime.UtcNow
+            };
+
+            _context.Vistorias.Add(novaVistoria);
+            
+            try {
+                if (_context.Entry(novaVistoria).Metadata.FindProperty("VeiculoPlaca") != null)
+                    _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
+            } catch { }
+
+            await _context.SaveChangesAsync();
+
+            // 4. Processamento das Evidências (Fotos)
+            if (request.Evidencias != null && request.Evidencias.Any())
+            {
+                foreach (var fotoUrl in request.Evidencias)
+                {
+                    _context.Evidencias.Add(new Evidencia 
+                    { 
+                        Id = Guid.NewGuid(), 
+                        VistoriaId = idVistoriaNova, 
+                        UrlFoto = fotoUrl 
+                    });
+                }
                 await _context.SaveChangesAsync();
             }
+
+            return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
         }
-        catch (Exception exVeiculo) { Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}"); }
-
-        // 2. Verificar antecipadamente se o utilizador existe na tabela local
-        var usuarioExiste = await _context.Set<Usuario>().AnyAsync(u => u.Id == usuarioGuid);
-        
-        Guid idParaSalvar = usuarioGuid;
-
-        // Se o utilizador não existir (caso do Admin do Supabase Auth que não está na tabela local)
-        if (!usuarioExiste)
+        catch (Exception exGeral)
         {
-            // Tenta encontrar o primeiro utilizador da equipa que já funcione
-            var usuarioValido = await _context.Set<Usuario>().FirstOrDefaultAsync();
-            
-            // Se encontrar, usa o dele. Se não encontrar nenhum, usa o ID fixo do Administrador Central que criámos no SQL
-            idParaSalvar = usuarioValido != null ? usuarioValido.Id : Guid.Parse("99999999-9999-9999-9999-999999999999");
+            _context.ChangeTracker.Clear();
+            var erroInterno = exGeral.InnerException != null ? exGeral.InnerException.Message : exGeral.Message;
+            return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
         }
-
-        // 3. Montar o objeto da Vistoria com a Observação 100% LIMPA
-        var novaVistoria = new Vistoria
-        {
-            Id = idVistoriaNova, 
-            Placa = request.Placa,
-            UsuarioId = idParaSalvar, 
-            Equipe = request.Equipe ?? "Geral",
-            TipoServico = request.TipoServico ?? "Geral",
-            // Mantém APENAS o que o utilizador digitou no formulário. Se não digitou nada, fica vazio.
-            Observacao = request.Observacao ?? "", 
-            Localizacao = request.Localizacao ?? "Não autorizada",
-            Status = request.Status ?? "inicial",
-            DataCriacao = DateTime.UtcNow
-        };
-
-        _context.Vistorias.Add(novaVistoria);
-        
-        try {
-            if (_context.Entry(novaVistoria).Metadata.FindProperty("VeiculoPlaca") != null)
-                _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
-        } catch { }
-
-        await _context.SaveChangesAsync();
-
-        // 4. Processamento das Evidências (Fotos)
-        if (request.Evidencias != null && request.Evidencias.Any())
-        {
-            foreach (var fotoUrl in request.Evidencias)
-            {
-                _context.Evidencias.Add(new Evidencia 
-                { 
-                    Id = Guid.NewGuid(), 
-                    VistoriaId = idVistoriaNova, 
-                    UrlFoto = fotoUrl 
-                });
-            }
-            await _context.SaveChangesAsync();
-        }
-
-        return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
     }
-    catch (Exception exGeral)
-    {
-        _context.ChangeTracker.Clear();
-        var erroInterno = exGeral.InnerException != null ? exGeral.InnerException.Message : exGeral.Message;
-        return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
-    }
-}
+
     // EXCLUSÃO EM MASSA
     [HttpDelete("acoes/excluir-massa")]
     public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
@@ -188,17 +190,16 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
         }
     }
 
-    // HISTÓRICO DE CLIENTES (Busca direta na tabela de vistorias para mostrar os clientes já digitados)
+    // HISTÓRICO DE CLIENTES
     [HttpGet("clientes-historico")]
     public async Task<IActionResult> GetClientesHistorico()
     {
         try
         {
-            // Vai buscar direto na tabela de vistorias todos os clientes já digitados
             var clientes = await _context.Vistorias
                 .Where(v => !string.IsNullOrEmpty(v.ClienteNome))
                 .Select(v => v.ClienteNome.Trim().ToUpper())
-                .Distinct() // Remove os nomes duplicados
+                .Distinct() 
                 .OrderBy(nome => nome)
                 .ToListAsync();
 
@@ -215,6 +216,7 @@ public class VistoriaRequest
 {
     public string Placa { get; set; } = string.Empty;
     public string Cliente { get; set; } = string.Empty;
+    public string ClienteNome { get; set; } = string.Empty; // 🔥 ADICIONADO para garantir a leitura do payload
     public string Equipe { get; set; } = string.Empty;
     public string TipoServico { get; set; } = string.Empty;
     public string Observacao { get; set; } = string.Empty;
