@@ -174,24 +174,32 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
-      // Payload estrito combinando perfeitamente com o modelo da classe Vistoria.cs e Evidencia.cs
-      // Payload estrito combinando o modelo do backend .NET
+      /// 1. Validar e formatar o GUID do Usuário para o .NET não rejeitar
+      let usuarioIdFinal = "00000000-0000-0000-0000-000000000000"; // GUID padrão vazio
+
+      if (user && user.id) {
+        // Se o ID do Supabase ou do seu Auth já for um GUID, usamos ele
+        usuarioIdFinal = user.id;
+      }
+
+      // 2. Montar o payload estrito
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal, // Enviado em uppercase definitivo
-        UsuarioId: user?.id || "Sistema", 
+        Cliente: nomeClienteFinal, 
+        UsuarioId: usuarioIdFinal, // Enviando o GUID limpo e validado
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
         Localizacao: String(localizacao).trim(),
         Status: String(status).trim(),
-        Evidencias: urlsFotosParaBanco
+        Evidencias: urlsFotosParaBanco.map(path => String(path))
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        // Envelopa o payload dentro de "request" se o seu controller exigir o parâmetro com esse nome
+        body: JSON.stringify({ request: payload }) 
       });
 
       if (!response.ok) {
