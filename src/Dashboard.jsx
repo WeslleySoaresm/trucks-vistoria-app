@@ -69,7 +69,7 @@ export default function Dashboard() {
           id: v.id,
           data_vistoria: v.dataCriacao, 
           funcionario_email: v.usuarioId,
-          cliente_nome: v.cliente || "Não Informado",
+          cliente_nome: v.cliente ? v.cliente.toString().toUpperCase().trim() : "NÃO INFORMADO",
           localizacao_texto: v.localizacao || "Não autorizada",
           tipo_servico: v.tipoServico,
           observacao: observacaoFinal, // Retorna o texto real ou fica totalmente em branco
@@ -109,6 +109,7 @@ export default function Dashboard() {
       const dadosParaExportar = dadosExibidos.map(reg => ({
         'Data': reg.data_formatada,
         'Placa': reg.placa,
+        'Cliente': reg.cliente_nome, // Inserido no Excel
         'Equipe': reg.equipe,
         'Serviço': reg.tipo_servico || 'On Job',
         'Status': reg.status || 'Concluída',
@@ -201,7 +202,7 @@ export default function Dashboard() {
         await buscarDados();
       } else {
         const erro = await response.text();
-        alert("Erro na exclusão: " + erro);
+        alert("Erro na exclusion: " + erro);
       }
     } catch (err) {
       alert("Erro de conexão com o servidor.");
@@ -323,6 +324,7 @@ export default function Dashboard() {
                   <span style={styles.badge}>{reg.equipe}</span>
                 </div>
                 <div style={{fontSize: '13px', color: '#cbd5e0', marginBottom: '10px'}}>
+                  <div style={{color: '#63b3ed', fontWeight: 'bold', marginBottom: '5px'}}>👤 {reg.cliente_nome}</div> {/* Adicionado no Mobile */}
                   <div>📅 {reg.data_formatada}</div>
                   <div>🛠️ {reg.tipo_servico || 'On Job'}</div>
                   <div style={{marginTop: '5px', fontStyle: 'italic'}}>📝 {reg.observacao}</div>
@@ -341,6 +343,7 @@ export default function Dashboard() {
               <tr style={styles.headerRow}>
                 <th style={styles.th}>Data</th>
                 <th style={styles.th}>Placa</th>
+                <th style={styles.th}>Cliente</th> {/* Nova Coluna no Cabeçalho */}
                 <th style={styles.th}>Equipe</th>
                 <th style={styles.th}>Serviço</th>
                 <th style={styles.th}>Status</th>
@@ -355,6 +358,7 @@ export default function Dashboard() {
                   <tr key={idx} style={styles.row}>
                     <td style={styles.td}>{reg.data_formatada}</td>
                     <td style={styles.td}><strong>{reg.placa}</strong></td>
+                    <td style={{...styles.td, color: '#63b3ed', fontWeight: 'bold'}}>{reg.cliente_nome}</td> {/* Célula do Cliente inserida */}
                     <td style={styles.td}><span style={styles.badge}>{reg.equipe}</span></td>
                     <td style={styles.td}>{reg.tipo_servico || 'On Job'}</td>
                     <td style={styles.td}>

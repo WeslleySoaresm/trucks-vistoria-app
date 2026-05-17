@@ -55,11 +55,13 @@ export default function FormVistoria({ user }) {
         if (!response.ok) return;
         
         const data = await response.json();
+        
+        // REGRA DE PADRONIZAÇÃO: Transforma tudo o que vem da API em MAIÚSCULAS antes de filtrar e ordenar
         const clientesFiltrados = [
           ...new Set(
             data
-              .map(v => v.cliente)
-              .filter(nome => nome && nome.trim() !== "" && nome !== "Não Informado")
+              .map(v => v.cliente ? v.cliente.toString().toUpperCase().trim() : "")
+              .filter(nome => nome !== "" && nome !== "NÃO INFORMADO")
           )
         ].sort();
 
@@ -77,8 +79,9 @@ export default function FormVistoria({ user }) {
   );
 
   const selecionarClienteExistente = (nomeCliente) => {
-    setCliente(nomeCliente);
-    setTermoBusca(nomeCliente); 
+    const nomeMaiusculo = nomeCliente.toUpperCase();
+    setCliente(nomeMaiusculo);
+    setTermoBusca(nomeMaiusculo); 
     setModoNovoCliente(false);
     setMostrarDropdown(false);
   };
@@ -90,15 +93,16 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  // REGRA CORRIGIDA: Confirma e insere o cliente na array de opções NA HORA
+  // Confirma e insere o cliente na array de opções NA HORA (Formatando para MAIÚSCULAS)
   const confirmarEInserirClienteNaLista = () => {
-    const nomeFormatado = inputNovoCliente.trim();
+    // Força o nome digitado a ficar 100% em letras maiúsculas
+    const nomeFormatado = inputNovoCliente.trim().toUpperCase();
     if (!nomeFormatado) {
       alert("Por favor, digite um nome válido para o cliente.");
       return;
     }
 
-    // Se o cliente não existir na lista, adiciona e ordena alfabeticamente
+    // Se o cliente formatado não existir na lista, adiciona e ordena alfabeticamente
     if (!clientesLista.includes(nomeFormatado)) {
       setClientesLista(prev => [...prev, nomeFormatado].sort());
     }
@@ -169,7 +173,7 @@ export default function FormVistoria({ user }) {
       } catch (e) { console.warn("GPS falhou."); }
 
       const placaFormatada = placa.trim().toUpperCase();
-      const nomeClienteFinal = cliente.trim();
+      const nomeClienteFinal = cliente.trim().toUpperCase(); // Garante o envio em maiúsculo para a API
       const urlsFotosParaBanco = [];
 
       for (let i = 0; i < fotosOtimizadas.length; i++) {
@@ -246,12 +250,12 @@ export default function FormVistoria({ user }) {
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <input 
               type="text" 
-              placeholder={modoNovoCliente ? "Modo: Criando Novo Cliente..." : "Anteriormente 'Nome do Cliente'"} 
-              value={modoNovoCliente ? "➕ Cadastrando novo registro..." : termoBusca} 
+              placeholder={modoNovoCliente ? "Modo: Criando Novo Cliente..." : "🔍 Buscar ou Selecionar Cliente"} 
+              value={modoNovoCliente ? "➕ CADASTRANDO NOVO REGISTRO..." : termoBusca} 
               disabled={modoNovoCliente}
               onFocus={() => setMostrarDropdown(true)}
               onChange={(e) => {
-                setTermoBusca(e.target.value);
+                setTermoBusca(e.target.value.toUpperCase()); // Caixa alta automática na busca
                 setMostrarDropdown(true);
               }} 
               style={{ 
@@ -269,7 +273,7 @@ export default function FormVistoria({ user }) {
             <div style={styles.dropdownContainer}>
               {/* Opção Fixa no Topo para Adicionar Novo */}
               <div onClick={ativarModoNovoCliente} style={styles.dropdownOptionNew}>
-                <Plus size={16} /> Adicionar Novo Cliente...
+                <Plus size={16} /> ADICIONAR NOVO CLIENTE...
               </div>
               
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
@@ -286,7 +290,7 @@ export default function FormVistoria({ user }) {
                   </div>
                 ))
               ) : (
-                <div style={styles.dropdownNoResults}>Nenhum cliente encontrado</div>
+                <div style={styles.dropdownNoResults}>NENHUM CLIENTE ENCONTRADO</div>
               )}
             </div>
           )}
@@ -298,9 +302,9 @@ export default function FormVistoria({ user }) {
             <div style={{ display: 'flex', gap: '8px' }}>
               <input 
                 type="text" 
-                placeholder="Escreva o nome do novo cliente" 
+                placeholder="ESCREVA O NOME DO NOVO CLIENTE" 
                 value={inputNovoCliente} 
-                onChange={(e) => setInputNovoCliente(e.target.value)} 
+                onChange={(e) => setInputNovoCliente(e.target.value.toUpperCase())} // Caixa alta em tempo real
                 style={{ ...styles.input, flex: 1, border: '1px solid #63b3ed' }} 
               />
               <button 
@@ -412,6 +416,6 @@ const styles = {
   dropdownOption: { padding: '12px', color: '#e2e8f0', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
   dropdownOptionNew: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', color: '#63b3ed', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
   dropdownNoResults: { padding: '12px', color: '#4a5568', fontSize: '14px', textAlign: 'center' },
-  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-start', marginTop: '2px' },
+  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end', marginTop: '2px' },
   btnConfirmarCliente: { background: '#48bb78', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 };
