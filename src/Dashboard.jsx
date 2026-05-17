@@ -40,20 +40,22 @@ export default function Dashboard() {
 
         const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "";
 
-        // Trata flexibilidade da API .NET (aceita 'cliente' ou 'Cliente')
-        const clienteFinal = v.cliente || v.Cliente || "NÃO INFORMADO";
+        // 🔥 CORREÇÃO: Captura todas as possíveis variações vindas do .NET (clienteNome, ClienteNome, cliente, etc.)
+        const clienteFinal = v.clienteNome || v.ClienteNome || v.cliente || v.Cliente || "NÃO INFORMADO";
+
+        // 🔥 CORREÇÃO: Mapeia a data vinda tanto de 'dataCriacao' quanto de 'data_vitoria' do banco
+        const dataFinal = v.dataCriacao || v.data_vitoria || v.data_vistoria;
 
         return {
           ...v,
           id: v.id,
-          data_vistoria: v.dataCriacao, 
-          funcionario_email: v.usuarioId,
-          // CORRIGIDO: Agora aponta para 'clienteFinal' que possui a string tratada
+          data_vistoria: dataFinal, 
+          funcionario_email: v.usuarioId || v.funcionario_email,
           cliente_nome: clienteFinal.toString().trim() ? clienteFinal.toString().toUpperCase().trim() : "NÃO INFORMADO",
-          localizacao_texto: v.localizacao || "Não autorizada",
-          tipo_servico: v.tipoServico,
+          localizacao_texto: v.localizacao || v.localizacao_texto || "Não autorizada",
+          tipo_servico: v.tipoServico || v.tipo_servico || "On Job",
           observacao: observacaoFinal, 
-          evidencias_lista: v.evidencias || [] 
+          evidencias_lista: v.evidencias || v.evidencias_lista || [] 
         };
       });
 
