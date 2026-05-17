@@ -52,14 +52,15 @@ export default function FormVistoria({ user }) {
         
         const data = await response.json();
         
-        // Extrai os clientes de forma dinâmica suportando variações de propriedades do C#
         const clientesFiltrados = [
           ...new Set(
             data
               .map(v => {
-                const valorCliente = v.cliente || v.Cliente || "";
+                // Lê o campo ClienteNome que agora virá preenchido
+                const valorCliente = v.ClienteNome || v.clienteNome || v.Cliente || v.cliente;
                 return valorCliente ? valorCliente.toString().toUpperCase().trim() : "";
               })
+              // Remove strings vazias e o padrão "NÃO INFORMADO"
               .filter(nome => nome !== "" && nome !== "NÃO INFORMADO")
           )
         ].sort();
@@ -71,7 +72,6 @@ export default function FormVistoria({ user }) {
     }
     carregarClientesExistentes();
   }, []);
-
   const clientesFiltrados = clientesLista.filter(cli =>
     cli.toLowerCase().includes(termoBusca.toLowerCase())
   );
@@ -174,19 +174,11 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
-      /// 1. Validar e formatar o GUID do Usuário para o .NET não rejeitar
-      let usuarioIdFinal = "00000000-0000-0000-0000-000000000000"; // GUID padrão vazio
-
-      if (user && user.id) {
-        // Se o ID do Supabase ou do seu Auth já for um GUID, usamos ele
-        usuarioIdFinal = user.id;
-      }
-
-      // 2. Montar o payload estrito
+      // Payload ajustado para a tabela correta do backend
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal, 
-        UsuarioId: usuarioIdFinal, // Enviando o GUID limpo e validado
+        ClienteNome: nomeClienteFinal, // CORREÇÃO: Nome exato esperado pela propriedade do .NET
+        UsuarioId: usuarioIdFinal, 
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
@@ -198,8 +190,7 @@ export default function FormVistoria({ user }) {
       const response = await fetch(`${API_URL}/Vistoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Envelopa o payload dentro de "request" se o seu controller exigir o parâmetro com esse nome
-        body: JSON.stringify({ request: payload }) 
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
