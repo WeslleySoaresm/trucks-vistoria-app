@@ -7,30 +7,14 @@ import {
   ResponsiveContainer, Cell
 } from 'recharts';
 
-
-// ==========================================
-// CONFIGURAÇÕES GERAIS
-// ==========================================
-
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
-
 export default function Dashboard() {
-
-  // ==========================================
-  // ESTADOS DO COMPONENTE (ESTADOS)
-  // ==========================================
-
   const [registrosRaw, setRegistrosRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [equipeFiltrada, setEquipeFiltrada] = useState('TODAS');
   const [fotosModal, setFotosModal] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-
-  // ==========================================
-  // EFEITOS (USEEFFECT)
-  // ==========================================
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -39,12 +23,6 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-
-
-  // ==========================================
-  // INTEGRAÇÃO COM A API (BUSCA DE DADOS)
-  // ==========================================
-
   async function buscarDados() {
     try {
       setLoading(true);
@@ -56,23 +34,24 @@ export default function Dashboard() {
       const dataFormatada = data.map(v => {
         let obsLimpa = v.observacao || "";
 
-        // 1. Remove a tag do sistema independentemente do ID gerado
         if (obsLimpa.includes("[Admin Autenticado")) {
           obsLimpa = obsLimpa.replace(/\[Admin Autenticado.*?\]\s*/g, "");
         }
 
-        // 2. Regra estrita: se não houver texto do utilizador, devolve string vazia ""
         const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "";
+
+        // Trata flexibilidade da API .NET (aceita 'cliente' ou 'Cliente')
+        const valorCliente = v.cliente || v.Cliente || "";
 
         return {
           ...v,
           id: v.id,
           data_vistoria: v.dataCriacao, 
           funcionario_email: v.usuarioId,
-          cliente_nome: v.cliente ? v.cliente.toString().toUpperCase().trim() : "NÃO INFORMADO",
+          cliente_nome: valorCliente.toString().trim() ? valorCliente.toString().toUpperCase().trim() : "NÃO INFORMADO",
           localizacao_texto: v.localizacao || "Não autorizada",
           tipo_servico: v.tipoServico,
-          observacao: observacaoFinal, // Retorna o texto real ou fica totalmente em branco
+          observacao: observacaoFinal, 
           evidencias_lista: v.evidencias || [] 
         };
       });
@@ -84,32 +63,24 @@ export default function Dashboard() {
       setLoading(false);
     }
   }
-  // ==========================================
-  // PROCESSAMENTO E FILTROS DE DADOS
-  // ==========================================
 
   const listaVistorias = registrosRaw.map(v => ({
     ...v,
     data_formatada: v.data_vistoria ? new Date(v.data_vistoria).toLocaleDateString('pt-BR') : 'N/D',
     qtd_fotos: v.evidencias_lista?.length || 0,
-    todas_fotos: v.evidencias_lista?.map(e => e.urlFoto) || []
+    todas_fotos: v.evidencias_lista?.map(e => e.urlFoto || e) || []
   }));
 
   const dadosExibidos = equipeFiltrada === 'TODAS' 
     ? listaVistorias 
     : listaVistorias.filter(r => (r.equipe || "S/N") === equipeFiltrada);
 
-
-  // ==========================================
-  // RELATÓRIOS E EXPORTAÇÃO (EXCEL)
-  // ==========================================
-
   const exportarExcel = () => {
     try {
       const dadosParaExportar = dadosExibidos.map(reg => ({
         'Data': reg.data_formatada,
         'Placa': reg.placa,
-        'Cliente': reg.cliente_nome, // Inserido no Excel
+        'Cliente': reg.cliente_nome,
         'Equipe': reg.equipe,
         'Serviço': reg.tipo_servico || 'On Job',
         'Status': reg.status || 'Concluída',
@@ -125,15 +96,9 @@ export default function Dashboard() {
       const nomeArquivo = `Relatorio_${equipeFiltrada}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
     } catch (error) {
-      console.error("Erro ao exportar Excel:", error);
       alert("Erro ao gerar o arquivo Excel.");
     }
   };
-
-
-  // ==========================================
-  // MÍDIA E GEOLOCALIZAÇÃO (FOTOS E MAPA)
-  // ==========================================
 
   const baixarFoto = async (path, placa) => {
     const { data } = supabase.storage.from('vistorias').getPublicUrl(path);
@@ -159,14 +124,9 @@ export default function Dashboard() {
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    const url = loc.includes('http') ? loc : `https://maps.google.com/?q=${encodeURIComponent(loc)}`;
+    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
-
-
-  // ==========================================
-  // ROTINAS DE EXCLUSÃO (DELETE)
-  // ==========================================
 
   async function removerVistoria(id) {
     if (!window.confirm(`Excluir este registro permanentemente?`)) return;
@@ -174,9 +134,7 @@ export default function Dashboard() {
       const response = await fetch(`${API_URL}/Vistoria/${id}`, { method: 'DELETE' });
       if (response.ok) buscarDados();
       else alert("Erro ao excluir na API.");
-    } catch (err) { 
-      console.error(err); 
-    }
+    } catch (err) { console.error(err); }
   }
 
   async function excluirTudoEquipe() {
@@ -184,16 +142,13 @@ export default function Dashboard() {
     const idsParaExcluir = dadosExibidos.map(reg => reg.id);
     if (idsParaExcluir.length === 0) return alert("Não há registros nesta equipe.");
 
-    const confirmar = window.confirm(`ATENÇÃO: Você está prestes a excluir TODOS os ${idsParaExcluir.length} registros da Equipe ${equipeFiltrada}. Confirmar?`);
-    if (!confirmar) return;
+    if (!window.confirm(`ATENÇÃO: Excluir TODOS os ${idsParaExcluir.length} registros da Equipe ${equipeFiltrada}?`)) return;
 
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/Vistoria/acoes/excluir-massa`, {
         method: 'DELETE',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(idsParaExcluir),
       });
 
@@ -201,20 +156,14 @@ export default function Dashboard() {
         alert("Exclusão em massa realizada com sucesso!");
         await buscarDados();
       } else {
-        const erro = await response.text();
-        alert("Erro na exclusion: " + erro);
+        alert("Erro na exclusão de registros.");
       }
     } catch (err) {
       alert("Erro de conexão com o servidor.");
-    } finally {
+    } {
       setLoading(false);
     }
   }
-
-
-  // ==========================================
-  // INDICADORES E GRÁFICOS (RECHARTS)
-  // ==========================================
 
   const prodEquipe = listaVistorias.reduce((acc, curr) => {
     const eq = curr.equipe || "S/N";
@@ -227,20 +176,15 @@ export default function Dashboard() {
 
   const getStatusStyle = (status) => {
     if (status?.toLowerCase().includes('conclui')) return { bg: '#c6f6d5', color: '#22543d' };
+    if (status?.toLowerCase().includes('processo')) return { bg: '#feebc8', color: '#744210' };
     return { bg: '#edf2f7', color: '#4a5568' };
   };
-
-
-  // ==========================================
-  // RENDERIZAÇÃO DA INTERFACE (MÉTODO RENDER)
-  // ==========================================
 
   if (loading) return <div style={styles.loading}>Carregando estatísticas...</div>;
 
   return (
     <div style={styles.pageWrapper}>
-      
-      {/* COMPONENTE: MODAL DE VISUALIZAÇÃO DE FOTOS */}
+      {/* MODAL DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -265,7 +209,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* COMPONENTE: CARDS SUPERIORES DE RESUMO */}
+      {/* CARDS RESUMO */}
       <div style={styles.rowCards}>
         <div onClick={() => setEquipeFiltrada('TODAS')} style={{...styles.cardResumo, borderLeftColor: '#666', opacity: equipeFiltrada === 'TODAS' ? 1 : 0.6, cursor: 'pointer'}}>
           <small style={styles.cardLabel}>Geral</small>
@@ -279,7 +223,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* COMPONENTE: ÁREA DO GRÁFICO DE PRODUTIVIDADE */}
+      {/* GRÁFICOS */}
       <div style={{...styles.gridGraficos, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'}}>
         <div style={{...styles.chartBoxFull, gridColumn: isMobile ? 'auto' : 'span 2'}}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
@@ -302,7 +246,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* COMPONENTE: MENUS DE CONTROLE DE EXCLUSÃO EM MASSA */}
       {equipeFiltrada !== 'TODAS' && (
         <div style={styles.panelAcoes}>
           <div style={styles.panelAcoesInfo}>
@@ -313,7 +256,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* COMPONENTE: VISUALIZAÇÃO DOS REGISTROS (TABELA OU CARDS MOBILE) */}
+      {/* LISTAGEM DE REGISTROS */}
       <div style={styles.tableWrapper}>
         {isMobile ? (
           <div style={styles.mobileList}>
@@ -324,7 +267,7 @@ export default function Dashboard() {
                   <span style={styles.badge}>{reg.equipe}</span>
                 </div>
                 <div style={{fontSize: '13px', color: '#cbd5e0', marginBottom: '10px'}}>
-                  <div style={{color: '#63b3ed', fontWeight: 'bold', marginBottom: '5px'}}>👤 {reg.cliente_nome}</div> {/* Adicionado no Mobile */}
+                  <div style={{color: '#63b3ed', fontWeight: 'bold', marginBottom: '6px'}}>👤 CLIENTE: {reg.cliente_nome}</div>
                   <div>📅 {reg.data_formatada}</div>
                   <div>🛠️ {reg.tipo_servico || 'On Job'}</div>
                   <div style={{marginTop: '5px', fontStyle: 'italic'}}>📝 {reg.observacao}</div>
@@ -343,7 +286,7 @@ export default function Dashboard() {
               <tr style={styles.headerRow}>
                 <th style={styles.th}>Data</th>
                 <th style={styles.th}>Placa</th>
-                <th style={styles.th}>Cliente</th> {/* Nova Coluna no Cabeçalho */}
+                <th style={styles.th}>Cliente</th>
                 <th style={styles.th}>Equipe</th>
                 <th style={styles.th}>Serviço</th>
                 <th style={styles.th}>Status</th>
@@ -358,7 +301,7 @@ export default function Dashboard() {
                   <tr key={idx} style={styles.row}>
                     <td style={styles.td}>{reg.data_formatada}</td>
                     <td style={styles.td}><strong>{reg.placa}</strong></td>
-                    <td style={{...styles.td, color: '#63b3ed', fontWeight: 'bold'}}>{reg.cliente_nome}</td> {/* Célula do Cliente inserida */}
+                    <td style={{...styles.td, color: '#63b3ed', fontWeight: 'bold'}}>{reg.cliente_nome}</td>
                     <td style={styles.td}><span style={styles.badge}>{reg.equipe}</span></td>
                     <td style={styles.td}>{reg.tipo_servico || 'On Job'}</td>
                     <td style={styles.td}>
@@ -386,11 +329,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
-
-// ==========================================
-// ESTILOS CSS-IN-JS
-// ==========================================
 
 const styles = {
   loading: { padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh' },

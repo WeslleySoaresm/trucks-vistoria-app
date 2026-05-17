@@ -1,15 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { supabase } from './supabaseClient'; // Mantido apenas para o Storage das fotos
+import { supabase } from './supabaseClient'; 
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Trash2, Send, CheckCircle, Truck, Search, Plus, Check } from 'lucide-react';
+import { Camera, Trash2, CheckCircle, Search, Plus, Check } from 'lucide-react';
 
-// Ajuste para a URL da sua API (Local ou Produção)
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
 export default function FormVistoria({ user }) {
   const [loading, setLoading] = useState(false);
   const [placa, setPlaca] = useState('');
-  const [cliente, setCliente] = useState(''); // Valor definitivo enviado no payload
+  const [cliente, setCliente] = useState(''); 
   const [equipe, setEquipe] = useState('');
   const [observacao, setObservacao] = useState('');
   const [tipoServico, setTipoServico] = useState('');
@@ -18,9 +17,7 @@ export default function FormVistoria({ user }) {
   const [previews, setPreviews] = useState([]); 
   const fileInputRef = useRef(null);
 
-  // ==========================================
-  // ESTADOS DO DROPDOWN INTELIGENTE COM BUSCA
-  // ==========================================
+  // ESTADOS DO DROPDOWN DINÂMICO
   const [clientesLista, setClientesLista] = useState([]); 
   const [termoBusca, setTermoBusca] = useState(''); 
   const [mostrarDropdown, setMostrarDropdown] = useState(false); 
@@ -36,7 +33,6 @@ export default function FormVistoria({ user }) {
     { label: "Concluído", value: "concluida" }
   ];
 
-  // Fecha o dropdown de busca se clicar fora dele
   useEffect(() => {
     function escutarCliqueFora(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -47,7 +43,7 @@ export default function FormVistoria({ user }) {
     return () => document.removeEventListener("mousedown", escutarCliqueFora);
   }, []);
 
-  // Carrega os clientes direto da sua API .NET ao iniciar
+  // Puxa todos os clientes que já foram registrados em vistorias existentes da API
   useEffect(() => {
     async function carregarClientesExistentes() {
       try {
@@ -56,7 +52,7 @@ export default function FormVistoria({ user }) {
         
         const data = await response.json();
         
-        // REGRA DE PADRONIZAÇÃO: Transforma tudo o que vem da API em MAIÚSCULAS antes de filtrar e ordenar
+        // Extrai os clientes de forma dinâmica tirando duplicados e nulos
         const clientesFiltrados = [
           ...new Set(
             data
@@ -73,7 +69,6 @@ export default function FormVistoria({ user }) {
     carregarClientesExistentes();
   }, []);
 
-  // Filtra dinamicamente os clientes da array base de acordo com o termo buscado
   const clientesFiltrados = clientesLista.filter(cli =>
     cli.toLowerCase().includes(termoBusca.toLowerCase())
   );
@@ -86,39 +81,31 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  const ativarModoNovoCliente = () => {
+  const activarModoNovoCliente = () => {
     setModoNovoCliente(true);
     setCliente('');
     setInputNovoCliente('');
     setMostrarDropdown(false);
   };
 
-  // Confirma e insere o cliente na array de opções NA HORA (Formatando para MAIÚSCULAS)
+  // Insere o cliente na lista local imediatamente para uso ágil
   const confirmarEInserirClienteNaLista = () => {
-    // Força o nome digitado a ficar 100% em letras maiúsculas
     const nomeFormatado = inputNovoCliente.trim().toUpperCase();
     if (!nomeFormatado) {
       alert("Por favor, digite um nome válido para o cliente.");
       return;
     }
 
-    // Se o cliente formatado não existir na lista, adiciona e ordena alfabeticamente
     if (!clientesLista.includes(nomeFormatado)) {
       setClientesLista(prev => [...prev, nomeFormatado].sort());
     }
 
-    // Define este novo cliente como o selecionado atual do formulário
     setCliente(nomeFormatado);
     setTermoBusca(nomeFormatado);
-    
-    // Desativa o campo de inserção e volta para o modo dropdown normal já selecionado
     setModoNovoCliente(false);
     setInputNovoCliente('');
   };
 
-  // ==========================================
-  // MANIPULAÇÃO DE FOTOS E GEOLOCALIZAÇÃO
-  // ==========================================
   const manipularFotos = async (e) => {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
@@ -132,13 +119,11 @@ export default function FormVistoria({ user }) {
       for (const arquivo of arquivos) {
         const otimizada = await otimizarImagem(arquivo);
         const novoPreview = URL.createObjectURL(otimizada);
-        
         setFotosOtimizadas(prev => [...prev, otimizada]);
         setPreviews(prev => [...prev, novoPreview]);
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     } catch (err) {
-      console.error("Erro ao processar imagem:", err);
       alert("O celular ficou sem memória. Tente enviar fotos uma a uma.");
     } finally {
       setLoading(false);
@@ -152,12 +137,11 @@ export default function FormVistoria({ user }) {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-  // ==========================================
-  // SALVAR VISTORIA 
-  // ==========================================
   const finalizarVistoria = async () => {
-    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !cliente.trim()) {
-      alert("Preencha todos os campos (incluindo o cliente) e tire pelo menos 1 foto.");
+    const nomeClienteFinal = cliente.trim().toUpperCase();
+
+    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !nomeClienteFinal || nomeClienteFinal === "NÃO INFORMADO") {
+      alert("Preencha todos os campos corretamente. O nome do cliente é obrigatório.");
       return;
     }
 
@@ -173,7 +157,6 @@ export default function FormVistoria({ user }) {
       } catch (e) { console.warn("GPS falhou."); }
 
       const placaFormatada = placa.trim().toUpperCase();
-      const nomeClienteFinal = cliente.trim().toUpperCase(); // Garante o envio em maiúsculo para a API
       const urlsFotosParaBanco = [];
 
       for (let i = 0; i < fotosOtimizadas.length; i++) {
@@ -188,16 +171,17 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
+      // Payload estrito combinando o modelo do backend .NET
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal,
-        UsuarioId: user?.id, 
-        Equipe: String(equipe || 'Geral').trim(),
-        TipoServico: String(tipoServico || 'On Job').trim(),
+        Cliente: nomeClienteFinal, // Enviado em uppercase definitivo
+        UsuarioId: user?.id || "Sistema", 
+        Equipe: String(equipe).trim(),
+        TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
-        Localizacao: String(localizacao || 'Não autorizada').trim(),
-        Status: String(status || 'inicial').trim(),
-        Evidencias: urlsFotosParaBanco || []
+        Localizacao: String(localizacao).trim(),
+        Status: String(status).trim(),
+        Evidencias: urlsFotosParaBanco
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {
@@ -213,7 +197,12 @@ export default function FormVistoria({ user }) {
 
       alert("Vistoria enviada com sucesso!");
 
-      // Limpeza mantendo a lista de clientes atualizada na memória para os próximos registros
+      // Mantém o cliente recém criado na lista dinâmica local para a próxima vistoria
+      if (!clientesLista.includes(nomeClienteFinal)) {
+        setClientesLista(prev => [...prev, nomeClienteFinal].sort());
+      }
+
+      // Reseta o form para o próximo uso
       previews.forEach(url => URL.revokeObjectURL(url));
       setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
       setFotosOtimizadas([]); setPreviews([]);
@@ -245,7 +234,7 @@ export default function FormVistoria({ user }) {
           style={styles.input} 
         />
 
-        {/* COMPONENTE DE AUTOCOMPLETE CUSTOMIZADO COM BUSCA */}
+        {/* COMPONENTE AUTOCOMPLETE COM BUSCA */}
         <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <input 
@@ -255,7 +244,7 @@ export default function FormVistoria({ user }) {
               disabled={modoNovoCliente}
               onFocus={() => setMostrarDropdown(true)}
               onChange={(e) => {
-                setTermoBusca(e.target.value.toUpperCase()); // Caixa alta automática na busca
+                setTermoBusca(e.target.value.toUpperCase());
                 setMostrarDropdown(true);
               }} 
               style={{ 
@@ -268,24 +257,15 @@ export default function FormVistoria({ user }) {
             <Search size={18} style={{ position: 'absolute', left: '14px', color: '#4a5568' }} />
           </div>
 
-          {/* LISTA SUSPENSA CONTAINER */}
           {mostrarDropdown && (
             <div style={styles.dropdownContainer}>
-              {/* Opção Fixa no Topo para Adicionar Novo */}
-              <div onClick={ativarModoNovoCliente} style={styles.dropdownOptionNew}>
+              <div onClick={activarModoNovoCliente} style={styles.dropdownOptionNew}>
                 <Plus size={16} /> ADICIONAR NOVO CLIENTE...
               </div>
-              
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-
-              {/* Lista filtrada de clientes existentes */}
               {clientesFiltrados.length > 0 ? (
                 clientesFiltrados.map((cli, idx) => (
-                  <div 
-                    key={idx} 
-                    onClick={() => selecionarClienteExistente(cli)} 
-                    style={styles.dropdownOption}
-                  >
+                  <div key={idx} onClick={() => selecionarClienteExistente(cli)} style={styles.dropdownOption}>
                     {cli}
                   </div>
                 ))
@@ -296,7 +276,7 @@ export default function FormVistoria({ user }) {
           )}
         </div>
 
-        {/* CAMPO DE ENTRADA DO NOVO CLIENTE COM BOTÃO DE CONFIRMAÇÃO EM TEMPO REAL */}
+        {/* ENTRADA DO NOVO CLIENTE DINÂMICO */}
         {modoNovoCliente && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(99, 179, 237, 0.04)', padding: '10px', borderRadius: '12px', border: '1px dashed rgba(99, 179, 237, 0.3)' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -304,22 +284,14 @@ export default function FormVistoria({ user }) {
                 type="text" 
                 placeholder="ESCREVA O NOME DO NOVO CLIENTE" 
                 value={inputNovoCliente} 
-                onChange={(e) => setInputNovoCliente(e.target.value.toUpperCase())} // Caixa alta em tempo real
+                onChange={(e) => setInputNovoCliente(e.target.value.toUpperCase())} 
                 style={{ ...styles.input, flex: 1, border: '1px solid #63b3ed' }} 
               />
-              <button 
-                type="button" 
-                onClick={confirmarEInserirClienteNaLista}
-                style={styles.btnConfirmarCliente}
-                title="Salvar na lista"
-              >
+              <button type="button" onClick={confirmarEInserirClienteNaLista} style={styles.btnConfirmarCliente}>
                 <Check size={20} />
               </button>
             </div>
-            <span 
-              onClick={() => { setModoNovoCliente(false); setTermoBusca(''); setCliente(''); }} 
-              style={styles.cancelarNovoBtn}
-            >
+            <span onClick={() => { setModoNovoCliente(false); setTermoBusca(''); setCliente(''); }} style={styles.cancelarNovoBtn}>
               Cancelar e voltar para a busca
             </span>
           </div>
@@ -336,86 +308,56 @@ export default function FormVistoria({ user }) {
         </select>
         
         <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select}>
-          {statusDisponiveis.map(s => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
+          {statusDisponiveis.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
 
-        <textarea 
-          placeholder="Observações adicionais..." 
-          value={observacao} 
-          onChange={(e) => setObservacao(e.target.value)} 
-          style={styles.textarea} 
-        />
+        <textarea placeholder="Observações adicionais..." value={observacao} onChange={(e) => setObservacao(e.target.value)} style={styles.textarea} />
       </div>
 
       <div style={styles.uploadArea}>
         <label htmlFor="foto-input" style={styles.buttonAdd}>
-          <Camera size={20} />
-          ABRIR CÂMERA
+          <Camera size={20} /> ABRIR CÂMERA
         </label>
-        <input 
-          id="foto-input" 
-          ref={fileInputRef}
-          type="file" 
-          accept="image/*" 
-          capture="environment"
-          onChange={manipularFotos} 
-          style={{ display: 'none' }} 
-        />
-
+        <input id="foto-input" ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={manipularFotos} style={{ display: 'none' }} />
         <div style={styles.grid}>
           {previews.map((url, index) => (
             <div key={index} style={styles.thumbWrap}>
               <img src={url} alt="preview" style={styles.img} />
-              <button onClick={() => removerFoto(index)} style={styles.btnDel}>
-                <Trash2 size={14} />
-              </button>
+              <button onClick={() => removerFoto(index)} style={styles.btnDel}>×</button>
             </div>
           ))}
         </div>
       </div>
 
-      <button 
-        onClick={finalizarVistoria} 
-        disabled={loading || fotosOtimizadas.length === 0}
-        style={loading ? styles.btnDisabled : styles.btnSend}
-      >
-        {loading ? "ENVIANDO DADOS..." : (
-          <>
-            <CheckCircle size={20} />
-            FINALIZAR ({fotosOtimizadas.length}/10)
-          </>
-        )}
+      <button onClick={finalizarVistoria} disabled={loading || fotosOtimizadas.length === 0} style={loading ? styles.btnDisabled : styles.btnSend}>
+        {loading ? "ENVIANDO DADOS..." : <><CheckCircle size={20} /> FINALIZAR ({fotosOtimizadas.length}/10)</>}
       </button>
     </div>
   );
 }
 
 const styles = {
-  container: { width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto', position: 'relative' },
+  container: { width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto' },
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
   formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
-  iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', border: '2px solid rgba(99, 179, 237, 0.2)' },
+  iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
   title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
   input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' },
-  select: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', cursor: 'pointer' },
+  select: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box' },
   textarea: { width: '100%', height: '80px', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box' },
   uploadArea: { marginTop: '20px', marginBottom: '25px' },
   buttonAdd: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(66, 153, 225, 0.15)', color: '#63b3ed', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '14px', border: '1px dashed #63b3ed' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '15px' },
   thumbWrap: { position: 'relative', paddingTop: '100%' },
   img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' },
-  btnDel: { position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  btnSend: { width: '100%', padding: '18px', background: '#48bb78', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
+  btnDel: { position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' },
+  btnSend: { width: '100%', padding: '18px', background: '#48bb78', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer' },
   btnDisabled: { width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed', fontWeight: '900' },
-  
-  // ESTILOS AUTOCOMPLETE E SELEÇÃO
-  dropdownContainer: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', marginTop: '4px', maxHeight: '180px', overflowY: 'auto', zIndex: 999, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', padding: '5px' },
+  dropdownContainer: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', marginTop: '4px', maxHeight: '180px', overflowY: 'auto', zIndex: 999, padding: '5px' },
   dropdownOption: { padding: '12px', color: '#e2e8f0', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
   dropdownOptionNew: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', color: '#63b3ed', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
   dropdownNoResults: { padding: '12px', color: '#4a5568', fontSize: '14px', textAlign: 'center' },
-  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end', marginTop: '2px' },
-  btnConfirmarCliente: { background: '#48bb78', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end' },
+  btnConfirmarCliente: { background: '#48bb78', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer' }
 };
