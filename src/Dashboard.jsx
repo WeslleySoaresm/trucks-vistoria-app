@@ -7,17 +7,31 @@ import {
   ResponsiveContainer, Cell
 } from 'recharts';
 
-// URL da sua API .NET
+
+// ==========================================
+// CONFIGURAÇÕES GERAIS
+// ==========================================
+
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
+
 export default function Dashboard() {
+
+  // ==========================================
+  // ESTADOS DO COMPONENTE (ESTADOS)
+  // ==========================================
+
   const [registrosRaw, setRegistrosRaw] = useState([]);
   const [loading, setLoading] = useState(true);
   const [equipeFiltrada, setEquipeFiltrada] = useState('TODAS');
   const [fotosModal, setFotosModal] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-  // --- EFEITOS E BUSCA ---
+
+  // ==========================================
+  // EFEITOS (USEEFFECT)
+  // ==========================================
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
@@ -25,6 +39,11 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
+
+  // ==========================================
+  // INTEGRAÇÃO COM A API (BUSCA DE DADOS)
+  // ==========================================
+
   async function buscarDados() {
     try {
       setLoading(true);
@@ -34,8 +53,9 @@ export default function Dashboard() {
       const data = await response.json();
       
       const dataFormatada = data.map(v => {
-        // CORREÇÃO: Remove a tag feia do Admin de dentro da observação
         let obsLimpa = v.observacao || "";
+
+        // Remove a tag técnica do Admin preservando o que foi digitado no input
         if (obsLimpa.includes("[Admin Autenticado")) {
           obsLimpa = obsLimpa.replace(/\[Admin Autenticado.*?\]\s*/g, "");
         }
@@ -48,7 +68,8 @@ export default function Dashboard() {
           cliente_nome: v.cliente || "Não Informado",
           localizacao_texto: v.localizacao || "Não autorizada",
           tipo_servico: v.tipoServico,
-          observacao: obsLimpa.trim() || "-", // Aplica o texto limpo na tabela e no Excel
+          // Se o usuário digitou algo, mantém o texto. Se não digitou nada, deixa em branco ("")
+          observacao: obsLimpa.trim(), 
           evidencias_lista: v.evidencias || [] 
         };
       });
@@ -61,7 +82,11 @@ export default function Dashboard() {
     }
   }
 
-  // --- PROCESSAMENTO DE DADOS ---
+
+  // ==========================================
+  // PROCESSAMENTO E FILTROS DE DADOS
+  // ==========================================
+
   const listaVistorias = registrosRaw.map(v => ({
     ...v,
     data_formatada: v.data_vistoria ? new Date(v.data_vistoria).toLocaleDateString('pt-BR') : 'N/D',
@@ -73,7 +98,11 @@ export default function Dashboard() {
     ? listaVistorias 
     : listaVistorias.filter(r => (r.equipe || "S/N") === equipeFiltrada);
 
-  // --- LÓGICA DE EXPORTAÇÃO EXCEL ---
+
+  // ==========================================
+  // RELATÓRIOS E EXPORTAÇÃO (EXCEL)
+  // ==========================================
+
   const exportarExcel = () => {
     try {
       const dadosParaExportar = dadosExibidos.map(reg => ({
@@ -82,7 +111,7 @@ export default function Dashboard() {
         'Equipe': reg.equipe,
         'Serviço': reg.tipo_servico || 'On Job',
         'Status': reg.status || 'Concluída',
-        'Observação': reg.observacao || '-',
+        'Observação': reg.observacao || '',
         'Localização': reg.localizacao_texto,
         'Total Fotos': reg.qtd_fotos
       }));
@@ -90,6 +119,7 @@ export default function Dashboard() {
       const ws = XLSX.utils.json_to_sheet(dadosParaExportar);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Vistorias");
+      
       const nomeArquivo = `Relatorio_${equipeFiltrada}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, nomeArquivo);
     } catch (error) {
@@ -98,7 +128,11 @@ export default function Dashboard() {
     }
   };
 
-  // --- FOTOS E MAPA ---
+
+  // ==========================================
+  // MÍDIA E GEOLOCALIZAÇÃO (FOTOS E MAPA)
+  // ==========================================
+
   const baixarFoto = async (path, placa) => {
     const { data } = supabase.storage.from('vistorias').getPublicUrl(path);
     try {
@@ -110,7 +144,9 @@ export default function Dashboard() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (err) { alert("Erro ao baixar foto"); }
+    } catch (err) { 
+      alert("Erro ao baixar foto"); 
+    }
   };
 
   const baixarTodasAsFotos = (fotos, placa) => {
@@ -121,22 +157,26 @@ export default function Dashboard() {
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    // CORREÇÃO: Adicionado o '$' antes das chaves na interpolação da URL do mapa
-    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=$/${encodeURIComponent(loc)}`;
+    const url = loc.includes('http') ? loc : `https://maps.google.com/?q=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
-  // --- EXCLUSÕES ---
+
+  // ==========================================
+  // ROTINAS DE EXCLUSÃO (DELETE)
+  // ==========================================
+
   async function removerVistoria(id) {
     if (!window.confirm(`Excluir este registro permanentemente?`)) return;
     try {
       const response = await fetch(`${API_URL}/Vistoria/${id}`, { method: 'DELETE' });
       if (response.ok) buscarDados();
       else alert("Erro ao excluir na API.");
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+    }
   }
 
-  // --- AJUSTE NA EXCLUSÃO EM MASSA ---
   async function excluirTudoEquipe() {
     if (equipeFiltrada === 'TODAS') return;
     const idsParaExcluir = dadosExibidos.map(reg => reg.id);
@@ -169,12 +209,17 @@ export default function Dashboard() {
     }
   }
 
-  // --- GRÁFICOS ---
+
+  // ==========================================
+  // INDICADORES E GRÁFICOS (RECHARTS)
+  // ==========================================
+
   const prodEquipe = listaVistorias.reduce((acc, curr) => {
     const eq = curr.equipe || "S/N";
     acc[eq] = (acc[eq] || 0) + 1;
     return acc;
   }, {});
+
   const graficoEquipe = Object.entries(prodEquipe).map(([name, value]) => ({ name: `Equipe ${name}`, value }));
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -183,12 +228,17 @@ export default function Dashboard() {
     return { bg: '#edf2f7', color: '#4a5568' };
   };
 
+
+  // ==========================================
+  // RENDERIZAÇÃO DA INTERFACE (MÉTODO RENDER)
+  // ==========================================
+
   if (loading) return <div style={styles.loading}>Carregando estatísticas...</div>;
 
   return (
     <div style={styles.pageWrapper}>
       
-      {/* MODAL DE FOTOS */}
+      {/* COMPONENTE: MODAL DE VISUALIZAÇÃO DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -213,7 +263,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* CARDS DE RESUMO */}
+      {/* COMPONENTE: CARDS SUPERIORES DE RESUMO */}
       <div style={styles.rowCards}>
         <div onClick={() => setEquipeFiltrada('TODAS')} style={{...styles.cardResumo, borderLeftColor: '#666', opacity: equipeFiltrada === 'TODAS' ? 1 : 0.6, cursor: 'pointer'}}>
           <small style={styles.cardLabel}>Geral</small>
@@ -227,7 +277,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* GRÁFICO E EXPORTAÇÃO */}
+      {/* COMPONENTE: ÁREA DO GRÁFICO DE PRODUTIVIDADE */}
       <div style={{...styles.gridGraficos, gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr'}}>
         <div style={{...styles.chartBoxFull, gridColumn: isMobile ? 'auto' : 'span 2'}}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
@@ -250,7 +300,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* PAINEL DE GESTÃO */}
+      {/* COMPONENTE: MENUS DE CONTROLE DE EXCLUSÃO EM MASSA */}
       {equipeFiltrada !== 'TODAS' && (
         <div style={styles.panelAcoes}>
           <div style={styles.panelAcoesInfo}>
@@ -261,7 +311,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* TABELA / CARDS */}
+      {/* COMPONENTE: VISUALIZAÇÃO DOS REGISTROS (TABELA OU CARDS MOBILE) */}
       <div style={styles.tableWrapper}>
         {isMobile ? (
           <div style={styles.mobileList}>
@@ -332,7 +382,11 @@ export default function Dashboard() {
   );
 }
 
-// --- ESTILOS MANTIDOS ---
+
+// ==========================================
+// ESTILOS CSS-IN-JS
+// ==========================================
+
 const styles = {
   loading: { padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh' },
   pageWrapper: { minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
