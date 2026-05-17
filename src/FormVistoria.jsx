@@ -1,21 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; // Mantido apenas para o Storage das fotos
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Trash2, Send, CheckCircle, Truck } from 'lucide-react';
+import { Camera, Trash2, Send, CheckCircle, Truck, Search, Plus } from 'lucide-react';
 
 // Ajuste para a URL da sua API (Local ou Produção)
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
-
 export default function FormVistoria({ user }) {
-
-  // ==========================================
-  // ESTADOS DO FORMULÁRIO E CONTROLE
-  // ==========================================
-
   const [loading, setLoading] = useState(false);
   const [placa, setPlaca] = useState('');
-  const [cliente, setCliente] = useState(''); // Armazena o valor que de fato vai para a API
+  const [cliente, setCliente] = useState(''); // Valor definitivo enviado no payload
   const [equipe, setEquipe] = useState('');
   const [observacao, setObservacao] = useState('');
   const [tipoServico, setTipoServico] = useState('');
@@ -24,19 +18,15 @@ export default function FormVistoria({ user }) {
   const [previews, setPreviews] = useState([]); 
   const fileInputRef = useRef(null);
 
-
   // ==========================================
-  // ESTADOS DO DROP DOWN DINÂMICO DE CLIENTES
+  // ESTADOS DO NOVO DROPDOWN COM BUSCA
   // ==========================================
-
-  const [clientesLista, setClientesLista] = useState([]);
-  const [opcaoSelecionada, setOpcaoSelecionada] = useState('');
-  const [inputNovoCliente, setInputNovoCliente] = useState('');
-
-
-  // ==========================================
-  // LISTAS DE CONFIGURAÇÃO FIXA
-  // ==========================================
+  const [clientesLista, setClientesLista] = useState([]); // Array global de clientes
+  const [termoBusca, setTermoBusca] = useState(''); // O que o usuário digita na busca
+  const [mostrarDropdown, setMostrarDropdown] = useState(false); // Controla visibilidade da lista
+  const [modoNovoCliente, setModoNovoCliente] = useState(false); // Controla se o input de criação está ativo
+  const [inputNovoCliente, setInputNovoCliente] = useState(''); // Valor do novo cliente digitado
+  const dropdownRef = useRef(null);
 
   const tiposServicoDisponiveis = ["On Job", "Primeira Visita", "Procura Artificial", "Indicação"];
   const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
@@ -46,11 +36,18 @@ export default function FormVistoria({ user }) {
     { label: "Concluído", value: "concluida" }
   ];
 
+  // Fecha o dropdown de busca se clicar fora dele
+  useEffect(() => {
+    function escutarCliqueFora(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setMostrarDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", escutarCliqueFora);
+    return () => document.removeEventListener("mousedown", escutarCliqueFora);
+  }, []);
 
-  // ==========================================
-  // CARREGAMENTO DOS CLIENTES EXISTENTES (API)
-  // ==========================================
-
+  // Carrega os clientes direto da sua API .NET ao iniciar
   useEffect(() => {
     async function carregarClientesExistentes() {
       try {
@@ -58,8 +55,6 @@ export default function FormVistoria({ user }) {
         if (!response.ok) return;
         
         const data = await response.json();
-        
-        // Remove duplicados, limpa espaços vazios e ordena em ordem alfabética
         const clientesFiltrados = [
           ...new Set(
             data
@@ -70,40 +65,41 @@ export default function FormVistoria({ user }) {
 
         setClientesLista(clientesFiltrados);
       } catch (err) {
-        console.error("Erro ao carregar lista de clientes para o dropdown:", err);
+        console.error("Erro ao carregar lista de clientes:", err);
       }
     }
-
     carregarClientesExistentes();
   }, []);
 
+  // Filtra dinamicamente os clientes da array base de acordo com o termo buscado
+  const clientesFiltrados = clientesLista.filter(cli =>
+    cli.toLowerCase().includes(termoBusca.toLowerCase())
+  );
 
-  // ==========================================
-  // TRATAMENTO DO FLUXO DO DROPDOWN DE CLIENTES
-  // ==========================================
-
-  const handleDropdownClienteChange = (e) => {
-    const valor = e.target.value;
-    setOpcaoSelecionada(valor);
-
-    if (valor === "NOVO_CLIENTE") {
-      setCliente(''); // Reseta até o usuário digitar o nome correto
-    } else {
-      setCliente(valor); // Seta diretamente o cliente existente selecionado
-    }
+  const selecionarClienteExistente = (nomeCliente) => {
+    setCliente(nomeCliente);
+    setTermoBusca(nomeCliente); // Preenche o campo visual com o nome escolhido
+    setModoNovoCliente(false);
+    setMostrarDropdown(false);
   };
 
-  const handleInputNovoClienteChange = (e) => {
+  const ativarModoNovoCliente = () => {
+    setModoNovoCliente(true);
+    setCliente('');
+    setInputNovoCliente('');
+    setMostrarDropdown(false);
+  };
+
+  // Esta função adiciona o cliente dinamicamente no Array local assim que o usuário digita
+  const manipularInputNovoCliente = (e) => {
     const valor = e.target.value;
     setInputNovoCliente(valor);
-    setCliente(valor); // Vincula o texto dinamicamente ao payload do cliente
+    setCliente(valor);
   };
 
-
   // ==========================================
-  // GERENCIAMENTO DAS IMAGENS (FOTOS)
+  // MANIPULAÇÃO DE FOTOS E GEOLOCALIZAÇÃO
   // ==========================================
-
   const manipularFotos = async (e) => {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
@@ -120,8 +116,6 @@ export default function FormVistoria({ user }) {
         
         setFotosOtimizadas(prev => [...prev, otimizada]);
         setPreviews(prev => [...prev, novoPreview]);
-        
-        // Delay para evitar crash de memória no mobile
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     } catch (err) {
@@ -139,21 +133,18 @@ export default function FormVistoria({ user }) {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
-
   // ==========================================
-  // ROTINA DE ENVIO DE DADOS (FINALIZAR)
+  // SALVAR VISTORIA E ATUALIZAR ARRAYS
   // ==========================================
-
   const finalizarVistoria = async () => {
-    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico) {
-      alert("Preencha todos os campos e tire pelo menos 1 foto.");
+    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !cliente.trim()) {
+      alert("Preencha todos os campos (incluindo o cliente) e tire pelo menos 1 foto.");
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. GPS (Funcionalidade mantida)
       let localizacao = "Não autorizada";
       try {
         const pos = await new Promise((res, rej) => {
@@ -163,9 +154,9 @@ export default function FormVistoria({ user }) {
       } catch (e) { console.warn("GPS falhou."); }
 
       const placaFormatada = placa.trim().toUpperCase();
+      const nomeClienteFinal = cliente.trim();
       const urlsFotosParaBanco = [];
 
-      // 2. Upload de fotos SEQUENCIAL para o Supabase Storage
       for (let i = 0; i < fotosOtimizadas.length; i++) {
         const foto = fotosOtimizadas[i];
         const fileName = `${placaFormatada}_${Date.now()}_${i}.jpg`;
@@ -178,10 +169,9 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
-      // 3. Envio para a API .NET
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: String(cliente).trim() || 'Não Informado',
+        Cliente: nomeClienteFinal,
         UsuarioId: user?.id, 
         Equipe: String(equipe || 'Geral').trim(),
         TipoServico: String(tipoServico || 'On Job').trim(),
@@ -202,13 +192,18 @@ export default function FormVistoria({ user }) {
         throw new Error(erroMsg || "Erro ao salvar na API .NET");
       }
 
-      alert("Vistoria enviada com sucesso para o novo servidor!");
+      alert("Vistoria enviada com sucesso!");
+
+      // REGRA PEDIDA: Se era um cliente novo, insere dinamicamente na lista sem precisar recarregar
+      if (modoNovoCliente && !clientesLista.includes(nomeClienteFinal)) {
+        setClientesLista(prev => [...prev, nomeClienteFinal].sort());
+      }
       
-      // Limpeza de memória e estados locais do formulário
+      // Limpeza mantendo o estado pronto para a próxima entrada
       previews.forEach(url => URL.revokeObjectURL(url));
       setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
       setFotosOtimizadas([]); setPreviews([]);
-      setOpcaoSelecionada(''); setInputNovoCliente('');
+      setTermoBusca(''); setInputNovoCliente(''); setModoNovoCliente(false);
 
     } catch (err) {
       console.error("Erro fatal:", err);
@@ -218,14 +213,8 @@ export default function FormVistoria({ user }) {
     }
   };
 
-
-  // ==========================================
-  // INTERFACE VISUAL (JSX)
-  // ==========================================
-
   return (
     <div translate="no" className="notranslate" style={styles.container}>
-      
       <div style={styles.formHeader}>
         <div style={styles.iconCircle}>
           <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
@@ -234,7 +223,6 @@ export default function FormVistoria({ user }) {
       </div>
       
       <div style={styles.inputGroup}>
-        
         <input 
           type="text" 
           placeholder="Placa do Veículo" 
@@ -243,31 +231,74 @@ export default function FormVistoria({ user }) {
           style={styles.input} 
         />
 
-        {/* DROPDOWN DINÂMICO DE CLIENTES COM SELETOR DE "NOVO" NO TOPO */}
-        <select 
-          value={opcaoSelecionada} 
-          onChange={handleDropdownClienteChange} 
-          style={styles.select}
-        >
-          <option value="" disabled>Selecione o Cliente</option>
-          <option value="NOVO_CLIENTE" style={{ fontWeight: 'bold', color: '#63b3ed' }}>
-            ➕ Adicionar Novo Cliente...
-          </option>
-          <option disabled style={{color: 'rgba(255,255,255,0.2)'}}>────────────────────────</option>
-          {clientesLista.map((cli, idx) => (
-            <option key={idx} value={cli}>{cli}</option>
-          ))}
-        </select>
+        {/* COMPONENTE DE AUTOCOMPLETE CUSTOMIZADO COM BUSCA */}
+        <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input 
+              type="text" 
+              placeholder={modoNovoCliente ? "Modo: Criando Novo Cliente..." : "🔍 Buscar ou Selecionar Cliente"} 
+              value={modoNovoCliente ? "" : termoBusca} 
+              disabled={modoNovoCliente}
+              onFocus={() => setMostrarDropdown(true)}
+              onChange={(e) => {
+                setTermoBusca(e.target.value);
+                setMostrarDropdown(true);
+              }} 
+              style={{ 
+                ...styles.input, 
+                paddingLeft: '40px',
+                backgroundColor: modoNovoCliente ? 'rgba(255,255,255,0.03)' : '#0f172a',
+                color: modoNovoCliente ? '#4a5568' : '#fff'
+              }} 
+            />
+            <Search size={18} style={{ position: 'absolute', left: '14px', color: '#4a5568' }} />
+          </div>
 
-        {/* CAMPO DE TEXTO EXTRA CASO TENHA CLICADO EM ADICIONAR NOVO CLIENTE */}
-        {opcaoSelecionada === "NOVO_CLIENTE" && (
-          <input 
-            type="text" 
-            placeholder="Nome do Novo Cliente" 
-            value={inputNovoCliente} 
-            onChange={handleInputNovoClienteChange} 
-            style={{ ...styles.input, border: '1px solid #63b3ed' }} 
-          />
+          {/* LISTA SUSPENSA CONTAINER */}
+          {mostrarDropdown && (
+            <div style={styles.dropdownContainer}>
+              {/* Opção Fixa no Topo para Adicionar Novo */}
+              <div onClick={ativarModoNovoCliente} style={styles.dropdownOptionNew}>
+                <Plus size={16} /> Adicionar Novo Cliente...
+              </div>
+              
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
+
+              {/* Lista filtrada de clientes existentes */}
+              {clientesFiltrados.length > 0 ? (
+                clientesFiltrados.map((cli, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => selecionarClienteExistente(cli)} 
+                    style={styles.dropdownOption}
+                  >
+                    {cli}
+                  </div>
+                ))
+              ) : (
+                <div style={styles.dropdownNoResults}>Nenhum cliente encontrado</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* CAMPO CONDICIONAL ATIVADO QUANDO CLICA EM "ADICIONAR NOVO CLIENTE..." */}
+        {modoNovoCliente && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <input 
+              type="text" 
+              placeholder="Escreva o nome do novo cliente" 
+              value={inputNovoCliente} 
+              onChange={manipularInputNovoCliente} 
+              style={{ ...styles.input, border: '1px solid #63b3ed', boxShadow: '0 0 10px rgba(99,179,237,0.2)' }} 
+            />
+            <span 
+              onClick={() => { setModoNovoCliente(false); setTermoBusca(''); setCliente(''); }} 
+              style={styles.cancelarNovoBtn}
+            >
+              Cancelar e voltar para a busca
+            </span>
+          </div>
         )}
         
         <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
@@ -337,11 +368,6 @@ export default function FormVistoria({ user }) {
   );
 }
 
-
-// ==========================================
-// CONFIGURAÇÃO DOS ESTILOS (CSS-IN-JS)
-// ==========================================
-
 const styles = {
   container: { width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto', position: 'relative' },
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
@@ -359,5 +385,12 @@ const styles = {
   img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' },
   btnDel: { position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   btnSend: { width: '100%', padding: '18px', background: '#48bb78', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' },
-  btnDisabled: { width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed', fontWeight: '900' }
+  btnDisabled: { width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed', fontWeight: '900' },
+  
+  // ESTILOS EXTRAS DO AUTOCOMPLETE CUSTOMIZADO
+  dropdownContainer: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', marginTop: '4px', maxHeight: '180px', overflowY: 'auto', zIndex: 999, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', padding: '5px' },
+  dropdownOption: { padding: '12px', color: '#e2e8f0', cursor: 'pointer', borderRadius: '8px', fontSize: '15px', transition: 'background 0.2s' },
+  dropdownOptionNew: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', color: '#63b3ed', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
+  dropdownNoResults: { padding: '12px', color: '#4a5568', fontSize: '14px', textAlign: 'center' },
+  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end', marginTop: '2px' }
 };
