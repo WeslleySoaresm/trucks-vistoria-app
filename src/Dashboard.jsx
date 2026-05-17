@@ -33,16 +33,25 @@ export default function Dashboard() {
       
       const data = await response.json();
       
-      const dataFormatada = data.map(v => ({
-        ...v,
-        id: v.id,
-        data_vistoria: v.dataCriacao, 
-        funcionario_email: v.usuarioId,
-        cliente_nome: v.cliente || "Não Informado",
-        localizacao_texto: v.localizacao || "Não autorizada",
-        tipo_servico: v.tipoServico,
-        evidencias_lista: v.evidencias || [] 
-      }));
+      const dataFormatada = data.map(v => {
+        // CORREÇÃO: Remove a tag feia do Admin de dentro da observação
+        let obsLimpa = v.observacao || "";
+        if (obsLimpa.includes("[Enviado por Admin")) {
+          obsLimpa = obsLimpa.replace(/\[Enviado por Admin.*?\]\s*/g, "");
+        }
+
+        return {
+          ...v,
+          id: v.id,
+          data_vistoria: v.dataCriacao, 
+          funcionario_email: v.usuarioId,
+          cliente_nome: v.cliente || "Não Informado",
+          localizacao_texto: v.localizacao || "Não autorizada",
+          tipo_servico: v.tipoServico,
+          observacao: obsLimpa.trim() || "-", // Aplica o texto limpo na tabela e no Excel
+          evidencias_lista: v.evidencias || [] 
+        };
+      });
 
       setRegistrosRaw(dataFormatada);
     } catch (error) {
@@ -112,7 +121,8 @@ export default function Dashboard() {
 
   const abrirMapa = (loc) => {
     if (!loc || loc === "Não autorizada") return alert("Localização não disponível.");
-    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+    // CORREÇÃO: Adicionado o '$' antes das chaves na interpolação da URL do mapa
+    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=$/${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
@@ -137,8 +147,7 @@ export default function Dashboard() {
 
     try {
       setLoading(true);
-      // Ajuste: URL específica para ação em massa para evitar conflito com DELETE individual
-      const response = await fetch(`${API_URL}/Vistoria/acoes/excluir-massa`,{
+      const response = await fetch(`${API_URL}/Vistoria/acoes/excluir-massa`, {
         method: 'DELETE',
         headers: { 
           'Content-Type': 'application/json' 
@@ -265,7 +274,7 @@ export default function Dashboard() {
                 <div style={{fontSize: '13px', color: '#cbd5e0', marginBottom: '10px'}}>
                   <div>📅 {reg.data_formatada}</div>
                   <div>🛠️ {reg.tipo_servico || 'On Job'}</div>
-                  <div style={{marginTop: '5px', fontStyle: 'italic'}}>📝 {reg.observacao || 'Sem obs.'}</div>
+                  <div style={{marginTop: '5px', fontStyle: 'italic'}}>📝 {reg.observacao}</div>
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
                   <button onClick={() => setFotosModal({fotos: reg.todas_fotos, placa: reg.placa})} style={styles.btnActionMobile}>📷 {reg.qtd_fotos}</button>
@@ -303,7 +312,7 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td style={{...styles.td, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
-                      {reg.observacao || '-'}
+                      {reg.observacao}
                     </td>
                     <td style={styles.td}>
                       <div style={{display: 'flex', gap: '8px'}}>
