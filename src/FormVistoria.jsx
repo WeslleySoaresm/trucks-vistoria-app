@@ -189,9 +189,7 @@ export default function FormVistoria({ user }) {
         Localizacao: String(localizacao).trim(),
         Status: String(status).trim(),
         // 🔥 CORREÇÃO: Enviando uma lista de objetos estruturados, e não strings puras
-        Evidencias: urlsFotosParaBanco.map(path => ({
-          UrlFoto: String(path)
-        }))
+        Evidencias: urlsFotosParaBanco.map(path => String(path))
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {
