@@ -36,8 +36,8 @@ export default function Dashboard() {
       const dataFormatada = data.map(v => {
         // CORREÇÃO: Remove a tag feia do Admin de dentro da observação
         let obsLimpa = v.observacao || "";
-        if (obsLimpa.includes("[Enviado por Admin")) {
-          obsLimpa = obsLimpa.replace(/\[Enviado por Admin.*?\]\s*/g, "");
+        if (obsLimpa.includes("[Admin Autenticado")) {
+          obsLimpa = obsLimpa.replace(/\[Admin Autenticado.*?\]\s*/g, "");
         }
 
         return {
