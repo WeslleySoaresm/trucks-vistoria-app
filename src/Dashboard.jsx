@@ -55,10 +55,14 @@ export default function Dashboard() {
       const dataFormatada = data.map(v => {
         let obsLimpa = v.observacao || "";
 
-        // Remove a tag técnica do Admin preservando o que foi digitado no input
+        // Remove a tag do sistema independentemente do ID gerado
         if (obsLimpa.includes("[Admin Autenticado")) {
           obsLimpa = obsLimpa.replace(/\[Admin Autenticado.*?\]\s*/g, "");
         }
+
+        // Garante a regra de negócio exata pedida:
+        // Se ficou vazio, exibe o traço "-". Se o usuário digitou algo, mantém o texto limpo.
+        const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "-";
 
         return {
           ...v,
@@ -68,8 +72,7 @@ export default function Dashboard() {
           cliente_nome: v.cliente || "Não Informado",
           localizacao_texto: v.localizacao || "Não autorizada",
           tipo_servico: v.tipoServico,
-          // Se o usuário digitou algo, mantém o texto. Se não digitou nada, deixa em branco ("")
-          observacao: obsLimpa.trim(), 
+          observacao: observacaoFinal, 
           evidencias_lista: v.evidencias || [] 
         };
       });
@@ -81,7 +84,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   }
-
 
   // ==========================================
   // PROCESSAMENTO E FILTROS DE DADOS
