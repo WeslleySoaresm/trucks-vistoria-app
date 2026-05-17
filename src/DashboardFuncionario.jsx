@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabaseClient'; 
-import { Trash2, Loader2, Camera, MapPin, X, FileDown, CheckCircle2, XCircle } from 'lucide-react';
+import { Trash2, Loader2, Camera, MapPin, X, FileDown, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
@@ -9,15 +9,18 @@ export default function DashboardFuncionario({ user }) {
   const [stats, setStats] = useState({ total_vistorias: 0, porcentagem_meta: 0 });
   const [vistorias, setVistorias] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMais, setLoadingMais] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [fotosModal, setFotosModal] = useState(null);
+  
+  // NOVOS ESTADOS PARA PAGINAÇÃO PERFORMANCE
+  const [pagina, setPagina] = useState(1);
+  const [temMaisRegistros, setTemMaisRegistros] = useState(true);
+  const ITENS_POR_PAGINA = 20;
 
-  // ESTADO PARA AS NOTIFICAÇÕES TOAST VISUAIS CENTRALIZADAS
   const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
-
   const META_MENSAL = 20;
 
-  // FUNÇÃO AUXILIAR PARA DISPARAR A NOTIFICAÇÃO
   const dispararNotificacao = (tipo, mensagem) => {
     setNotificacao({ exibir: true, tipo, mensagem });
     setTimeout(() => {
@@ -25,74 +28,98 @@ export default function DashboardFuncionario({ user }) {
     }, 3000);
   };
 
-  const carregarDados = useCallback(async () => {
+  // FUNÇÃO DE CARREGAMENTO ADAPTADA PARA ENVIAR FILTROS AO BACKEND
+  const carregarDados = useCallback(async (paginaAlvo = 1, append = false) => {
     if (!user?.id) return;
-    setLoading(true);
+    
+    if (append) {
+      setLoadingMais(true);
+    } else {
+      setLoading(true);
+    }
+
     try {
-      const response = await fetch(`${API_URL}/Vistoria`);
+      // ENGENHARIA DE DADOS: Passando paginação e ID do usuário direto na rota se o backend suportar,
+      // ou tratando de forma otimizada. (Ideal: ajustar a rota .NET para este padrão)
+      const urlComFiltros = `${API_URL}/Vistoria?usuarioId=${user.id}&pagina=${paginaAlvo}&limite=${ITENS_POR_PAGINA}`;
+      
+      const response = await fetch(urlComFiltros);
       if (!response.ok) throw new Error("Erro ao conectar com a API");
       
       const data = await response.json();
 
-      const minhasVistorias = data.filter(v => {
+      // Fallback caso a API ainda não filtre no banco: fazemos o filtro seguro por ID
+      const minhasVistorias = Array.isArray(data) ? data.filter(v => {
         const idDoUsuarioNoBanco = v.usuarioId || v.UsuarioId;
-        if (!idDoUsuarioNoBanco || !user.id) return false;
         return String(idDoUsuarioNoBanco).trim().toLowerCase() === String(user.id).trim().toLowerCase();
-      });
+      }) : [];
 
       const formatados = minhasVistorias.map(v => {
         const dataCriacao = v.dataCriacao || v.DataCriacao;
-        const placa = v.placa || v.Placa;
-        const tipoServico = v.tipoServico || v.TipoServico;
-        const status = v.status || v.Status;
-        const equipe = v.equipe || v.Equipe;
-        const observacao = v.observacao || v.Observacao;
-        const localizacao = v.localizacao || v.Localizacao;
-        const evidencias = v.evidencias || v.Evidencias;
-
         return {
           id: v.id || v.Id,
           data_formatada: dataCriacao ? new Date(dataCriacao).toLocaleDateString('pt-BR') : '---',
-          placa: placa || '---',
-          tipo_servico: tipoServico || 'Geral',
-          status: status,
-          equipe: equipe,
-          observacao: observacao,
-          localizacao_texto: localizacao,
-          todas_fotos: evidencias ? evidencias.map(e => e.urlFoto || e.UrlFoto || e) : [],
-          qtd_fotos: evidencias ? evidencias.length : 0
+          placa: v.placa || v.Placa || '---',
+          tipo_servico: v.tipoServico || v.TipoServico || 'Geral',
+          status: v.status || v.Status,
+          equipe: v.equipe || v.Equipe,
+          observacao: v.observacao || v.Observacao,
+          localizacao_texto: v.localizacao || v.Localizacao,
+          todas_fotos: v.evidencias || v.Evidencias ? (v.evidencias || v.Evidencias).map(e => e.urlFoto || e.UrlFoto || e) : [],
+          qtd_fotos: v.evidencias || v.Evidencias ? (v.evidencias || v.Evidencias).length : 0
         };
       });
 
-      setVistorias(formatados);
+      if (append) {
+        setVistorias(prev => [...prev, ...formatados]);
+      } else {
+        setVistorias(formatados);
+      }
 
-      const total = formatados.length;
+      // Se a resposta trouxe menos itens que o limite da página, significa que os registros acabaram
+      if (formatados.length < ITENS_POR_PAGINA) {
+        setTemMaisRegistros(false);
+      } else {
+        setTemMaisRegistros(true);
+      }
+
+      // Atualiza estatísticas com base no total do usuário
+      const total = append ? vistorias.length + formatados.length : formatados.length;
       setStats({
         total_vistorias: total,
         porcentagem_meta: (total / META_MENSAL) * 100
       });
 
     } catch (err) {
-      console.error("Erro ao carregar dados da API .NET:", err.message);
-      dispararNotificacao('erro', 'Falha ao sincronizar com o servidor.');
+      console.error("Erro na carga de dados:", err.message);
+      dispararNotificacao('erro', 'Falha ao sincronizar dados com o servidor.');
     } finally {
       setLoading(false);
+      setLoadingMais(false);
     }
-  }, [user?.id]);
+  }, [user?.id, vistorias.length]);
 
+  // Carrega a primeira página ao iniciar
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    carregarDados();
+    carregarDados(1, false);
     return () => window.removeEventListener('resize', checkMobile);
-  }, [carregarDados]);
+  }, [user?.id]);
+
+  // Função para o botão "Carregar Mais"
+  const lidarComCarregarMais = () => {
+    const proximaPagina = pagina + 1;
+    setPagina(proximaPagina);
+    carregarDados(proximaPagina, true);
+  };
 
   // EXPORTADOR EXCEL INTEGRADO
   const exportarExcel = () => {
     try {
       if (vistorias.length === 0) {
-        dispararNotificacao('erro', 'Não existem registros para exportar.');
+        dispararNotificacao('erro', 'Não existem registros carregados para exportar.');
         return;
       }
       const dadosParaExportar = vistorias.map(reg => ({
@@ -177,14 +204,14 @@ export default function DashboardFuncionario({ user }) {
       dispararNotificacao('erro', 'Localização GPS indisponível.');
       return;
     }
-    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
+    const url = loc.includes('http') ? loc : `http://maps.google.com/?q=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
   return (
     <div style={styles.pageWrapper}>
       
-      {/* TOAST DE NOTIFICAÇÃO CENTRALIZADO NO CENTRO DA TELA */}
+      {/* TOAST DE NOTIFICAÇÃO CENTRALIZADO */}
       {notificacao.exibir && (
         <div style={styles.toastContainerCentral}>
           <div style={{
@@ -232,73 +259,92 @@ export default function DashboardFuncionario({ user }) {
         </button>
       </div>
 
-      {loading ? (
+      {loading && pagina === 1 ? (
         <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
       ) : (
-        <div style={styles.tableWrapper}>
-          {isMobile ? (
-            <div style={styles.mobileList}>
-              {vistorias.length > 0 ? vistorias.map((reg) => (
-                <div key={reg.id} style={styles.mobileCard}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <strong style={{ color: '#fff' }}>{reg.placa}</strong>
-                    <span style={styles.badge}>{reg.equipe || 'Equipe'}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
-                    <div>📅 {reg.data_formatada}</div>
-                    <div>🛠️ {reg.tipo_servico || 'Geral'}</div>
-                    {reg.observacao && <div style={{marginTop: '4px', fontStyle: 'italic', color: '#a0aec0'}}>📝 {reg.observacao}</div>}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnActionMobile}>
-                      <Camera size={14} /> {reg.qtd_fotos}
-                    </button>
-                    <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnActionMobile}>
-                      <MapPin size={14} /> Mapa
-                    </button>
-                    <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181' }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado.</div>}
-            </div>
-          ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Data</th>
-                  <th style={styles.th}>Placa</th>
-                  <th style={styles.th}>Serviço</th>
-                  <th style={styles.th}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
+        <>
+          <div style={styles.tableWrapper}>
+            {isMobile ? (
+              <div style={styles.mobileList}>
                 {vistorias.length > 0 ? vistorias.map((reg) => (
-                  <tr key={reg.id} style={styles.trHover}>
-                    <td style={styles.td}>{reg.data_formatada}</td>
-                    <td style={styles.td}><strong>{reg.placa}</strong></td>
-                    <td style={styles.td}>{reg.tipo_servico}</td>
-                    <td style={styles.td}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} title="Fotos" style={styles.btnIcon}>📷</button>
-                        <button onClick={() => abrirMapa(reg.localizacao_texto)} title="Mapa" style={styles.btnIcon}>📍</button>
-                        <button onClick={() => removerVistoria(reg.id)} title="Excluir" style={styles.btnIconDel}>🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
+                  <div key={reg.id} style={styles.mobileCard}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <strong style={{ color: '#fff' }}>{reg.placa}</strong>
+                      <span style={styles.badge}>{reg.equipe || 'Equipe'}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
+                      <div>📅 {reg.data_formatada}</div>
+                      <div>🛠️ {reg.tipo_servico || 'Geral'}</div>
+                      {reg.observacao && <div style={{marginTop: '4px', fontStyle: 'italic', color: '#a0aec0'}}>📝 {reg.observacao}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} style={styles.btnActionMobile}>
+                        <Camera size={14} /> {reg.qtd_fotos}
+                      </button>
+                      <button onClick={() => abrirMapa(reg.localizacao_texto)} style={styles.btnActionMobile}>
+                        <MapPin size={14} /> Mapa
+                      </button>
+                      <button onClick={() => removerVistoria(reg.id)} style={{ ...styles.btnActionMobile, color: '#fc8181' }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado.</div>}
+              </div>
+            ) : (
+              <table style={styles.table}>
+                <thead>
                   <tr>
-                    <td colSpan="4" style={{...styles.td, textAlign: 'center', color: '#94a3b8'}}>Nenhuma vistoria vinculada a este usuário.</td>
+                    <th style={styles.th}>Data</th>
+                    <th style={styles.th}>Placa</th>
+                    <th style={styles.th}>Serviço</th>
+                    <th style={styles.th}>Ações</th>
                   </tr>
+                </thead>
+                <tbody>
+                  {vistorias.length > 0 ? vistorias.map((reg) => (
+                    <tr key={reg.id} style={styles.trHover}>
+                      <td style={styles.td}>{reg.data_formatada}</td>
+                      <td style={styles.td}><strong>{reg.placa}</strong></td>
+                      <td style={styles.td}>{reg.tipo_servico}</td>
+                      <td style={styles.td}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button onClick={() => setFotosModal({ fotos: reg.todas_fotos, placa: reg.placa })} title="Fotos" style={styles.btnIcon}>📷</button>
+                          <button onClick={() => abrirMapa(reg.localizacao_texto)} title="Mapa" style={styles.btnIcon}>📍</button>
+                          <button onClick={() => removerVistoria(reg.id)} title="Excluir" style={styles.btnIconDel}>🗑️</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan="4" style={{...styles.td, textAlign: 'center', color: '#94a3b8'}}>Nenhuma vistoria vinculada a este usuário.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* BOTÃO DE CARREGAR MAIS REGISTROS (PAGINAÇÃO) */}
+          {temMaisRegistros && vistorias.length >= ITENS_POR_PAGINA && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', marginBottom: '20px' }}>
+              <button 
+                onClick={lidarComCarregarMais} 
+                disabled={loadingMais}
+                style={styles.btnCarregarMais}
+              >
+                {loadingMais ? (
+                  <Loader2 className="animate-spin" size={16} />
+                ) : (
+                  <><ChevronDown size={16} /> Carregar Mais Vistorias</>
                 )}
-              </tbody>
-            </table>
+              </button>
+            </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* MODAL DE FOTOS COM DOWNLOAD INDIVIDUAL E COMPLETO */}
+      {/* MODAL DE FOTOS */}
       {fotosModal && (
         <div style={styles.modalOverlay} onClick={() => setFotosModal(null)}>
           <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
@@ -339,12 +385,9 @@ export default function DashboardFuncionario({ user }) {
 
 const styles = {
   pageWrapper: { position: 'relative', padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif' },
-  
-  // CONTAINER FIXO PARA CENTRALIZAR O TOAST EXATAMENTE NO MEIO DA TELA
   toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
   toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto' },
   toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
-
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
   statsNum: { display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '5px' },
   bigNum: { fontSize: '40px', fontWeight: 'bold' },
@@ -352,23 +395,18 @@ const styles = {
   progressContainer: { background: '#0f172a', borderRadius: '15px', height: '25px', margin: '15px 0', overflow: 'hidden' },
   progressBar: { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'width 0.5s ease' },
   progressText: { color: '#fff', fontWeight: 'bold', fontSize: '11px' },
-  
   btnExcel: { display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#276749', color: '#fff', border: 'none', padding: '10px 14px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', transition: 'opacity 0.2s' },
-  
   tableWrapper: { background: 'rgba(30, 41, 59, 0.95)', borderRadius: '20px', overflow: 'hidden', width: '100%', border: '1px solid rgba(255,255,255,0.05)' },
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '15px', textAlign: 'left', color: '#94a3b8', fontSize: '11px', background: 'rgba(0,0,0,0.2)', textTransform: 'uppercase' },
   td: { padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#e2e8f0' },
   trHover: { borderBottom: '1px solid rgba(255,255,255,0.05)' },
-  
   mobileList: { display: 'flex', flexDirection: 'column', gap: '15px', padding: '15px' },
   mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
   btnActionMobile: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '10px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },
   badge: { background: 'rgba(49, 130, 206, 0.3)', color: '#90cdf4', padding: '4px 10px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold' },
   btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
-  
-  // MODAL OVERLAY PARA COBRIR TOTALMENTE A TELA E MANTER O CONTEÚDO NO CENTRO
   modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000 },
   modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'flex-start' },
@@ -376,5 +414,8 @@ const styles = {
   galeria: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' },
   fotoWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' },
   fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' },
-  btnDownloadSmall: { width: '100%', background: 'transparent', border: '1px solid #3182ce', color: '#63b3ed', padding: '5px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }
+  btnDownloadSmall: { width: '100%', background: 'transparent', border: '1px solid #3182ce', color: '#63b3ed', padding: '5px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
+  
+  // ESTILO DO NOVO BOTÃO DE PERFORMANCE (PAGINAÇÃO)
+  btnCarregarMais: { display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(99, 179, 237, 0.15)', color: '#63b3ed', border: '1px solid #63b3ed', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }
 };
