@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; 
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Search, Plus, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { Camera, Search, Plus, CheckCircle2, XCircle, ArrowRight, WifiOff } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
@@ -17,7 +17,7 @@ export default function FormVistoria({ user }) {
   const [previews, setPreviews] = useState([]); 
   const fileInputRef = useRef(null);
 
-  // NOTIFICAÇÃO CENTRALIZADA CORRIGIDA
+  // NOTIFICAÇÃO CENTRALIZADA
   const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
 
   // ESTADOS DO DROPDOWN DINÂMICO
@@ -36,7 +36,6 @@ export default function FormVistoria({ user }) {
     { label: "Concluído", value: "concluida" }
   ];
   
-  // FUNÇÃO AUXILIAR PARA DISPARAR A NOTIFICAÇÃO VISUAL
   const dispararNotificacao = (tipo, mensagem) => {
     setNotificacao({ exibir: true, tipo, mensagem });
     setTimeout(() => {
@@ -54,7 +53,7 @@ export default function FormVistoria({ user }) {
     return () => document.removeEventListener("mousedown", escutarCliqueFora);
   }, []);
 
-  // 1. CARREGAR CLIENTES DA NOVA TABELA FIXA (api/Clientes)
+  // CARREGAR CLIENTES DA NOVA TABELA FIXA
   useEffect(() => {
     async function carregarClientesExistentes() {
       try {
@@ -73,6 +72,72 @@ export default function FormVistoria({ user }) {
       }
     }
     carregarClientesExistentes();
+  }, []);
+
+  // LÓGICA DE ENGENHARIA DE DADOS: AGENTE DE SINCRONIZAÇÃO AUTOMÁTICA (OFFLINE -> ONLINE)
+  useEffect(() => {
+    const processarFilaOffline = async () => {
+      if (!navigator.onLine) return;
+      
+      const fila = JSON.parse(localStorage.getItem('fila_vistorias_offline') || '[]');
+      if (fila.length === 0) return;
+
+      console.log(`[Sync] Conexão restaurada. Sincronizando ${fila.length} vistorias travadas...`);
+      dispararNotificacao('sucesso', `Sinal recuperado! Sincronizando ${fila.length} vistorias pendentes...`);
+
+      const filaRestante = [];
+
+      for (const vistoria of fila) {
+        try {
+          const urlsFotosParaBanco = [];
+
+          // 1. Faz o upload das fotos convertidas em Base64 para o Supabase
+          for (let i = 0; i < vistoria.fotosBase64.length; i++) {
+            const base64Data = vistoria.fotosBase64[i];
+            
+            // Decodifica a string Base64 de volta para Blob/File para o Supabase Storage
+            const res = await fetch(base64Data);
+            const blob = await res.blob();
+            
+            const fileName = `${vistoria.payload.Placa}_${Date.now()}_sync_${i}.jpg`;
+            const { data: upData, error: upError } = await supabase.storage
+              .from('vistorias')
+              .upload(fileName, blob);
+
+            if (upError) throw upError;
+            urlsFotosParaBanco.push(upData.path);
+          }
+
+          // 2. Vincula os caminhos oficiais de storage gerados no payload final
+          const payloadPronto = {
+            ...vistoria.payload,
+            Evidencias: urlsFotosParaBanco
+          };
+
+          // 3. Envia para a API principal do sistema (.NET)
+          const response = await fetch(`${API_URL}/Vistoria`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadPronto)
+          });
+
+          if (!response.ok) throw new Error("API recusou sincronização temporariamente");
+
+        } catch (error) {
+          console.error("[Sync] Erro ao sincronizar item da fila, mantendo armazenado:", error);
+          filaRestante.push(vistoria); // Se der erro, mantém no aparelho para tentar depois
+        }
+      }
+
+      localStorage.setItem('fila_vistorias_offline', JSON.stringify(filaRestante));
+      if (filaRestante.length === 0) {
+        dispararNotificacao('sucesso', 'Todos os registros de campo foram sincronizados!');
+      }
+    };
+
+    // Fica escutando as mudanças de rede do celular do funcionário em tempo real
+    window.addEventListener('online', processarFilaOffline);
+    return () => window.removeEventListener('online', processarFilaOffline);
   }, []);
 
   const clientesFiltrados = clientesLista.filter(cli =>
@@ -94,7 +159,6 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  // 2. GRAVAR O NOVO CLIENTE DE FORMA FIXA NO BANCO DE DADOS (POST api/Clientes)
   const confirmarEInserirClienteNaLista = async () => {
     const nomeFormatado = inputNovoCliente.trim().toUpperCase();
     if (!nomeFormatado) {
@@ -163,6 +227,14 @@ export default function FormVistoria({ user }) {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // FUNÇÃO DE CONVERSÃO DE ARQUIVO PARA STRING BASE64 (ESSENCIAL PARA CACHE LOCAL)
+  const converterParaBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+
   const finalizarVistoria = async () => {
     const nomeClienteFinal = cliente.trim().toUpperCase();
 
@@ -173,16 +245,66 @@ export default function FormVistoria({ user }) {
 
     setLoading(true);
 
+    // Captura GPS resiliente
+    let localizacao = "Não autorizada";
     try {
-      let localizacao = "Não autorizada";
-      try {
-        const pos = await new Promise((res, rej) => {
-          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000, enableHighAccuracy: false });
-        });
-        localizacao = `${pos.coords.latitude},${pos.coords.longitude}`;
-      } catch (e) { console.warn("GPS falhou."); }
+      const pos = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 4000, enableHighAccuracy: false });
+      });
+      localizacao = `${pos.coords.latitude},${pos.coords.longitude}`;
+    } catch (e) { console.warn("GPS indisponível."); }
 
-      const placaFormatada = placa.trim().toUpperCase();
+    const placaFormatada = placa.trim().toUpperCase();
+    const usuarioIdFinal = user?.id && user.id !== "Sistema" ? user.id : "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+
+    const payloadGeral = {
+      Placa: String(placaFormatada).trim(),
+      Cliente: nomeClienteFinal, 
+      ClienteNome: nomeClienteFinal,
+      clienteNome: nomeClienteFinal,
+      UsuarioId: usuarioIdFinal, 
+      Equipe: String(equipe).trim(),
+      TipoServico: String(tipoServico).trim(),
+      Observacao: String(observacao || '').trim(),
+      Localizacao: String(localizacao).trim(),
+      Status: String(status).trim()
+    };
+
+    // INTERCEPTADOR OFFLINE SE O SMARTPHONE FICAR SEM INTERNET
+    if (!navigator.onLine) {
+      try {
+        // Converte o pacote de fotos binárias para strings persistentes em localStorage
+        const fotosConvertidas = [];
+        for (const foto of fotosOtimizadas) {
+          const b64 = await converterParaBase64(foto);
+          fotosConvertidas.push(b64);
+        }
+
+        const vistoriaOffline = {
+          payload: payloadGeral,
+          fotosBase64: fotosConvertidas
+        };
+
+        const filaAtual = JSON.parse(localStorage.getItem('fila_vistorias_offline') || '[]');
+        filaAtual.push(vistoriaOffline);
+        localStorage.setItem('fila_vistorias_offline', JSON.stringify(filaAtual));
+
+        dispararNotificacao('sucesso', '⚠️ Modo Sem Sinal! Vistoria guardada localmente no celular.');
+
+        // Reseta o formulário limpando a memória com segurança
+        previews.forEach(url => URL.revokeObjectURL(url));
+        setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
+        setFotosOtimizadas([]); setPreviews([]); setTermoBusca(''); setInputNovoCliente(''); setModoNovoCliente(false);
+      } catch (err) {
+        dispararNotificacao('erro', 'Erro de persistência local ao salvar offline.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // FLUXO TRADICIONAL ONLINE (MANTIDO COMPLETO)
+    try {
       const urlsFotosParaBanco = [];
 
       for (let i = 0; i < fotosOtimizadas.length; i++) {
@@ -197,26 +319,15 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
-      const usuarioIdFinal = user?.id && user.id !== "Sistema" ? user.id : "3fa85f64-5717-4562-b3fc-2c963f66afa6";
-
-      const payload = {
-        Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal, 
-        ClienteNome: nomeClienteFinal,
-        clienteNome: nomeClienteFinal,
-        UsuarioId: usuarioIdFinal, 
-        Equipe: String(equipe).trim(),
-        TipoServico: String(tipoServico).trim(),
-        Observacao: String(observacao || '').trim(),
-        Localizacao: String(localizacao).trim(),
-        Status: String(status).trim(),
+      const payloadFinal = {
+        ...payloadGeral,
         Evidencias: urlsFotosParaBanco.map(path => String(path))
       };
 
       const response = await fetch(`${API_URL}/Vistoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payloadFinal)
       });
 
       if (!response.ok) {
@@ -246,7 +357,7 @@ export default function FormVistoria({ user }) {
   return (
     <div translate="no" className="notranslate" style={styles.container}>
       
-      {/* TOAST DE NOTIFICAÇÃO ADAPTADO - SUCESSO OU ERRO CENTRALIZADO NA TELA */}
+      {/* TOAST DE NOTIFICAÇÃO CENTRALIZADO */}
       {notificacao.exibir && (
         <div style={styles.toastContainerCentral}>
           <div style={{
@@ -373,7 +484,13 @@ export default function FormVistoria({ user }) {
       </div>
 
       <button onClick={finalizarVistoria} disabled={loading || fotosOtimizadas.length === 0} style={loading ? styles.btnDisabled : styles.btnSend}>
-        {loading ? "ENVIANDO DADOS..." : <><CheckCircle2 size={20} /> FINALIZAR ({fotosOtimizadas.length}/10)</>}
+        {loading ? "ENVIANDO DADOS..." : (
+          !navigator.onLine ? (
+            <><WifiOff size={20} /> SALVAR OFFLINE ({fotosOtimizadas.length}/10)</>
+          ) : (
+            <><CheckCircle2 size={20} /> FINALIZAR ({fotosOtimizadas.length}/10)</>
+          )
+        )}
       </button>
     </div>
   );
@@ -381,12 +498,9 @@ export default function FormVistoria({ user }) {
 
 const styles = {
   container: { position: 'relative', width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto' },
-  
-  // CONTAINER CENTRALIZADO DE ALTA FIELDA DE LAYOUT (CORRIGIDO)
   toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
   toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto' },
   toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
-
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
   formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
   iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
