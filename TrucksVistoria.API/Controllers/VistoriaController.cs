@@ -57,75 +57,46 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
         }
         catch (Exception exVeiculo) { Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}"); }
 
-        // 2. Tenta salvar a vistoria com o usuário enviado (Fluxo Normal)
+        // 2. Verificar antecipadamente se o utilizador existe na tabela local
+        var usuarioExiste = await _context.Set<Usuario>().AnyAsync(u => u.Id == usuarioGuid);
+        
+        Guid idParaSalvar = usuarioGuid;
+
+        // Se o utilizador não existir (caso do Admin do Supabase Auth que não está na tabela local)
+        if (!usuarioExiste)
+        {
+            // Tenta encontrar o primeiro utilizador da equipa que já funcione
+            var usuarioValido = await _context.Set<Usuario>().FirstOrDefaultAsync();
+            
+            // Se encontrar, usa o dele. Se não encontrar nenhum, usa o ID fixo do Administrador Central que criámos no SQL
+            idParaSalvar = usuarioValido != null ? usuarioValido.Id : Guid.Parse("99999999-9999-9999-9999-999999999999");
+        }
+
+        // 3. Montar o objeto da Vistoria com a Observação 100% LIMPA
         var novaVistoria = new Vistoria
         {
             Id = idVistoriaNova, 
             Placa = request.Placa,
-            UsuarioId = usuarioGuid, 
+            UsuarioId = idParaSalvar, 
             Equipe = request.Equipe ?? "Geral",
             TipoServico = request.TipoServico ?? "Geral",
-            Observacao = request.Observacao ?? "",
+            // Mantém APENAS o que o utilizador digitou no formulário. Se não digitou nada, fica vazio.
+            Observacao = request.Observacao ?? "", 
             Localizacao = request.Localizacao ?? "Não autorizada",
             Status = request.Status ?? "inicial",
             DataCriacao = DateTime.UtcNow
         };
 
-        try
-        {
-            _context.Vistorias.Add(novaVistoria);
-            
-            // Corrige Shadow Property do EF se existir
-            try {
-                if (_context.Entry(novaVistoria).Metadata.FindProperty("VeiculoPlaca") != null)
-                    _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
-            } catch { }
+        _context.Vistorias.Add(novaVistoria);
+        
+        try {
+            if (_context.Entry(novaVistoria).Metadata.FindProperty("VeiculoPlaca") != null)
+                _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
+        } catch { }
 
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException dbEx)
-        {
-            var erroInterno = dbEx.InnerException?.Message ?? dbEx.Message;
-            
-            // Se cair aqui, é porque o usuário (Ex: Admin) não existe na tabela Usuarios do PostgreSQL
-            if (erroInterno.Contains("FK_Vistorias_Usuarios_UsuarioId") || erroInterno.Contains("23503"))
-            {
-                _context.ChangeTracker.Clear(); // Limpa a transação corrompida
+        await _context.SaveChangesAsync();
 
-                // FALLBACK: Busca o ID de qualquer funcionário que já funciona para não perder a vistoria
-                var usuarioExistente = await _context.Set<Usuario>().FirstOrDefaultAsync();
-                Guid idSeguro = usuarioExistente != null ? usuarioExistente.Id : Guid.Parse("99999999-9999-9999-9999-999999999999");
-
-                var vistoriaFallback = new Vistoria
-                {
-                    Id = idVistoriaNova,
-                    Placa = request.Placa,
-                    UsuarioId = idSeguro, // Salva com o ID que o banco aceita
-                    Equipe = request.Equipe ?? "Geral",
-                    TipoServico = request.TipoServico ?? "Geral",
-                    // Deixa explícito na observação quem foi o Admin autor da vistoria
-                    Observacao = $"[Admin Autenticado - ID: {request.UsuarioId}] " + (request.Observacao ?? ""),
-                    Localizacao = request.Localizacao ?? "Não autorizada",
-                    Status = request.Status ?? "inicial",
-                    DataCriacao = DateTime.UtcNow
-                };
-
-                _context.Vistorias.Add(vistoriaFallback);
-
-                try {
-                    if (_context.Entry(vistoriaFallback).Metadata.FindProperty("VeiculoPlaca") != null)
-                        _context.Entry(vistoriaFallback).Property("VeiculoPlaca").CurrentValue = request.Placa;
-                } catch { }
-
-                await _context.SaveChangesAsync();
-            }
-            else
-            {
-                throw; // Se for outro erro, joga para o tratamento global
-            }
-        }
-
-        // 3. Salvar Evidências (Fotos)
+        // 4. Processamento das Evidências (Fotos)
         if (request.Evidencias != null && request.Evidencias.Any())
         {
             foreach (var fotoUrl in request.Evidencias)
@@ -144,6 +115,7 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
     }
     catch (Exception exGeral)
     {
+        _context.ChangeTracker.Clear();
         var erroInterno = exGeral.InnerException != null ? exGeral.InnerException.Message : exGeral.Message;
         return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
     }
