@@ -17,7 +17,7 @@ export default function FormVistoria({ user }) {
   const [previews, setPreviews] = useState([]); 
   const fileInputRef = useRef(null);
 
-  // NOTIFICAÇÃO ELEGANTE
+  // NOTIFICAÇÃO CENTRALIZADA CORRIGIDA
   const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
 
   // ESTADOS DO DROPDOWN DINÂMICO
@@ -63,7 +63,6 @@ export default function FormVistoria({ user }) {
         
         const data = await response.json();
         
-        // Mapeia extraindo a propriedade .nome ou .Nome que vem da nova API de Clientes
         const clientesFiltrados = data
           .map(c => (c.nome || c.Nome || "").toString().toUpperCase().trim())
           .filter(nome => nome !== "" && nome !== "NÃO INFORMADO");
@@ -105,7 +104,6 @@ export default function FormVistoria({ user }) {
 
     setLoading(true);
     try {
-      // Faz a inserção persistente na nova tabela do banco de dados
       const response = await fetch(`${API_URL}/Clientes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,7 +115,6 @@ export default function FormVistoria({ user }) {
         throw new Error(txtErro || "Erro ao registrar cliente no banco.");
       }
 
-      // Adiciona na lista local se não existir para atualizar a interface visual imediatamente
       if (!clientesLista.includes(nomeFormatado)) {
         setClientesLista(prev => [...prev, nomeFormatado].sort());
       }
@@ -249,23 +246,20 @@ export default function FormVistoria({ user }) {
   return (
     <div translate="no" className="notranslate" style={styles.container}>
       
-      {/* BANNER DE NOTIFICAÇÃO ANIMADO */}
+      {/* TOAST DE NOTIFICAÇÃO ADAPTADO - SUCESSO OU ERRO CENTRALIZADO NA TELA */}
       {notificacao.exibir && (
-        <div style={{
-          ...styles.toastOverlay,
-          backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
-        }}>
-          {notificacao.tipo === 'sucesso' ? (
-            <div style={styles.toastContent}>
-              <CheckCircle2 size={56} color="#fff" />
-              <span style={styles.toastText}>{notificacao.mensagem}</span>
-            </div>
-          ) : (
-            <div style={styles.toastContent}>
-              <XCircle size={56} color="#fff" />
-              <span style={styles.toastText}>{notificacao.mensagem}</span>
-            </div>
-          )}
+        <div style={styles.toastContainerCentral}>
+          <div style={{
+            ...styles.toastBox,
+            backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
+          }}>
+            {notificacao.tipo === 'sucesso' ? (
+              <CheckCircle2 size={28} color="#fff" style={{ flexShrink: 0 }} />
+            ) : (
+              <XCircle size={28} color="#fff" style={{ flexShrink: 0 }} />
+            )}
+            <span style={styles.toastText}>{notificacao.mensagem}</span>
+          </div>
         </div>
       )}
 
@@ -387,9 +381,12 @@ export default function FormVistoria({ user }) {
 
 const styles = {
   container: { position: 'relative', width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto' },
-  toastOverlay: { position: 'absolute', top: '15px', left: '15px', right: '15px', padding: '20px', borderRadius: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', animation: 'slideDown 0.3s ease' },
-  toastContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center' },
-  toastText: { color: '#fff', fontWeight: '800', fontSize: '15px', letterSpacing: '0.3px' },
+  
+  // CONTAINER CENTRALIZADO DE ALTA FIELDA DE LAYOUT (CORRIGIDO)
+  toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
+  toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto' },
+  toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
+
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
   formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
   iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
