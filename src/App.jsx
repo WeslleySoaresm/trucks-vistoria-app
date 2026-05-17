@@ -7,6 +7,8 @@ import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
 import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History } from 'lucide-react'; 
+import DashboardGestor from './DashboardGestor';
+
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -126,9 +128,11 @@ export default function App() {
       <main style={s.mainContent}>
         {abaAtiva === 'nova' && <FormVistoria user={session.user} />}
 
+        {/* AJUSTADO: Preserva o Dashboard original e adiciona o DashboardGestor logo abaixo */}
         {abaAtiva === 'admin' && isAdmin && (
-          <div key="admin-view">
+          <div key="admin-view" style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
             <Dashboard />
+            <DashboardGestor />
           </div>
         )}
 
