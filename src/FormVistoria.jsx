@@ -178,7 +178,7 @@ export default function FormVistoria({ user }) {
       const payload = {
         Placa: String(placaFormatada).trim(),
         ClienteNome: nomeClienteFinal, // CORREÇÃO: Nome exato esperado pela propriedade do .NET
-        UsuarioId: usuarioIdFinal, 
+        UsuarioId: user?.id, 
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
         Observacao: String(observacao || '').trim(),
