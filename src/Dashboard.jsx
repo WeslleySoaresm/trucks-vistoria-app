@@ -40,6 +40,7 @@ export default function Dashboard() {
   }, []);
   
 
+
   // ==========================================
   // INTEGRAÇÃO COM A API (BUSCA DE DADOS)
   // ==========================================
@@ -55,14 +56,13 @@ export default function Dashboard() {
       const dataFormatada = data.map(v => {
         let obsLimpa = v.observacao || "";
 
-        // Remove a tag do sistema independentemente do ID gerado
+        // 1. Remove a tag do sistema independentemente do ID gerado
         if (obsLimpa.includes("[Admin Autenticado")) {
           obsLimpa = obsLimpa.replace(/\[Admin Autenticado.*?\]\s*/g, "");
         }
 
-        // Garante a regra de negócio exata pedida:
-        // Se ficou vazio, exibe o traço "-". Se o usuário digitou algo, mantém o texto limpo.
-        const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "-";
+        // 2. Regra estrita: se não houver texto do utilizador, devolve string vazia ""
+        const observacaoFinal = obsLimpa.trim() ? obsLimpa.trim() : "";
 
         return {
           ...v,
@@ -72,7 +72,7 @@ export default function Dashboard() {
           cliente_nome: v.cliente || "Não Informado",
           localizacao_texto: v.localizacao || "Não autorizada",
           tipo_servico: v.tipoServico,
-          observacao: observacaoFinal, 
+          observacao: observacaoFinal, // Retorna o texto real ou fica totalmente em branco
           evidencias_lista: v.evidencias || [] 
         };
       });
@@ -84,7 +84,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   }
-
   // ==========================================
   // PROCESSAMENTO E FILTROS DE DADOS
   // ==========================================
