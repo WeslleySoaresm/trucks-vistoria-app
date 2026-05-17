@@ -29,78 +29,93 @@ public class VistoriaController : ControllerBase
     }
 
     // CRIAR VISTORIA (Direto e simplificado após a remoção da CONSTRAINT no banco)
-    [HttpPost]
-    public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
+[HttpPost]
+public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
+{
+    var idVistoriaNova = Guid.NewGuid();
+    try
     {
+        // 1. Validar UsuarioId enviado pelo front-end
+        if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
+        {
+            return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
+        }
+
+        // 2. Injetar Usuário se a Constraint de Usuário ainda estiver ativa
         try
         {
-            // 1. Validar UsuarioId enviado pelo front-end
-            if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
-            {
-                return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
-            }
+            var dataAtualFormatada = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+            var sqlInjetarUsuario = $@"
+                INSERT INTO ""MobileTrucks"".""Usuarios"" (""Id"", ""Nome"", ""Email"", ""DataCadastro"") 
+                VALUES ('{usuarioGuid}', 'Usuario Supabase', 'supabase@user.com', '{dataAtualFormatada}')
+                ON CONFLICT (""Id"") DO NOTHING;";
+            
+            await _context.Database.ExecuteSqlRawAsync(sqlInjetarUsuario);
+        }
+        catch (Exception exUser) { Console.WriteLine($"[Aviso Injeção Usuario]: {exUser.Message}"); }
 
-            // 2. Upsert do Veículo (Garante a existência do registro do carro/caminhão)
-            try
+        // 3. Upsert do Veículo
+        try
+        {
+            var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
+            if (veiculo == null)
             {
-                var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
-                if (veiculo == null)
-                {
-                    veiculo = new Veiculo 
-                    { 
-                        Placa = request.Placa, 
-                        ClienteNome = string.IsNullOrWhiteSpace(request.Cliente) ? "Não Informado" : request.Cliente
-                    };
-                    _context.Veiculos.Add(veiculo);
-                    await _context.SaveChangesAsync();
-                }
-            }
-            catch (Exception exVeiculo)
-            {
-                Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}");
-            }
-
-            // 3. Montar e salvar a Vistoria (Aceita qualquer ID enviado do Supabase)
-            var idVistoriaNova = Guid.NewGuid();
-            var novaVistoria = new Vistoria
-            {
-                Id = idVistoriaNova, 
-                Placa = request.Placa,
-                UsuarioId = usuarioGuid, 
-                Equipe = request.Equipe ?? "Geral",
-                TipoServico = request.TipoServico ?? "Geral",
-                Observacao = request.Observacao ?? "",
-                Localizacao = request.Localizacao ?? "Não autorizada",
-                Status = request.Status ?? "inicial",
-                DataCriacao = DateTime.UtcNow
-            };
-
-            _context.Vistorias.Add(novaVistoria);
-            await _context.SaveChangesAsync();
-
-            // 4. Vincular as imagens da vistoria
-            if (request.Evidencias != null && request.Evidencias.Any())
-            {
-                foreach (var fotoUrl in request.Evidencias)
-                {
-                    _context.Evidencias.Add(new Evidencia
-                    {
-                        Id = Guid.NewGuid(), 
-                        VistoriaId = idVistoriaNova, 
-                        UrlFoto = fotoUrl
-                    });
-                }
+                veiculo = new Veiculo 
+                { 
+                    Placa = request.Placa, 
+                    ClienteNome = string.IsNullOrWhiteSpace(request.Cliente) ? "Não Informado" : request.Cliente
+                };
+                _context.Veiculos.Add(veiculo);
                 await _context.SaveChangesAsync();
             }
+        }
+        catch (Exception exVeiculo) { Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}"); }
 
-            return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
-        }
-        catch (Exception exGeral)
+        // 4. Montar e salvar a Vistoria (CORRIGIDO: Passando a Placa também na propriedade sombra do EF)
+        var novaVistoria = new Vistoria
         {
-            var erroInterno = exGeral.InnerException != null ? exGeral.InnerException.Message : exGeral.Message;
-            return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
+            Id = idVistoriaNova, 
+            Placa = request.Placa,
+            UsuarioId = usuarioGuid, 
+            Equipe = request.Equipe ?? "Geral",
+            TipoServico = request.TipoServico ?? "Geral",
+            Observacao = request.Observacao ?? "",
+            Localizacao = request.Localizacao ?? "Não autorizada",
+            Status = request.Status ?? "inicial",
+            DataCriacao = DateTime.UtcNow
+        };
+
+        _context.Vistorias.Add(novaVistoria);
+
+        // 🔥 O TRUQUE DE MESTRE: Forçar o EF a entender o vínculo da FK com Veículos
+        // Isso impede que o EF Core envie NULL ou cause conflito na coluna oculta "VeiculoPlaca"
+        _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
+
+        await _context.SaveChangesAsync();
+
+        // 5. Vincular as imagens da vistoria
+        if (request.Evidencias != null && request.Evidencias.Any())
+        {
+            foreach (var fotoUrl in request.Evidencias)
+            {
+                _context.Evidencias.Add(new Evidencia
+                {
+                    Id = Guid.NewGuid(), 
+                    VistoriaId = idVistoriaNova, 
+                    UrlFoto = fotoUrl
+                });
+            }
+            await _context.SaveChangesAsync();
         }
+
+        return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
     }
+    catch (Exception exGeral)
+    {
+        var erroInterno = exGeral.InnerException != null ? exGeral.InnerException.Message : exGeral.Message;
+        return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
+    }
+}
 
     // EXCLUSÃO EM MASSA
     [HttpDelete("acoes/excluir-massa")]
