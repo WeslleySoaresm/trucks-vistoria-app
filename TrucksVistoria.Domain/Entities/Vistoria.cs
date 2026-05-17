@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace TrucksVistoria.Domain.Entities;
 
 
@@ -7,6 +9,8 @@ public class Vistoria
     public Guid? Id { get; set; } = Guid.NewGuid(); // O ? indica que o Id pode ser nulo, útil para quando a vistoria ainda não foi salva no banco
     public string Placa { get; set; } = string.Empty;
     public string Equipe { get; set; } = string.Empty;
+    
+    [Column("ClienteNome")] // <-- ADICIONE ISSO AQUI!
     public string Cliente { get; set; } = string.Empty;
     public string TipoServico { get; set; } = string.Empty;
     public string Observacao { get; set; } = string.Empty;
