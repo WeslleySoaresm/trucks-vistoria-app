@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; 
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Trash2, CheckCircle, Search, Plus, Check } from 'lucide-react';
+import { Camera, Search, Plus, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
@@ -16,6 +16,9 @@ export default function FormVistoria({ user }) {
   const [fotosOtimizadas, setFotosOtimizadas] = useState([]); 
   const [previews, setPreviews] = useState([]); 
   const fileInputRef = useRef(null);
+
+  // NOVO ESTADO PARA NOTIFICAÇÃO ELEGANTE
+  const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
 
   // ESTADOS DO DROPDOWN DINÂMICO
   const [clientesLista, setClientesLista] = useState([]); 
@@ -33,6 +36,14 @@ export default function FormVistoria({ user }) {
     { label: "Concluído", value: "concluida" }
   ];
 
+  // FUNÇÃO AUXILIAR PARA DISPARAR A NOTIFICAÇÃO VISUAL
+  const dispararNotificacao = (tipo, mensagem) => {
+    setNotificacao({ exibir: true, tipo, mensagem });
+    setTimeout(() => {
+      setNotificacao({ exibir: false, tipo: '', mensagem: '' });
+    }, 3500);
+  };
+
   useEffect(() => {
     function escutarCliqueFora(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -43,7 +54,6 @@ export default function FormVistoria({ user }) {
     return () => document.removeEventListener("mousedown", escutarCliqueFora);
   }, []);
 
-  // Puxa todos os clientes que já foram registrados em vistorias existentes da API
   useEffect(() => {
     async function carregarClientesExistentes() {
       try {
@@ -56,7 +66,6 @@ export default function FormVistoria({ user }) {
           ...new Set(
             data
               .map(v => {
-                // Mapeia baseado na propriedade 'cliente' da classe Vistoria do C#
                 const valorCliente = v.cliente || v.Cliente || v.clienteNome || v.ClienteNome;
                 return valorCliente ? valorCliente.toString().toUpperCase().trim() : "";
               })
@@ -91,11 +100,10 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  // Insere o cliente na lista local imediatamente para uso ágil
   const confirmarEInserirClienteNaLista = () => {
     const nomeFormatado = inputNovoCliente.trim().toUpperCase();
     if (!nomeFormatado) {
-      alert("Por favor, digite um nome válido para o cliente.");
+      dispararNotificacao('erro', 'Por favor, digite um nome válido para o cliente.');
       return;
     }
 
@@ -113,7 +121,7 @@ export default function FormVistoria({ user }) {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
     if (fotosOtimizadas.length + arquivos.length > 10) {
-      alert("Limite máximo de 10 fotos.");
+      dispararNotificacao('erro', 'Limite máximo de 10 fotos atingido.');
       return;
     }
 
@@ -127,7 +135,7 @@ export default function FormVistoria({ user }) {
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     } catch (err) {
-      alert("O celular ficou sem memória. Tente enviar fotos uma a uma.");
+      dispararNotificacao('erro', 'O celular ficou sem memória. Envie as fotos uma a uma.');
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -144,7 +152,7 @@ export default function FormVistoria({ user }) {
     const nomeClienteFinal = cliente.trim().toUpperCase();
 
     if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !nomeClienteFinal || nomeClienteFinal === "NÃO INFORMADO") {
-      alert("Preencha todos os campos corretamente. O nome do cliente é obrigatório.");
+      dispararNotificacao('erro', 'Preencha todos os campos e adicione ao menos 1 foto.');
       return;
     }
 
@@ -174,14 +182,11 @@ export default function FormVistoria({ user }) {
         urlsFotosParaBanco.push(upData.path); 
       }
 
-      // Payload estrito combinando o modelo do backend .NET
-      // GUID padrão caso o id do usuário venha nulo/inválido de alguma forma
       const usuarioIdFinal = user?.id && user.id !== "Sistema" ? user.id : "3fa85f64-5717-4562-b3fc-2c963f66afa6";
 
-      // Payload estrito combinando perfeitamente com a API .NET
       const payload = {
         Placa: String(placaFormatada).trim(),
-        Cliente: nomeClienteFinal, // Mantido como Cliente, mapeado via [Column] no C#
+        Cliente: nomeClienteFinal, 
         ClienteNome: nomeClienteFinal,
         clienteNome: nomeClienteFinal,
         UsuarioId: usuarioIdFinal, 
@@ -190,7 +195,6 @@ export default function FormVistoria({ user }) {
         Observacao: String(observacao || '').trim(),
         Localizacao: String(localizacao).trim(),
         Status: String(status).trim(),
-        // 🔥 CORREÇÃO: Enviando uma lista de objetos estruturados, e não strings puras
         Evidencias: urlsFotosParaBanco.map(path => String(path))
       };
 
@@ -205,14 +209,13 @@ export default function FormVistoria({ user }) {
         throw new Error(erroMsg || "Erro ao salvar na API .NET");
       }
 
-      alert("Vistoria enviada com sucesso!");
+      // 🔥 DISPARA ANIMAÇÃO DE SUCESSO ELEGANTE
+      dispararNotificacao('sucesso', 'Inspeção finalizada com sucesso!');
 
-      // Mantém o cliente recém criado na lista dinâmica local para a próxima vistoria
       if (!clientesLista.includes(nomeClienteFinal)) {
         setClientesLista(prev => [...prev, nomeClienteFinal].sort());
       }
 
-      // Reseta o form para o próximo uso
       previews.forEach(url => URL.revokeObjectURL(url));
       setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
       setFotosOtimizadas([]); setPreviews([]);
@@ -220,7 +223,7 @@ export default function FormVistoria({ user }) {
 
     } catch (err) {
       console.error("Erro fatal:", err);
-      alert("Erro ao enviar: " + err.message);
+      dispararNotificacao('erro', `Falha no envio: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -228,6 +231,27 @@ export default function FormVistoria({ user }) {
 
   return (
     <div translate="no" className="notranslate" style={styles.container}>
+      
+      {/* BANNER DE NOTIFICAÇÃO ANIMADO */}
+      {notificacao.exibir && (
+        <div style={{
+          ...styles.toastOverlay,
+          backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
+        }}>
+          {notificacao.tipo === 'sucesso' ? (
+            <div style={styles.toastContent}>
+              <CheckCircle2 size={56} color="#fff" />
+              <span style={styles.toastText}>{notificacao.mensagem}</span>
+            </div>
+          ) : (
+            <div style={styles.toastContent}>
+              <XCircle size={56} color="#fff" />
+              <span style={styles.toastText}>{notificacao.mensagem}</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={styles.formHeader}>
         <div style={styles.iconCircle}>
           <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
@@ -244,12 +268,11 @@ export default function FormVistoria({ user }) {
           style={styles.input} 
         />
 
-        {/* COMPONENTE AUTOCOMPLETE COM BUSCA */}
         <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
             <input 
               type="text" 
-              placeholder={modoNovoCliente ? "Modo: Criando Novo Cliente..." : "🔍 Buscar ou Selecionar Cliente"} 
+              placeholder={modoNovoCliente ? "Modo: Criando Novo Cliente..." : " Buscar ou Selecionar Cliente"} 
               value={modoNovoCliente ? "➕ CADASTRANDO NOVO REGISTRO..." : termoBusca} 
               disabled={modoNovoCliente}
               onFocus={() => setMostrarDropdown(true)}
@@ -286,7 +309,6 @@ export default function FormVistoria({ user }) {
           )}
         </div>
 
-        {/* ENTRADA DO NOVO CLIENTE DINÂMICO */}
         {modoNovoCliente && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(99, 179, 237, 0.04)', padding: '10px', borderRadius: '12px', border: '1px dashed rgba(99, 179, 237, 0.3)' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -298,7 +320,7 @@ export default function FormVistoria({ user }) {
                 style={{ ...styles.input, flex: 1, border: '1px solid #63b3ed' }} 
               />
               <button type="button" onClick={confirmarEInserirClienteNaLista} style={styles.btnConfirmarCliente}>
-                <Check size={20} />
+                <ArrowRight size={20} color="#fff" />
               </button>
             </div>
             <span onClick={() => { setModoNovoCliente(false); setTermoBusca(''); setCliente(''); }} style={styles.cancelarNovoBtn}>
@@ -340,14 +362,20 @@ export default function FormVistoria({ user }) {
       </div>
 
       <button onClick={finalizarVistoria} disabled={loading || fotosOtimizadas.length === 0} style={loading ? styles.btnDisabled : styles.btnSend}>
-        {loading ? "ENVIANDO DADOS..." : <><CheckCircle size={20} /> FINALIZAR ({fotosOtimizadas.length}/10)</>}
+        {loading ? "ENVIANDO DADOS..." : <><CheckCircle2 size={20} /> FINALIZAR ({fotosOtimizadas.length}/10)</>}
       </button>
     </div>
   );
 }
 
 const styles = {
-  container: { width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto' },
+  container: { position: 'relative', width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto' },
+  
+  // ESTILOS DO POPUP DE NOTIFICAÇÃO GERAL NA TELA
+  toastOverlay: { position: 'absolute', top: '15px', left: '15px', right: '15px', padding: '20px', borderRadius: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000, boxShadow: '0 10px 25px rgba(0,0,0,0.5)', animation: 'slideDown 0.3s ease' },
+  toastContent: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', textAlign: 'center' },
+  toastText: { color: '#fff', fontWeight: '800', fontSize: '15px', letterSpacing: '0.3px' },
+  
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
   formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
   iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
@@ -369,5 +397,5 @@ const styles = {
   dropdownOptionNew: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', color: '#63b3ed', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
   dropdownNoResults: { padding: '12px', color: '#4a5568', fontSize: '14px', textAlign: 'center' },
   cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end' },
-  btnConfirmarCliente: { background: '#48bb78', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer' }
+  btnConfirmarCliente: { background: '#3182ce', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
 };
