@@ -6,7 +6,8 @@ import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History } from 'lucide-react'; 
+// Importado o ícone Database para a aba de Gestão de Dados
+import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 
 
@@ -89,13 +90,24 @@ export default function App() {
         </button>
 
         {isAdmin ? (
-          <button 
-            onClick={() => setAbaAtiva('admin')} 
-            style={abaAtiva === 'admin' ? s.tabActive : s.tab}
-          >
-            <LayoutDashboard size={18} />
-            Painel
-          </button>
+          <>
+            <button 
+              onClick={() => setAbaAtiva('admin')} 
+              style={abaAtiva === 'admin' ? s.tabActive : s.tab}
+            >
+              <LayoutDashboard size={18} />
+              Painel
+            </button>
+            
+            {/* NOVA ABA: Criada exclusivamente para o Gestor gerenciar as tabelas e dados brutos */}
+            <button 
+              onClick={() => setAbaAtiva('dados')} 
+              style={abaAtiva === 'dados' ? s.tabActive : s.tab}
+            >
+              <Database size={18} />
+              Gestão Dados
+            </button>
+          </>
         ) : (
           <>
             <button 
@@ -128,11 +140,17 @@ export default function App() {
       <main style={s.mainContent}>
         {abaAtiva === 'nova' && <FormVistoria user={session.user} />}
 
-        {/* AJUSTADO: Preserva o Dashboard original e adiciona o DashboardGestor logo abaixo */}
+        {/* ABA PAINEL: Exibe apenas os gráficos executivos de BI */}
         {abaAtiva === 'admin' && isAdmin && (
-          <div key="admin-view" style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            <Dashboard />
+          <div key="admin-view">
             <DashboardGestor />
+          </div>
+        )}
+
+        {/* ABA GESTÃO DADOS: Exibe de forma isolada a planilha e controles administrativos */}
+        {abaAtiva === 'dados' && isAdmin && (
+          <div key="dados-view">
+            <Dashboard />
           </div>
         )}
 
