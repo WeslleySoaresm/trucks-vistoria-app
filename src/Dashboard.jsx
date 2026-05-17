@@ -19,7 +19,7 @@ export default function Dashboard() {
   // NOTIFICAÇÕES VISUAIS E ELEGANTES
   const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
 
-  // NOVO ESTADO PARA GERENCIAR MODAL DE CONFIRMAÇÃO CUSTOMIZADO
+  // ESTADO PARA GERENCIAR MODAL DE CONFIRMAÇÃO CUSTOMIZADO
   const [confirmacaoModal, setConfirmacaoModal] = useState({
     exibir: false,
     mensagem: '',
@@ -152,7 +152,6 @@ export default function Dashboard() {
     window.open(url, '_blank');
   };
 
-  // REMOVEU WINDOW.CONFIRM -> USANDO NOVA INTERFACE MODAL
   const solicitarRemoverVistoria = (id) => {
     setConfirmacaoModal({
       exibir: true,
@@ -177,7 +176,6 @@ export default function Dashboard() {
     }
   }
 
-  // REMOVEU WINDOW.CONFIRM -> USANDO NOVA INTERFACE MODAL
   const solicitarExcluirTudoEquipe = () => {
     if (equipeFiltrada === 'TODAS') return;
     const idsParaExcluir = dadosExibidos.map(reg => reg.id);
@@ -236,27 +234,24 @@ export default function Dashboard() {
   return (
     <div style={styles.pageWrapper}>
       
-      {/* BANNER DE NOTIFICAÇÃO PROFISSIONAL */}
+      {/* TOAST DE NOTIFICAÇÃO CENTRALIZADO NO CENTRO DA TELA */}
       {notificacao.exibir && (
-        <div style={{
-          ...styles.toastOverlay,
-          backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
-        }}>
-          {notificacao.tipo === 'sucesso' ? (
-            <div style={styles.toastContent}>
-              <CheckCircle2 size={32} color="#fff" />
-              <span style={styles.toastText}>{notificacao.mensagem}</span>
-            </div>
-          ) : (
-            <div style={styles.toastContent}>
-              <XCircle size={32} color="#fff" />
-              <span style={styles.toastText}>{notificacao.mensagem}</span>
-            </div>
-          )}
+        <div style={styles.toastContainerCentral}>
+          <div style={{
+            ...styles.toastBox,
+            backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
+          }}>
+            {notificacao.tipo === 'sucesso' ? (
+              <CheckCircle2 size={28} color="#fff" style={{ flexShrink: 0 }} />
+            ) : (
+              <XCircle size={28} color="#fff" style={{ flexShrink: 0 }} />
+            )}
+            <span style={styles.toastText}>{notificacao.mensagem}</span>
+          </div>
         </div>
       )}
 
-      {/* NOVO MODAL DE CONFIRMAÇÃO DE ALTO PADRÃO VISUAL */}
+      {/* MODAL DE CONFIRMAÇÃO CENTRALIZADO NO CENTRO DA TELA */}
       {confirmacaoModal.exibir && (
         <div style={styles.modalOverlay}>
           <div style={styles.confirmBox}>
@@ -433,12 +428,13 @@ const styles = {
   loading: { padding: '40px', textAlign: 'center', color: '#fff', background: '#1a202c', minHeight: '100vh' },
   pageWrapper: { position: 'relative', minHeight: '100vh', width: '100%', padding: '20px', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif', backgroundColor: '#1a202c' },
   
-  toastOverlay: { position: 'fixed', top: '25px', left: '50%', transform: 'translateX(-50%)', padding: '12px 24px', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, boxShadow: '0 15px 35px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' },
-  toastContent: { display: 'flex', alignItems: 'center', gap: '10px' },
-  toastText: { color: '#fff', fontWeight: '700', fontSize: '14px', letterSpacing: '0.2px' },
+  // CONTAINER FIXO PARA CENTRALIZAR O TOAST EXATAMENTE NO MEIO DA TELA
+  toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
+  toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto', animation: 'fadeIn 0.2s ease-out' },
+  toastText: { color: '#fff', fontWeight: '700', fontSize: '15px', letterSpacing: '0.1px', textAlign: 'center' },
 
-  // NOVOS ESTADOS PARA O MODAL DE CONFIRMAÇÃO
-  confirmBox: { background: '#1e293b', padding: '30px', borderRadius: '20px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.7)' },
+  // CAIXA DE CONFIRMAÇÃO AGORA TOTALMENTE INTEGRADA À ESTRUTURA CENTRALIZADA
+  confirmBox: { background: '#1e293b', padding: '30px', borderRadius: '20px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)' },
   btnConfirmCancelar: { flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' },
   btnConfirmConfirmar: { flex: 1, padding: '12px', background: '#e53e3e', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' },
 
@@ -460,7 +456,10 @@ const styles = {
   btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   panelAcoes: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(239, 68, 68, 0.15)', padding: '15px', borderRadius: '12px', marginBottom: '20px', border: '1px solid #e53e3e' },
   btnExcluirMassa: { background: '#e53e3e', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '8px', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000 },
+  
+  // MODAL OVERLAY PARA PEGAR TODA A TELA E CENTRALIZAR CONTEÚDOS DE FORMA ABSOLUTA
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000 },
+  
   modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' },
   modalHeader: { display: 'flex', marginBottom: '20px', alignItems: 'flex-start' },
   btnBaixarTudo: { marginTop: '10px', padding: '8px 15px', background: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' },

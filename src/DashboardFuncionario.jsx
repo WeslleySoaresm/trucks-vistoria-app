@@ -12,7 +12,7 @@ export default function DashboardFuncionario({ user }) {
   const [isMobile, setIsMobile] = useState(false);
   const [fotosModal, setFotosModal] = useState(null);
 
-  // NOVO ESTADO PARA AS NOTIFICAÇÕES TOAST VISUAIS
+  // ESTADO PARA AS NOTIFICAÇÕES TOAST VISUAIS CENTRALIZADAS
   const [notificacao, setNotificacao] = useState({ exibir: false, tipo: '', mensagem: '' });
 
   const META_MENSAL = 20;
@@ -184,23 +184,20 @@ export default function DashboardFuncionario({ user }) {
   return (
     <div style={styles.pageWrapper}>
       
-      {/* BANNER FLUTUANTE DE NOTIFICAÇÃO */}
+      {/* TOAST DE NOTIFICAÇÃO CENTRALIZADO NO CENTRO DA TELA */}
       {notificacao.exibir && (
-        <div style={{
-          ...styles.toastOverlay,
-          backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
-        }}>
-          {notificacao.tipo === 'sucesso' ? (
-            <div style={styles.toastContent}>
-              <CheckCircle2 size={44} color="#fff" />
-              <span style={styles.toastText}>{notificacao.mensagem}</span>
-            </div>
-          ) : (
-            <div style={styles.toastContent}>
-              <XCircle size={44} color="#fff" />
-              <span style={styles.toastText}>{notificacao.mensagem}</span>
-            </div>
-          )}
+        <div style={styles.toastContainerCentral}>
+          <div style={{
+            ...styles.toastBox,
+            backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
+          }}>
+            {notificacao.tipo === 'sucesso' ? (
+              <CheckCircle2 size={28} color="#fff" style={{ flexShrink: 0 }} />
+            ) : (
+              <XCircle size={28} color="#fff" style={{ flexShrink: 0 }} />
+            )}
+            <span style={styles.toastText}>{notificacao.mensagem}</span>
+          </div>
         </div>
       )}
 
@@ -343,12 +340,13 @@ export default function DashboardFuncionario({ user }) {
 const styles = {
   pageWrapper: { position: 'relative', padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif' },
   
-  // ESTILOS DO POPUP FLUTUANTE CENTRALIZADO
-  toastOverlay: { position: 'fixed', top: '25px', left: '50%', transform: 'translateX(-50%)', padding: '14px 28px', borderRadius: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, boxShadow: '0 15px 35px rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)' },
-  toastContent: { display: 'flex', alignItems: 'center', gap: '12px' },
-  toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px' },
+  // CONTAINER FIXO PARA CENTRALIZAR O TOAST EXATAMENTE NO MEIO DA TELA
+  toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
+  toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto' },
+  toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
 
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
+  statsNum: { display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '5px' },
   bigNum: { fontSize: '40px', fontWeight: 'bold' },
   subNum: { color: '#94a3b8', fontSize: '14px' },
   progressContainer: { background: '#0f172a', borderRadius: '15px', height: '25px', margin: '15px 0', overflow: 'hidden' },
@@ -361,6 +359,7 @@ const styles = {
   table: { width: '100%', borderCollapse: 'collapse' },
   th: { padding: '15px', textAlign: 'left', color: '#94a3b8', fontSize: '11px', background: 'rgba(0,0,0,0.2)', textTransform: 'uppercase' },
   td: { padding: '15px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontSize: '13px', color: '#e2e8f0' },
+  trHover: { borderBottom: '1px solid rgba(255,255,255,0.05)' },
   
   mobileList: { display: 'flex', flexDirection: 'column', gap: '15px', padding: '15px' },
   mobileCard: { background: 'rgba(255,255,255,0.03)', padding: '15px', borderRadius: '15px', border: '1px solid rgba(255,255,255,0.05)' },
@@ -369,7 +368,8 @@ const styles = {
   btnIcon: { background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   btnIconDel: { background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#fc8181', padding: '8px', borderRadius: '8px', cursor: 'pointer' },
   
-  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000 },
+  // MODAL OVERLAY PARA COBRIR TOTALMENTE A TELA E MANTER O CONTEÚDO NO CENTRO
+  modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000 },
   modalContent: { background: '#1a202c', padding: '20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'flex-start' },
   btnBaixarTudo: { marginTop: '8px', padding: '8px 14px', background: '#3182ce', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' },
