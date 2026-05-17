@@ -35,26 +35,12 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
     var idVistoriaNova = Guid.NewGuid();
     try
     {
-        // 1. Validar UsuarioId enviado pelo front-end
         if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
         {
             return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
         }
 
-        // 2. Injetar Usuário se a Constraint de Usuário ainda estiver ativa
-        try
-        {
-            var dataAtualFormatada = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-            var sqlInjetarUsuario = $@"
-                INSERT INTO ""MobileTrucks"".""Usuarios"" (""Id"", ""Nome"", ""Email"", ""DataCadastro"") 
-                VALUES ('{usuarioGuid}', 'Usuario Supabase', 'supabase@user.com', '{dataAtualFormatada}')
-                ON CONFLICT (""Id"") DO NOTHING;";
-            
-            await _context.Database.ExecuteSqlRawAsync(sqlInjetarUsuario);
-        }
-        catch (Exception exUser) { Console.WriteLine($"[Aviso Injeção Usuario]: {exUser.Message}"); }
-
-        // 3. Upsert do Veículo
+        // 1. Upsert do Veículo
         try
         {
             var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
@@ -71,12 +57,12 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
         }
         catch (Exception exVeiculo) { Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}"); }
 
-        // 4. Montar e salvar a Vistoria (CORRIGIDO: Passando a Placa também na propriedade sombra do EF)
+        // 2. Montar objeto inicial da Vistoria
         var novaVistoria = new Vistoria
         {
             Id = idVistoriaNova, 
             Placa = request.Placa,
-            UsuarioId = usuarioGuid, 
+            UsuarioId = usuarioGuid, // Tenta salvar com o ID original (Admin ou Funcionario)
             Equipe = request.Equipe ?? "Geral",
             TipoServico = request.TipoServico ?? "Geral",
             Observacao = request.Observacao ?? "",
@@ -85,25 +71,70 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
             DataCriacao = DateTime.UtcNow
         };
 
-        _context.Vistorias.Add(novaVistoria);
+        try
+        {
+            _context.Vistorias.Add(novaVistoria);
+            
+            // Ajuste de propriedade sombra se houver
+            try {
+                if (_context.Entry(novaVistoria).Metadata.FindProperty("VeiculoPlaca") != null)
+                    _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
+            } catch { }
 
-        // 🔥 O TRUQUE DE MESTRE: Forçar o EF a entender o vínculo da FK com Veículos
-        // Isso impede que o EF Core envie NULL ou cause conflito na coluna oculta "VeiculoPlaca"
-        _context.Entry(novaVistoria).Property("VeiculoPlaca").CurrentValue = request.Placa;
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException dbEx)
+        {
+            var erroInterno = dbEx.InnerException?.Message ?? dbEx.Message;
+            
+            // SE FALHAR POR CAUSA DO USUÁRIO ADMIN (Chave Estrangeira / 23503)
+            if (erroInterno.Contains("FK_Vistorias_Usuarios_UsuarioId") || erroInterno.Contains("23503"))
+            {
+                // 1. Remove a tentativa que falhou do rastreamento do EF
+                _context.ChangeTracker.Clear();
 
-        await _context.SaveChangesAsync();
+                // 2. Busca o primeiro usuário que REALMENTE funciona no banco (o seu DashboardFuncionario)
+                var usuarioGarantido = await _context.Set<Usuario>().FirstOrDefaultAsync();
+                
+                // 3. Se achar o usuário que funciona, usa o ID dele. Se não achar nada, usa um Guid Coringa.
+                Guid idSeguro = usuarioGarantido != null ? usuarioGarantido.Id : Guid.Parse("99999999-9999-9999-9999-999999999999");
 
-        // 5. Vincular as imagens da vistoria
+                // 4. Cria uma vistoria de contingência apontando para o ID que funciona
+                var vistoriaSalva = new Vistoria
+                {
+                    Id = idVistoriaNova,
+                    Placa = request.Placa,
+                    UsuarioId = idSeguro, // Vincula ao ID do funcionário aceito pelo banco
+                    Equipe = request.Equipe ?? "Geral",
+                    TipoServico = request.TipoServico ?? "Geral",
+                    // Salva o ID do Admin no texto para você saber quem enviou!
+                    Observacao = $"[Enviado por Admin - ID Supabase: {request.UsuarioId}] " + (request.Observacao ?? ""),
+                    Localizacao = request.Localizacao ?? "Não autorizada",
+                    Status = request.Status ?? "inicial",
+                    DataCriacao = DateTime.UtcNow
+                };
+
+                _context.Vistorias.Add(vistoriaSalva);
+                
+                try {
+                    if (_context.Entry(vistoriaSalva).Metadata.FindProperty("VeiculoPlaca") != null)
+                        _context.Entry(vistoriaSalva).Property("VeiculoPlaca").CurrentValue = request.Placa;
+                } catch { }
+
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                throw; // Se for outro erro, repassa para o catch geral
+            }
+        }
+
+        // 3. Vincular as imagens da vistoria
         if (request.Evidencias != null && request.Evidencias.Any())
         {
             foreach (var fotoUrl in request.Evidencias)
             {
-                _context.Evidencias.Add(new Evidencia
-                {
-                    Id = Guid.NewGuid(), 
-                    VistoriaId = idVistoriaNova, 
-                    UrlFoto = fotoUrl
-                });
+                _context.Evidencias.Add(new Evidencia { Id = Guid.NewGuid(), VistoriaId = idVistoriaNova, UrlFoto = fotoUrl });
             }
             await _context.SaveChangesAsync();
         }
@@ -116,7 +147,6 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
         return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
     }
 }
-
     // EXCLUSÃO EM MASSA
     [HttpDelete("acoes/excluir-massa")]
     public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
