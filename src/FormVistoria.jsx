@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; // Mantido apenas para o Storage das fotos
 import { otimizarImagem } from './utils/compressor';
 import { Camera, Trash2, Send, CheckCircle, Truck } from 'lucide-react';
@@ -7,19 +7,36 @@ import { Camera, Trash2, Send, CheckCircle, Truck } from 'lucide-react';
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
 
-
 export default function FormVistoria({ user }) {
+
+  // ==========================================
+  // ESTADOS DO FORMULÁRIO E CONTROLE
+  // ==========================================
+
   const [loading, setLoading] = useState(false);
   const [placa, setPlaca] = useState('');
-  const [cliente, setCliente] = useState('');
+  const [cliente, setCliente] = useState(''); // Armazena o valor que de fato vai para a API
   const [equipe, setEquipe] = useState('');
   const [observacao, setObservacao] = useState('');
   const [tipoServico, setTipoServico] = useState('');
   const [status, setStatus] = useState('inicial'); 
-
   const [fotosOtimizadas, setFotosOtimizadas] = useState([]); 
   const [previews, setPreviews] = useState([]); 
   const fileInputRef = useRef(null);
+
+
+  // ==========================================
+  // ESTADOS DO DROP DOWN DINÂMICO DE CLIENTES
+  // ==========================================
+
+  const [clientesLista, setClientesLista] = useState([]);
+  const [opcaoSelecionada, setOpcaoSelecionada] = useState('');
+  const [inputNovoCliente, setInputNovoCliente] = useState('');
+
+
+  // ==========================================
+  // LISTAS DE CONFIGURAÇÃO FIXA
+  // ==========================================
 
   const tiposServicoDisponiveis = ["On Job", "Primeira Visita", "Procura Artificial", "Indicação"];
   const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
@@ -28,6 +45,64 @@ export default function FormVistoria({ user }) {
     { label: "Em processo", value: "em_processo" },
     { label: "Concluído", value: "concluida" }
   ];
+
+
+  // ==========================================
+  // CARREGAMENTO DOS CLIENTES EXISTENTES (API)
+  // ==========================================
+
+  useEffect(() => {
+    async function carregarClientesExistentes() {
+      try {
+        const response = await fetch(`${API_URL}/Vistoria`);
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        
+        // Remove duplicados, limpa espaços vazios e ordena em ordem alfabética
+        const clientesFiltrados = [
+          ...new Set(
+            data
+              .map(v => v.cliente)
+              .filter(nome => nome && nome.trim() !== "" && nome !== "Não Informado")
+          )
+        ].sort();
+
+        setClientesLista(clientesFiltrados);
+      } catch (err) {
+        console.error("Erro ao carregar lista de clientes para o dropdown:", err);
+      }
+    }
+
+    carregarClientesExistentes();
+  }, []);
+
+
+  // ==========================================
+  // TRATAMENTO DO FLUXO DO DROPDOWN DE CLIENTES
+  // ==========================================
+
+  const handleDropdownClienteChange = (e) => {
+    const valor = e.target.value;
+    setOpcaoSelecionada(valor);
+
+    if (valor === "NOVO_CLIENTE") {
+      setCliente(''); // Reseta até o usuário digitar o nome correto
+    } else {
+      setCliente(valor); // Seta diretamente o cliente existente selecionado
+    }
+  };
+
+  const handleInputNovoClienteChange = (e) => {
+    const valor = e.target.value;
+    setInputNovoCliente(valor);
+    setCliente(valor); // Vincula o texto dinamicamente ao payload do cliente
+  };
+
+
+  // ==========================================
+  // GERENCIAMENTO DAS IMAGENS (FOTOS)
+  // ==========================================
 
   const manipularFotos = async (e) => {
     const arquivos = Array.from(e.target.files);
@@ -64,6 +139,11 @@ export default function FormVistoria({ user }) {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+
+  // ==========================================
+  // ROTINA DE ENVIO DE DADOS (FINALIZAR)
+  // ==========================================
+
   const finalizarVistoria = async () => {
     if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico) {
       alert("Preencha todos os campos e tire pelo menos 1 foto.");
@@ -95,10 +175,9 @@ export default function FormVistoria({ user }) {
           .upload(fileName, foto);
 
         if (upError) throw upError;
-        urlsFotosParaBanco.push(upData.path); // Guardamos o caminho retornado
+        urlsFotosParaBanco.push(upData.path); 
       }
 
-      // 3. Envio para a API .NET (Substitui os múltiplos inserts do Supabase)
       // 3. Envio para a API .NET
       const payload = {
         Placa: String(placaFormatada).trim(),
@@ -125,10 +204,11 @@ export default function FormVistoria({ user }) {
 
       alert("Vistoria enviada com sucesso para o novo servidor!");
       
-      // Limpeza de memória e estado
+      // Limpeza de memória e estados locais do formulário
       previews.forEach(url => URL.revokeObjectURL(url));
       setPlaca(''); setCliente(''); setObservacao(''); setEquipe(''); setTipoServico(''); setStatus('inicial');
       setFotosOtimizadas([]); setPreviews([]);
+      setOpcaoSelecionada(''); setInputNovoCliente('');
 
     } catch (err) {
       console.error("Erro fatal:", err);
@@ -138,9 +218,14 @@ export default function FormVistoria({ user }) {
     }
   };
 
+
+  // ==========================================
+  // INTERFACE VISUAL (JSX)
+  // ==========================================
+
   return (
     <div translate="no" className="notranslate" style={styles.container}>
-      {/* O JSX permanece IDENTICO ao seu original para manter o design */}
+      
       <div style={styles.formHeader}>
         <div style={styles.iconCircle}>
           <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
@@ -149,6 +234,7 @@ export default function FormVistoria({ user }) {
       </div>
       
       <div style={styles.inputGroup}>
+        
         <input 
           type="text" 
           placeholder="Placa do Veículo" 
@@ -156,13 +242,33 @@ export default function FormVistoria({ user }) {
           onChange={(e) => setPlaca(e.target.value.toUpperCase())} 
           style={styles.input} 
         />
-        <input 
-          type="text" 
-          placeholder="Nome do Cliente" 
-          value={cliente} 
-          onChange={(e) => setCliente(e.target.value)} 
-          style={styles.input} 
-        />
+
+        {/* DROPDOWN DINÂMICO DE CLIENTES COM SELETOR DE "NOVO" NO TOPO */}
+        <select 
+          value={opcaoSelecionada} 
+          onChange={handleDropdownClienteChange} 
+          style={styles.select}
+        >
+          <option value="" disabled>Selecione o Cliente</option>
+          <option value="NOVO_CLIENTE" style={{ fontWeight: 'bold', color: '#63b3ed' }}>
+            ➕ Adicionar Novo Cliente...
+          </option>
+          <option disabled style={{color: 'rgba(255,255,255,0.2)'}}>────────────────────────</option>
+          {clientesLista.map((cli, idx) => (
+            <option key={idx} value={cli}>{cli}</option>
+          ))}
+        </select>
+
+        {/* CAMPO DE TEXTO EXTRA CASO TENHA CLICADO EM ADICIONAR NOVO CLIENTE */}
+        {opcaoSelecionada === "NOVO_CLIENTE" && (
+          <input 
+            type="text" 
+            placeholder="Nome do Novo Cliente" 
+            value={inputNovoCliente} 
+            onChange={handleInputNovoClienteChange} 
+            style={{ ...styles.input, border: '1px solid #63b3ed' }} 
+          />
+        )}
         
         <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
           <option value="" disabled>Selecione a Equipe</option>
@@ -231,7 +337,11 @@ export default function FormVistoria({ user }) {
   );
 }
 
-// Estilos mantidos exatamente como os seus
+
+// ==========================================
+// CONFIGURAÇÃO DOS ESTILOS (CSS-IN-JS)
+// ==========================================
+
 const styles = {
   container: { width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto', position: 'relative' },
   logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
