@@ -182,6 +182,8 @@ export default function FormVistoria({ user }) {
       const payload = {
         Placa: String(placaFormatada).trim(),
         Cliente: nomeClienteFinal, // Mantido como Cliente, mapeado via [Column] no C#
+        ClienteNome: nomeClienteFinal,
+        clienteNome: nomeClienteFinal,
         UsuarioId: usuarioIdFinal, 
         Equipe: String(equipe).trim(),
         TipoServico: String(tipoServico).trim(),
