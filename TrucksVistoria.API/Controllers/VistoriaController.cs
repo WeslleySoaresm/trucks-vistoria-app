@@ -28,168 +28,48 @@ public class VistoriaController : ControllerBase
         return Ok(vistorias);
     }
 
-    // CRIAR VISTORIA (Com tratamento contra quebra de FK de Usuário)
-[HttpPost]
-public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
-{
-    try
+    // CRIAR VISTORIA (Direto e simplificado após a remoção da CONSTRAINT no banco)
+    [HttpPost]
+    public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest request)
     {
-        // 1. Validar UsuarioId enviado pelo front-end
-        if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
-        {
-            return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
-        }
-
-        // 2. Upsert do Veículo (Isolado)
         try
         {
-            var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
-            if (veiculo == null)
+            // 1. Validar UsuarioId enviado pelo front-end
+            if (string.IsNullOrWhiteSpace(request.UsuarioId) || !Guid.TryParse(request.UsuarioId, out Guid usuarioGuid))
             {
-                veiculo = new Veiculo 
-                { 
-                    Placa = request.Placa, 
-                    ClienteNome = string.IsNullOrWhiteSpace(request.Cliente) ? "Não Informado" : request.Cliente
-                };
-                _context.Veiculos.Add(veiculo);
-                await _context.SaveChangesAsync();
-            }
-        }
-        catch (Exception exVeiculo)
-        {
-            Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}");
-        }
-
-        // 3. Montar objeto da Vistoria com os dados originais
-        var idVistoriaNova = Guid.NewGuid();
-        var novaVistoria = new Vistoria
-        {
-            Id = idVistoriaNova, 
-            Placa = request.Placa,
-            UsuarioId = usuarioGuid, // Tentativa inicial com o ID do usuário logado
-            Equipe = request.Equipe ?? "Geral",
-            TipoServico = request.TipoServico ?? "Geral",
-            Observacao = request.Observacao ?? "",
-            Localizacao = request.Localizacao ?? "Não autorizada",
-            Status = request.Status ?? "inicial",
-            DataCriacao = DateTime.UtcNow
-        };
-
-        try
-        {
-            _context.Vistorias.Add(novaVistoria);
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateException dbEx)
-        {
-            var erroInterno = dbEx.InnerException?.Message ?? dbEx.Message;
-            
-            // Se falhar por restrição de Chave Estrangeira do Usuário (23503)
-            if (erroInterno.Contains("FK_Vistorias_Usuarios_UsuarioId") || erroInterno.Contains("23503"))
-            {
-                // Remove a entidade travada do rastreamento do Entity Framework para limpar o cache de erro
-                _context.Entry(novaVistoria).State = EntityState.Detached;
-
-                return await SalvarVistoriaComUsuarioValido(request, idVistoriaNova);
+                return BadRequest("O UsuarioId fornecido é inválido ou está vazio.");
             }
 
-            return BadRequest($"Erro estrutural na tabela Vistorias: {erroInterno}");
-        }
-
-        // 4. Salvar Evidências se a vistoria foi criada com sucesso
-        await VincularEvidencias(idVistoriaNova, request.Evidencias);
-
-        return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
-    }
-    catch (Exception exGeral)
-    {
-        return BadRequest($"Erro crítico geral: {exGeral.InnerException?.Message ?? exGeral.Message}");
-    }
-}
-
-// Método auxiliar de contingência avançada
-private async Task<IActionResult> SalvarVistoriaComUsuarioValido(VistoriaRequest request, Guid idVistoriaNova)
-{
-    try
-    {
-        // Busca o primeiro usuário cadastrado fisicamente na tabela local do banco
-        var usuarioValido = await _context.Set<TrucksVistoria.Domain.Entities.Usuario>().FirstOrDefaultAsync();
-        Guid idUsuarioParaVinculo;
-
-        if (usuarioValido != null)
-        {
-            idUsuarioParaVinculo = usuarioValido.Id;
-        }
-        else
-        {
-            // Se a tabela de usuários estiver 100% vazia, criamos um usuário padrão de sistema na força bruta
-            idUsuarioParaVinculo = Guid.Parse("99999999-9999-9999-9999-999999999999");
-            
-            var queryInsercaoDireta = $@"
-                INSERT INTO ""MobileTrucks"".""Usuarios"" (""Id"", ""Nome"", ""Email"", ""DataCadastro"") 
-                VALUES ('{idUsuarioParaVinculo}', 'Usuario Sistema', 'sistema@trucks.com', '{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}');";
-            
-            await _context.Database.ExecuteSqlRawAsync(queryInsercaoDireta);
-        }
-
-        // Monta a nova vistoria apontando para o ID físico garantido
-        var vistoriaContingencia = new Vistoria
-        {
-            Id = idVistoriaNova,
-            Placa = request.Placa,
-            UsuarioId = idUsuarioParaVinculo,
-            Observacao = $"[User original Supabase: {request.UsuarioId}] " + (request.Observacao ?? ""),
-            Equipe = request.Equipe ?? "Geral",
-            TipoServico = request.TipoServico ?? "Geral",
-            Localizacao = request.Localizacao ?? "Não autorizada",
-            Status = request.Status ?? "inicial",
-            DataCriacao = DateTime.UtcNow
-        };
-
-        _context.Vistorias.Add(vistoriaContingencia);
-        await _context.SaveChangesAsync();
-
-        // Vincula as fotos à vistoria criada na contingência
-        await VincularEvidencias(idVistoriaNova, request.Evidencias);
-
-        return Ok(new { message = "Vistoria salva com sucesso em modo de compatibilidade!", id = idVistoriaNova });
-    }
-    catch (Exception ex)
-    {
-        return BadRequest($"Falha na contingência de chaves: {ex.InnerException?.Message ?? ex.Message}");
-    }
-}
-
-// Método auxiliar para processar as evidências de forma limpa
-private async Task VincularEvidencias(Guid vistoriaId, List<string> evidenciasUrls)
-{
-    if (evidenciasUrls != null && evidenciasUrls.Any())
-    {
-        foreach (var fotoUrl in evidenciasUrls)
-        {
-            _context.Evidencias.Add(new Evidencia
+            // 2. Upsert do Veículo (Garante a existência do registro do carro/caminhão)
+            try
             {
-                Id = Guid.NewGuid(), 
-                VistoriaId = vistoriaId, 
-                UrlFoto = fotoUrl
-            });
-        }
-        await _context.SaveChangesAsync();
-    }
-}
-    private async Task<IActionResult> SalvarVistoriaContingencia(VistoriaRequest request)
-    {
-        try
-        {
+                var veiculo = await _context.Veiculos.FirstOrDefaultAsync(v => v.Placa == request.Placa);
+                if (veiculo == null)
+                {
+                    veiculo = new Veiculo 
+                    { 
+                        Placa = request.Placa, 
+                        ClienteNome = string.IsNullOrWhiteSpace(request.Cliente) ? "Não Informado" : request.Cliente
+                    };
+                    _context.Veiculos.Add(veiculo);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception exVeiculo)
+            {
+                Console.WriteLine($"[Aviso Veiculo]: {exVeiculo.Message}");
+            }
+
+            // 3. Montar e salvar a Vistoria (Aceita qualquer ID enviado do Supabase)
             var idVistoriaNova = Guid.NewGuid();
             var novaVistoria = new Vistoria
             {
-                Id = idVistoriaNova,
+                Id = idVistoriaNova, 
                 Placa = request.Placa,
-                UsuarioId = Guid.Parse("3fa85f64-5717-4562-b3fc-2c963f66afa7"), 
-                Observacao = $"[UserSupabase: {request.UsuarioId}] " + (request.Observacao ?? ""),
+                UsuarioId = usuarioGuid, 
                 Equipe = request.Equipe ?? "Geral",
                 TipoServico = request.TipoServico ?? "Geral",
+                Observacao = request.Observacao ?? "",
                 Localizacao = request.Localizacao ?? "Não autorizada",
                 Status = request.Status ?? "inicial",
                 DataCriacao = DateTime.UtcNow
@@ -198,24 +78,31 @@ private async Task VincularEvidencias(Guid vistoriaId, List<string> evidenciasUr
             _context.Vistorias.Add(novaVistoria);
             await _context.SaveChangesAsync();
 
+            // 4. Vincular as imagens da vistoria
             if (request.Evidencias != null && request.Evidencias.Any())
             {
                 foreach (var fotoUrl in request.Evidencias)
                 {
-                    _context.Evidencias.Add(new Evidencia { Id = Guid.NewGuid(), VistoriaId = idVistoriaNova, UrlFoto = fotoUrl });
+                    _context.Evidencias.Add(new Evidencia
+                    {
+                        Id = Guid.NewGuid(), 
+                        VistoriaId = idVistoriaNova, 
+                        UrlFoto = fotoUrl
+                    });
                 }
                 await _context.SaveChangesAsync();
             }
 
-            return Ok(new { message = "Vistoria salva em modo de compatibilidade!", id = idVistoriaNova });
+            return Ok(new { message = "Vistoria salva com sucesso!", id = idVistoriaNova });
         }
-        catch (Exception ex)
+        catch (Exception exGeral)
         {
-            return BadRequest($"Erro crítico na contingência: {ex.Message}");
+            var erroInterno = exGeral.InnerException != null ? exGeral.InnerException.Message : exGeral.Message;
+            return BadRequest($"Erro crítico geral ao salvar: {erroInterno}");
         }
     }
 
-    // EXCLUSÃO EM MASSA (CORRIGIDO: Adicionado o .Value no mapeamento do LINQ)
+    // EXCLUSÃO EM MASSA
     [HttpDelete("acoes/excluir-massa")]
     public async Task<IActionResult> DeleteMultiple([FromBody] List<Guid> ids)
     {
@@ -226,7 +113,7 @@ private async Task VincularEvidencias(Guid vistoriaId, List<string> evidenciasUr
         {
             var vistorias = await _context.Vistorias
                 .Include(v => v.Evidencias)
-                .Where(v => v.Id != null && ids.Contains(v.Id.Value)) // CORREÇÃO AQUI: v.Id.Value resolve o erro CS1503
+                .Where(v => v.Id != null && ids.Contains(v.Id.Value)) 
                 .ToListAsync();
 
             if (vistorias.Count == 0)
@@ -247,10 +134,11 @@ private async Task VincularEvidencias(Guid vistoriaId, List<string> evidenciasUr
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Erro interno: {ex.Message}");
+            return StatusCode(500, $"Erro interno ao excluir em massa: {ex.Message}");
         }
     }
 
+    // EXCLUSÃO UNITÁRIA
     [HttpDelete("{id:guid}")] 
     public async Task<IActionResult> ExcluirVistoria(Guid id)
     {
@@ -278,7 +166,7 @@ private async Task VincularEvidencias(Guid vistoriaId, List<string> evidenciasUr
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            return BadRequest($"Erro: {ex.Message}");
+            return BadRequest($"Erro ao excluir: {ex.Message}");
         }
     }
 } 
