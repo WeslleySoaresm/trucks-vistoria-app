@@ -32,7 +32,7 @@ export default function FormVistoria({ user }) {
   const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
   const statusDisponiveis = [
     { label: "Inicial", value: "inicial" },
-    { label: "Em processo", value: "em processo" },
+    { label: "Em processo", value: "em_processo" },
     { label: "Concluído", value: "concluida" }
   ];
   
