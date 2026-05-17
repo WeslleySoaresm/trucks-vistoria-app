@@ -11,7 +11,7 @@ public class Vistoria
     public string Equipe { get; set; } = string.Empty;
     
     [Column("ClienteNome")] // <-- ADICIONE ISSO AQUI!
-    public string Cliente { get; set; } = string.Empty;
+    public string ClienteNome { get; set; } = string.Empty;
     public string TipoServico { get; set; } = string.Empty;
     public string Observacao { get; set; } = string.Empty;
     public string Localizacao { get; set; } = string.Empty;

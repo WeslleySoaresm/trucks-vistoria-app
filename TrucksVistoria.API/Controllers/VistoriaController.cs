@@ -49,7 +49,7 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
                 veiculo = new Veiculo 
                 { 
                     Placa = request.Placa, 
-                    ClienteNome = string.IsNullOrWhiteSpace(request.Cliente) ? "Não Informado" : request.Cliente
+                    .ClienteNome = string.IsNullOrWhiteSpace(request.ClienteNome) ? "Não Informado" : request.ClienteNome
                 };
                 _context.Veiculos.Add(veiculo);
                 await _context.SaveChangesAsync();
@@ -187,7 +187,7 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
             return BadRequest($"Erro ao excluir: {ex.Message}");
         }
     }
-    
+
     // HISTÓRICO DE CLIENTES (Busca direta na tabela de vistorias para mostrar os clientes já digitados)
     [HttpGet("clientes-historico")]
     public async Task<IActionResult> GetClientesHistorico()
@@ -196,8 +196,8 @@ public async Task<IActionResult> CriarVistoria([FromBody] VistoriaRequest reques
         {
             // Vai buscar direto na tabela de vistorias todos os clientes já digitados
             var clientes = await _context.Vistorias
-                .Where(v => !string.IsNullOrEmpty(v.Cliente))
-                .Select(v => v.Cliente.Trim().ToUpper())
+                .Where(v => !string.IsNullOrEmpty(v.ClienteNome))
+                .Select(v => v.ClienteNome.Trim().ToUpper())
                 .Distinct() // Remove os nomes duplicados
                 .OrderBy(nome => nome)
                 .ToListAsync();
