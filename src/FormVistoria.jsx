@@ -103,7 +103,7 @@ export default function FormVistoria({ user }) {
       const payload = {
         Placa: String(placaFormatada).trim(),
         Cliente: String(cliente).trim() || 'Não Informado',
-        UsuarioId: user?.id ? String(user.id).trim() : "3fa85f64-5717-4562-b3fc-2c963f66afa7", 
+        UsuarioId: user?.id, 
         Equipe: String(equipe || 'Geral').trim(),
         TipoServico: String(tipoServico || 'On Job').trim(),
         Observacao: String(observacao || '').trim(),
