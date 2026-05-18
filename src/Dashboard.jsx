@@ -67,7 +67,7 @@ export default function Dashboard() {
           funcionario_email: v.usuarioId || v.funcionario_email,
           cliente_nome: clienteFinal.toString().trim() ? clienteFinal.toString().toUpperCase().trim() : "NÃO INFORMADO",
           localizacao_texto: v.localizacao || v.localizacao_texto || "Não autorizada",
-          tipo_servico: v.tipoServico || v.tipo_servico || "On Job",
+          tipo_servico: v.tipoServico || v.tipo_servico || "No Local",
           observacao: observacaoFinal, 
           evidencias_lista: v.evidencias || v.evidencias_lista || [] 
         };
@@ -100,7 +100,7 @@ export default function Dashboard() {
         'Placa': reg.placa,
         'Cliente': reg.cliente_nome,
         'Equipe': reg.equipe,
-        'Serviço': reg.tipo_servico || 'On Job',
+        'Serviço': reg.tipo_servico || 'No Local',
         'Status': reg.status || 'Concluída',
         'Observação': reg.observacao || '',
         'Localização': reg.localizacao_texto,
@@ -363,7 +363,7 @@ export default function Dashboard() {
                 <div style={{fontSize: '13px', color: '#cbd5e0', marginBottom: '10px'}}>
                   <div style={{color: '#63b3ed', fontWeight: 'bold', marginBottom: '6px'}}>👤 CLIENTE: {reg.cliente_nome}</div>
                   <div>📅 {reg.data_formatada}</div>
-                  <div>🛠️ {reg.tipo_servico || 'On Job'}</div>
+                  <div>🛠️ {reg.tipo_servico || 'No Local'}</div>
                   <div style={{marginTop: '5px', fontStyle: 'italic'}}>📝 {reg.observacao}</div>
                 </div>
                 <div style={{display: 'flex', gap: '10px'}}>
@@ -397,7 +397,7 @@ export default function Dashboard() {
                     <td style={styles.td}><strong>{reg.placa}</strong></td>
                     <td style={{...styles.td, color: '#63b3ed', fontWeight: 'bold'}}>{reg.cliente_nome}</td>
                     <td style={styles.td}><span style={styles.badge}>{reg.equipe}</span></td>
-                    <td style={styles.td}>{reg.tipo_servico || 'On Job'}</td>
+                    <td style={styles.td}>{reg.tipo_servico || 'No Local'}</td>
                     <td style={styles.td}>
                       <span style={{...styles.statusBadge, backgroundColor: statusStyle.bg, color: statusStyle.color}}>
                         {reg.status || 'Concluída'}

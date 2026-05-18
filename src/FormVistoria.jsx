@@ -28,8 +28,8 @@ export default function FormVistoria({ user }) {
   const [inputNovoCliente, setInputNovoCliente] = useState(''); 
   const dropdownRef = useRef(null);
 
-  const tiposServicoDisponiveis = ["On Job", "Primeira Visita", "Procura Artificial", "Indicação"];
-  const equipesDisponiveis = ["812", "811", "TFF", "805", "810"];
+  const tiposServicoDisponiveis = ["No Local", "Primeiro Contato", "Indicação"];
+  const equipesDisponiveis = ["teste01", "teste02", "teste03", "teste04", "teste05"];
   const statusDisponiveis = [
     { label: "Inicial", value: "inicial" },
     { label: "Em processo", value: "em_processo" },
