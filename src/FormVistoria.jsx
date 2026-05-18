@@ -24,7 +24,7 @@ export default function FormVistoria({ user }) {
   const [inputNovoCliente, setInputNovoCliente] = useState(''); 
   const dropdownRef = useRef(null);
 
-  const tiposServicoDisponiveis = ["Bate Chapa", "Pintura", "Mecanica"];
+  const tiposServicoDisponiveis = ["Bate Chapa", "Pintura", "mecanica"];
   const equipesDisponiveis = ["teste01", "teste02", "teste03", "teste04", "teste05"];
   const statusDisponiveis = [
     { label: "Inicial", value: "inicial" },
