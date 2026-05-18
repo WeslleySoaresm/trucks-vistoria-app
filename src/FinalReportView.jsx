@@ -33,7 +33,11 @@ export default function FinalReportView({ report, onClose }) {
   const checklistItens = parseJsonSeguro(report.checklistItensJson || report.ChecklistItensJson || report.checklistItens || report.ChecklistItens);
   const pneus = parseJsonSeguro(report.pneusJson || report.PneusJson || report.pneus || report.Pneus);
 
-  // Coordenadas das peças baseadas na imagem oficial de contorno
+  // FILTRO CRUCIAL: Pega apenas itens que possuem um status válido (ignora vazios ou nulos)
+  const itensModificados = Object.entries(checklistItens).filter(([_, status]) => {
+    return status && status.trim() !== "" && status !== null;
+  });
+
   const pecasMapeadas = [
     { id: 'frente', top: '50%', left: '12%' },
     { id: 'capo', top: '50%', left: '30%' },
@@ -59,16 +63,16 @@ export default function FinalReportView({ report, onClose }) {
 
   return (
     <div style={styles.pageContainer}>
-      {/* Botões superiores de controle (Ocultados na Impressão Física) */}
+      {/* Botões superiores (Ocultados na Impressão) */}
       <div className="no-print-header" style={styles.noPrintHeader}>
-        <button onClick={handlePrint} style={styles.btnPrint}><Printer size={16} /> IMPRIMIR RELATÓRIO</button>
+        <button onClick={handlePrint} style={styles.btnPrint}><Printer size={16} /> IMPRIMIR</button>
         <button onClick={onClose} style={styles.btnClose}><X size={16} /> FECHAR</button>
       </div>
 
       {/* ÁREA DE IMPRESSÃO DO RELATÓRIO */}
       <div className="print-area" style={styles.printArea}>
         
-        {/* CABEÇALHO TIMBRADO */}
+        {/* CABEÇALHO */}
         <div style={styles.headerFlex}>
           <div>
             <h1 style={styles.mainTitle}>CHECKLIST DE ENTRADA</h1>
@@ -114,12 +118,12 @@ export default function FinalReportView({ report, onClose }) {
           </div>
         </div>
 
-        {/* COLUNAS LADO A LADO - SEGURO PARA IMPRESSÃO EM TABELA */}
+        {/* COLUNAS LADO A LADO - COMPACTADAS */}
         <div className="print-colunas-wrapper" style={styles.colunasFlex}>
           
-          {/* COLUNA DA ESQUERDA: AVARIAS E PNEUS */}
+          {/* COLUNA ESQUERDA: AVARIAS E PNEUS */}
           <div className="print-coluna-item" style={styles.colunaEsquerda}>
-            <div style={styles.subSecaoTitulo}>APEAMENTO DE AVARIAS EXTERNAS</div>
+            <div style={styles.subSecaoTitulo}>MAPEAMENTO DE AVARIAS EXTERNAS</div>
             <div style={styles.carWrapper}>
               <img src="/contorno-carro.png" alt="Carro" style={styles.carImg} />
               {pecasMapeadas.map(peca => {
@@ -168,16 +172,16 @@ export default function FinalReportView({ report, onClose }) {
                       </tr>
                     ))
                   ) : (
-                    <tr><td colSpan={3} style={styles.tdPneu}>Sem registros de pneus.</td></tr>
+                    <tr><td colSpan={3} style={styles.tdPneu}>Sem registros.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* COLUNA DA DIREITA: CHECKLIST TOTALMENTE EXPANDIDO NA IMPRESSÃO */}
+          {/* COLUNA DIREITA: APENAS ITENS MODIFICADOS (SEM SCROLL) */}
           <div className="print-coluna-item" style={styles.colunaDireita}>
-            <div style={styles.subSecaoTitulo}>ITENS DE VISTORIA E VERIFICAÇÃO</div>
+            <div style={styles.subSecaoTitulo}>ITENS MODIFICADOS / INSPEÇÃO</div>
             <div className="print-checklist-container" style={styles.checklistGridContainer}>
               <table style={styles.tabelaItens}>
                 <thead>
@@ -187,20 +191,30 @@ export default function FinalReportView({ report, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(checklistItens).map(([item, status]) => (
-                    <tr key={item} style={styles.linhaItem}>
-                      <td style={styles.tdItemName}>{item}</td>
-                      <td style={styles.tdItemStatus}>
-                        <span style={styles.badgeStatus(status)}>{status}</span>
+                  {itensModificados.length > 0 ? (
+                    itensModificados.map(([item, status]) => (
+                      <tr key={item} style={styles.linhaItem}>
+                        <td style={styles.tdItemName}>{item}</td>
+                        <td style={styles.tdItemStatus}>
+                          <span style={styles.badgeStatus(status)}>{status}</span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={2} style={{ ...styles.tdItemName, textAlign: 'center', padding: '15px', color: '#6b7280' }}>
+                        Nenhum item do checklist foi marcado.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
-            <div style={styles.legendaItensPrint}>
-              <strong>Legenda:</strong> S: OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
-            </div>
+            {itensModificados.length > 0 && (
+              <div style={styles.legendaItensPrint}>
+                <strong>Legenda:</strong> S: OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
+              </div>
+            )}
           </div>
 
         </div>
@@ -223,48 +237,43 @@ export default function FinalReportView({ report, onClose }) {
 
       </div>
 
-      {/* REGRAS RÍGIDAS DE IMPRESSÃO CSS PARA ELIMINAR O SCROLL */}
+      {/* ESTILOS REFORÇADOS PARA ASSGURAR UMA PÁGINA ÚNICA */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .no-print-header { display: none !important; }
-          .print-area { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10px !important; box-shadow: none !important; border: none !important; }
+          .print-area { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 5px !important; box-shadow: none !important; border: none !important; }
           
-          /* Força o navegador a tratar as colunas lado a lado como uma estrutura de tabela física */
+          /* Mantém o lado a lado rígido */
           .print-colunas-wrapper { display: table !important; width: 100% !important; table-layout: fixed !important; }
           .print-coluna-item { display: table-cell !important; vertical-align: top !important; }
-          
           .print-coluna-item:first-child { width: 52% !important; padding-right: 15px !important; }
           .print-coluna-item:last-child { width: 48% !important; }
 
-          /* Mata o Scrollbar e força a exibição linear contínua de todos os itens */
+          /* Expande a lista totalmente sem barras de rolagem */
           .print-checklist-container { 
             max-height: none !important; 
             overflow: visible !important; 
             overflow-y: visible !important;
             height: auto !important;
-            border: none !important;
+            border: 1px solid #cbd5e1 !important;
           }
-
-          /* Ajuste cirúrgico do padding para condensar os 49 itens em uma única folha A4 */
-          .print-checklist-container table td {
-            padding: 3px 4px !important;
-            font-size: 9px !important;
-            line-height: 1.1 !important;
-          }
+          
+          /* Força quebra de página inteligente caso passe um milímetro (evita 3 páginas) */
+          .print-area { page-break-inside: avoid !important; }
         }
       `}} />
     </div>
   );
 }
 
-// ESTILOS DE TELA E PADRÃO DE ESTRUTURA
+// ESTILOS AJUSTADOS E COMPACTOS
 const styles = {
   pageContainer: { width: '100%', background: '#111827', minHeight: '100vh', padding: '20px 0', boxSizing: 'border-box' },
   noPrintHeader: { display: 'flex', justifyContent: 'flex-end', gap: '10px', maxWidth: '940px', margin: '0 auto 15px auto', padding: '0 10px' },
   btnPrint: { background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
   btnClose: { background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
-  printArea: { background: '#fff', color: '#000', maxWidth: '940px', margin: '0 auto', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
+  printArea: { background: '#fff', color: '#000', maxWidth: '940px', margin: '0 auto', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
   headerFlex: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '10px' },
   mainTitle: { fontSize: '20px', fontWeight: '900', margin: 0, color: '#000' },
   subTitle: { fontSize: '11px', margin: '2px 0 0 0', color: '#4b5563', fontWeight: 'bold' },
@@ -272,14 +281,13 @@ const styles = {
   secaoTitulo: { background: '#334155', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '5px 8px', borderRadius: '4px', marginTop: '12px', marginBottom: '8px', textTransform: 'uppercase' },
   subSecaoTitulo: { background: '#f1f5f9', borderLeft: '3px solid #334155', color: '#000', fontSize: '10px', fontWeight: 'bold', padding: '5px 6px', marginBottom: '8px' },
   tabelaDados: { width: '100%', borderCollapse: 'collapse', marginBottom: '5px' },
-  tdDado: { border: '1px solid #cbd5e1', padding: '6px', fontSize: '11px', color: '#000' },
+  tdDado: { border: '1px solid #cbd5e1', padding: '5px', fontSize: '11px', color: '#000' },
   valorPlaca: { background: '#000', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px' },
-  combustivelContainer: { display: 'flex', alignItems: 'center', gap: '15px', border: '1px solid #cbd5e1', padding: '6px', borderRadius: '6px', fontSize: '11px' },
+  combustivelContainer: { display: 'flex', alignItems: 'center', gap: '15px', border: '1px solid #cbd5e1', padding: '5px', borderRadius: '6px', fontSize: '11px' },
   combustivelBarra: { display: 'flex', gap: '4px' },
   nivelInativo: { padding: '2px 5px', background: '#f3f4f6', color: '#9ca3af', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '10px' },
   nivelAtivo: { padding: '2px 5px', background: '#000', color: '#fff', fontWeight: 'bold', borderRadius: '4px', fontSize: '10px' },
   
-  // CONFIGURAÇÃO DE COLUNAS EM TELA (FLEX)
   colunasFlex: { display: 'flex', gap: '20px', marginTop: '10px', alignItems: 'flex-start' },
   colunaEsquerda: { flex: '1.1', width: '52%', display: 'flex', flexDirection: 'column' },
   colunaDireita: { flex: '0.9', width: '48%', display: 'flex', flexDirection: 'column' },
@@ -292,8 +300,8 @@ const styles = {
   thPneu: { textTransform: 'uppercase', background: '#f1f5f9', fontSize: '9px', padding: '5px', border: '1px solid #cbd5e1', textAlign: 'left' },
   tdPneu: { fontSize: '10px', padding: '5px', border: '1px solid #cbd5e1', color: '#000' },
   
-  // CAIXA DE CHECKLIST NA TELA (MANTÉM O SCROLL NO MONITOR, REMOVE NA IMPRESSÃO)
-  checklistGridContainer: { border: '1px solid #cbd5e1', borderRadius: '6px', overflowY: 'auto', maxHeight: '440px' },
+  // CONTAINER DO CHECKLIST (AGORA CONDENSADO E DINÂMICO)
+  checklistGridContainer: { border: '1px solid #cbd5e1', borderRadius: '6px', overflowY: 'auto', maxHeight: '430px' },
   tabelaItens: { width: '100%', borderCollapse: 'collapse' },
   thItem: { background: '#f1f5f9', fontSize: '10px', padding: '6px', borderBottom: '1px solid #cbd5e1', textAlign: 'left' },
   thItemCentrado: { background: '#f1f5f9', fontSize: '10px', padding: '6px', borderBottom: '1px solid #cbd5e1', textAlign: 'center', width: '40px' },
