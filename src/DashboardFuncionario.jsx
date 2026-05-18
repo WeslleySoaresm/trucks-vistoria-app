@@ -28,29 +28,27 @@ export default function DashboardFuncionario({ user }) {
     }, 3000);
   };
 
-  // FUNÇÃO DE CARREGAMENTO OTIMIZADA E RETIFICADA
-  const carregarDados = useCallback(async (paginaAlvo = 1, append = false) => {
+  // FUNÇÃO DE CARREGAMENTO ADAPTADA PARA RODAR SILENCIOSAMENTE EM SEGUNDO PLANO
+  const carregarDados = useCallback(async (paginaAlvo = 1, append = false, silencioso = false) => {
     if (!user?.id) return;
     
-    if (append) {
-      setLoadingMais(true);
-    } else {
-      setLoading(true);
+    if (!silencioso) {
+      if (append) {
+        setLoadingMais(true);
+      } else {
+        setLoading(true);
+      }
     }
 
     try {
-      // Passa os parâmetros de paginação e o ID do usuário conectado
       const urlComFiltros = `${API_URL}/Vistoria?usuarioId=${user.id}&pagina=${paginaAlvo}&limite=${ITENS_POR_PAGINA}`;
       
       const response = await fetch(urlComFiltros);
       if (!response.ok) throw new Error("Erro ao conectar com a API");
       
       const data = await response.json();
-
-      // Normaliza se a API responder com objeto paginado { dados: [...] } ou array direta
       const listaBruta = Array.isArray(data) ? data : (data.dados || data.vistorias || []);
 
-      // Mapeamento tolerante a variações de letras maiúsculas/minúsculas do banco de dados
       const formatados = listaBruta.map(v => {
         const dataCriacao = v.dataCriacao || v.DataCriacao || v.data_cadastro;
         return {
@@ -63,15 +61,17 @@ export default function DashboardFuncionario({ user }) {
           observacao: v.observacao || v.Observacao || '',
           localizacao_texto: v.localizacao || v.Localizacao || '',
           todas_fotos: v.evidencias || v.Evidencias ? (Array.isArray(v.evidencias || v.Evidencias) ? (v.evidencias || v.Evidencias).map(e => e.urlFoto || e.UrlFoto || e) : []) : [],
-          qtd_fotos: v.evidencias || v.Evidencias ? (v.evidencias || v.Evidencias).length : 0
+          qtd_fotos: v.evidencias || v.Evidencias ? (Array.isArray(v.evidencias || v.Evidencias) ? (v.evidencias || v.Evidencias).length : 0) : 0
         };
       });
 
-      // Atualização segura do estado das vistorias
       let listaAtualizada;
       if (append) {
         setVistorias(prev => {
-          listaAtualizada = [...prev, ...formatados];
+          // Evita duplicar registros se o polling rodar enquanto pagina
+          const idsExistentes = new Set(prev.map(i => i.id));
+          const novosFiltrados = formatados.filter(f => !idsExistentes.has(f.id));
+          listaAtualizada = [...prev, ...novosFiltrados];
           return listaAtualizada;
         });
       } else {
@@ -79,14 +79,12 @@ export default function DashboardFuncionario({ user }) {
         setVistorias(formatados);
       }
 
-      // Validação de fim de registros
       if (formatados.length < ITENS_POR_PAGINA) {
         setTemMaisRegistros(false);
       } else {
         setTemMaisRegistros(true);
       }
 
-      // CORREÇÃO DA META: Baseia-se no tamanho total real do histórico carregado
       const totalVistoriasUsuario = listaAtualizada ? listaAtualizada.length : formatados.length;
       setStats({
         total_vistorias: totalVistoriasUsuario,
@@ -95,29 +93,40 @@ export default function DashboardFuncionario({ user }) {
 
     } catch (err) {
       console.error("Erro na carga de dados:", err.message);
-      dispararNotificacao('erro', 'Falha ao sincronizar dados com o servidor.');
+      if (!silencioso) {
+        dispararNotificacao('erro', 'Falha ao sincronizar dados com o servidor.');
+      }
     } finally {
       setLoading(false);
       setLoadingMais(false);
     }
   }, [user?.id]);
 
-  // Monitora alterações de usuário e monta o componente
+  // MONITORADOR PRINCIPAL + AUTO-REFRESH AUTOMÁTICO (CAPTURA NOVOS CADASTROS EM TEMPO REAL)
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     
+    // Primeira carga visível com loading icon
     setPagina(1);
-    carregarDados(1, false);
+    carregarDados(1, false, false);
+
+    // CRUCIAL: Roda uma busca silenciosa a cada 7 segundos para capturar novos cadastros enviados do celular
+    const intervaloAutoRefresh = setInterval(() => {
+      carregarDados(1, false, true);
+    }, 7000);
     
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      clearInterval(intervaloAutoRefresh);
+    };
   }, [user?.id, carregarDados]);
 
   const lidarComCarregarMais = () => {
     const proximaPagina = pagina + 1;
     setPagina(proximaPagina);
-    carregarDados(proximaPagina, true);
+    carregarDados(proximaPagina, true, false);
   };
 
   const exportarExcel = () => {
