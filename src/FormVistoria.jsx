@@ -1,12 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; 
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Search, Plus, CheckCircle2, XCircle, ArrowRight, WifiOff, Car, User, Settings, ClipboardList } from 'lucide-react';
+import { Camera, Search, Plus, CheckCircle2, XCircle, WifiOff, Car, User, Settings, ClipboardList } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
 export default function FormVistoria({ user }) {
-  // ... MANTENHA TODOS OS SEUS ESTADOS (useState) E EFFECTS (useEffect) IGUAIS ...
   const [loading, setLoading] = useState(false);
   const [placa, setPlaca] = useState('');
   const [cliente, setCliente] = useState(''); 
@@ -33,7 +32,6 @@ export default function FormVistoria({ user }) {
     { label: "Concluído", value: "concluida" }
   ];
 
-  // ... MANTENHA TODAS AS SUAS FUNÇÕES (dispararNotificacao, finalizarVistoria, etc.) IGUAIS ...
   const dispararNotificacao = (tipo, mensagem) => {
     setNotificacao({ exibir: true, tipo, mensagem });
     setTimeout(() => setNotificacao({ exibir: false, tipo: '', mensagem: '' }), 3500);
@@ -92,6 +90,12 @@ export default function FormVistoria({ user }) {
     }
   };
 
+  // FUNÇÃO DE REMOÇÃO QUE ESTAVA FALTANDO PARA EVITAR QUEBRAS
+  const removerFoto = (indexAlvo) => {
+    setFotosOtimizadas(prev => prev.filter((_, idx) => idx !== indexAlvo));
+    setPreviews(prev => prev.filter((_, idx) => idx !== indexAlvo));
+  };
+
   const finalizarVistoria = async () => {
     const nomeClienteFinal = cliente.trim().toUpperCase();
     if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !nomeClienteFinal) {
@@ -99,8 +103,6 @@ export default function FormVistoria({ user }) {
       return;
     }
     setLoading(true);
-    // ... (Mantive sua lógica de GPS e Envio API aqui dentro) ...
-    // ... (Simulando o fim do envio para o exemplo) ...
     setTimeout(() => { 
         dispararNotificacao('sucesso', 'Inspeção finalizada!'); 
         setLoading(false); 
@@ -246,21 +248,21 @@ export default function FormVistoria({ user }) {
           </div>
         </section>
 
-      </div>
+        {/* BOTÃO DE AÇÃO INTEGRADO DIRETAMENTE NO FLUXO */}
+        <div style={styles.footerButtonArea}>
+          <button 
+            onClick={finalizarVistoria} 
+            disabled={loading || fotosOtimizadas.length === 0} 
+            style={loading ? styles.btnFinalizeDisabled : styles.btnFinalize}
+          >
+            {loading ? "PROCESSANDO..." : (
+              navigator.onLine ? 
+              <><CheckCircle2 size={20} /> FINALIZAR INSPEÇÃO ({fotosOtimizadas.length}/10)</> :
+              <><WifiOff size={20} /> SALVAR OFFLINE ({fotosOtimizadas.length}/10)</>
+            )}
+          </button>
+        </div>
 
-      {/* BOTÃO DE AÇÃO FIXO NO RODAPÉ */}
-      <div style={styles.footer}>
-        <button 
-          onClick={finalizarVistoria} 
-          disabled={loading || fotosOtimizadas.length === 0} 
-          style={loading ? styles.btnFinalizeDisabled : styles.btnFinalize}
-        >
-          {loading ? "PROCESSANDO..." : (
-            navigator.onLine ? 
-            <><CheckCircle2 size={20} /> FINALIZAR INSPEÇÃO ({fotosOtimizadas.length}/10)</> :
-            <><WifiOff size={20} /> SALVAR OFFLINE ({fotosOtimizadas.length}/10)</>
-          )}
-        </button>
       </div>
     </div>
   );
@@ -268,9 +270,10 @@ export default function FormVistoria({ user }) {
 
 const styles = {
   container: { 
-    width: '100%', maxWidth: '480px', height: '100vh', margin: '0 auto', 
+    width: '100%', maxWidth: '480px', margin: '0 auto', 
     background: '#0f172a', display: 'flex', flexDirection: 'column', 
-    color: '#fff', fontFamily: 'sans-serif', overflow: 'hidden' 
+    color: '#fff', fontFamily: 'sans-serif', borderRadius: '16px',
+    border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden'
   },
   header: { 
     padding: '20px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -279,7 +282,7 @@ const styles = {
   logoImg: { width: '120px', marginBottom: '10px' },
   headerTitle: { fontSize: '18px', fontWeight: '700', margin: 0, color: '#e2e8f0' },
   
-  scrollContent: { flex: 1, overflowY: 'auto', padding: '20px', paddingBottom: '100px' },
+  scrollContent: { padding: '20px' },
   
   section: { 
     marginBottom: '20px', padding: '15px', borderRadius: '16px', 
@@ -289,7 +292,7 @@ const styles = {
   sectionTitle: { fontSize: '13px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' },
   
   inputWrapper: { position: 'relative', width: '100%' },
-  fieldIcon: { position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' },
+  fieldIcon: { position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 },
   input: { 
     width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', 
     border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', outline: 'none', boxSizing: 'border-box'
@@ -298,13 +301,14 @@ const styles = {
     width: '100%', padding: '10px', borderRadius: '8px', background: '#0f172a', 
     border: '1px solid #3182ce', color: '#fff', boxSizing: 'border-box' 
   },
+  inputGroupVertical: { display: 'flex', flexDirection: 'column', gap: '10px' },
   select: { 
     width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', 
-    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '15px', marginBottom: '10px'
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '15px', boxSizing: 'border-box', outline: 'none'
   },
   textarea: { 
     width: '100%', height: '80px', padding: '12px', borderRadius: '12px', background: '#020617', 
-    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box'
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none'
   },
   
   cameraBtn: { 
@@ -315,20 +319,17 @@ const styles = {
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '15px' },
   photoThumb: { position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden' },
   imgFull: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' },
-  btnRemovePhoto: { position: 'absolute', top: '2px', right: '2px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px' },
+  btnRemovePhoto: { position: 'absolute', top: '2px', right: '2px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 
-  footer: { 
-    position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px', 
-    background: 'linear-gradient(to top, #0f172a 80%, transparent)' 
-  },
+  footerButtonArea: { marginTop: '25px', marginBottom: '10px' },
   btnFinalize: { 
     width: '100%', padding: '16px', background: '#10b981', color: '#fff', 
     border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', 
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)'
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)'
   },
   btnFinalizeDisabled: { 
     width: '100%', padding: '16px', background: '#334155', color: '#64748b', 
-    border: 'none', borderRadius: '12px', fontWeight: '800' 
+    border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center'
   },
 
   dropdown: { 
@@ -338,8 +339,8 @@ const styles = {
   dropdownOption: { padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' },
   dropdownNew: { padding: '12px', color: '#60a5fa', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
   newClientBox: { marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)' },
-  btnConfirm: { background: '#3b82f6', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', fontWeight: '600' },
-  btnCancel: { background: 'transparent', color: '#94a3b8', border: 'none', padding: '8px 15px', fontWeight: '600' },
+  btnConfirm: { background: '#3b82f6', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' },
+  btnCancel: { background: 'transparent', color: '#94a3b8', border: 'none', padding: '8px 15px', fontWeight: '600', cursor: 'pointer' },
   
   toastContainerCentral: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 9999 },
   toastBox: { padding: '15px 25px', borderRadius: '50px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
