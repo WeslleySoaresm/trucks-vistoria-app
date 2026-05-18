@@ -7,13 +7,11 @@ const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 export default function CheckCar({ user }) {
   const [loading, setLoading] = useState(false);
   
-  // =========================================================================
-  // ESTADOS PARA A FUNCIONALIDADE DE BUSCA DE RELATÓRIOS (Mantidos)
+  // States de Busca
   const [showSearch, setShowSearch] = useState(false);     
   const [searchTerm, setSearchTerm] = useState('');       
   const [searchResults, setSearchResults] = useState([]); 
   const [selectedReport, setSelectedReport] = useState(null); 
-  // =========================================================================
 
   const [dadosVeiculo, setDadosVeiculo] = useState({
     placa: '', modelo: '', cor: '', ano: '', combustivel: '', cliente: '', telefone: '', km: ''
@@ -134,7 +132,6 @@ export default function CheckCar({ user }) {
     }
   };
 
-  // BUSCAR RELATÓRIOS NA API (Mantido)
   const buscarRelatorios = async () => {
     if (searchTerm.trim().length < 2) return;
     setLoading(true);
@@ -207,12 +204,14 @@ export default function CheckCar({ user }) {
                 onClick={() => { setSelectedReport(report); setShowSearch(false); }}
               >
                 <div style={styles.reportHeaderItem}>
-                  <strong style={{fontSize: '15px', color: '#fff'}}>{report.Placa}</strong>
-                  <span style={styles.tag}>{report.DataCadastro || report.dataCriacao}</span>
+                  <strong style={{fontSize: '15px', color: '#fff'}}>{report.Placa || "SEM PLACA"}</strong>
+                  <span style={styles.tag}>
+                    {report.DataCadastro ? new Date(report.DataCadastro).toLocaleDateString('pt-BR') : 'N/D'}
+                  </span>
                 </div>
                 <div style={styles.reportDetailItem}>
-                  <span>🚗 {report.Modelo} | {report.Cor} | {report.Ano}</span>
-                  <span style={{textAlign: 'right'}}>👤 {report.Cliente}</span>
+                  <span>🚗 {report.Modelo || 'N/D'} | {report.Cor || 'N/D'} | {report.Ano || 'N/D'}</span>
+                  <span style={{textAlign: 'right'}}>👤 {report.Cliente || 'N/D'}</span>
                 </div>
               </div>
             ))}
@@ -391,7 +390,7 @@ export default function CheckCar({ user }) {
         {loading ? "SALVANDO..." : <><CheckCircle2 size={20} /> FINALIZAR ENTRADA E GERAR RELATÓRIO</>}
       </button>
 
-      {/* INTERAÇÃO INTEGRADA: OVERLAY DO RELATÓRIO FINAL DETALHADO */}
+      {/* OVERLAY DO RELATÓRIO FINAL DETALHADO */}
       {selectedReport && (
         <div style={styles.finalReportOverlay}>
           <div style={styles.finalReportContentOrganized}> 
@@ -449,7 +448,7 @@ const styles = {
   textarea: { width: '100%', height: '80px', padding: '12px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none', fontSize: '14px' },
   btnSalvarTudo: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)', marginBottom: '15px' },
   
-  // ESTILOS ADICIONAIS DA BUSCA E DO NOVO OVERLAY ORGANIZADO (Mantidos e Atualizados)
+  // Estilos de busca e overlay
   btnSearchTab: { background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', fontWeight: '700', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
   dropdownSearch: { background: '#1e293b', border: '1px solid #475569', borderRadius: '12px', padding: '15px', marginBottom: '20px' },
   btnAction: { background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', padding: '0 20px', fontWeight: '700', cursor: 'pointer' },
