@@ -220,7 +220,7 @@ export default function Dashboard() {
     return acc;
   }, {});
 
-  const graficoEquipe = Object.entries(prodEquipe).map(([name, value]) => ({ name: `Equipe ${name}`, value }));
+  const graficoEquipe = Object.entries(prodEquipe).map(([name, value]) => ({ name: `${name}`, value }));
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
   const getStatusStyle = (status) => {
@@ -310,7 +310,7 @@ export default function Dashboard() {
           <div style={styles.cardNum}>{listaVistorias.length}</div>
         </div>
         {graficoEquipe.map((item, idx) => (
-          <div key={idx} onClick={() => setEquipeFiltrada(item.name.replace('Equipe ', ''))} style={{...styles.cardResumo, borderLeftColor: COLORS[idx % COLORS.length], opacity: equipeFiltrada === item.name.replace('Equipe ', '') ? 1 : 0.6, cursor: 'pointer'}}>
+          <div key={idx} onClick={() => setEquipeFiltrada(item.name.replace('', ''))} style={{...styles.cardResumo, borderLeftColor: COLORS[idx % COLORS.length], opacity: equipeFiltrada === item.name.replace('', '') ? 1 : 0.6, cursor: 'pointer'}}>
             <small style={styles.cardLabel}>{item.name}</small>
             <div style={styles.cardNum}>{item.value}</div>
           </div>
