@@ -1,10 +1,9 @@
 import React from 'react';
-import { Car, User, CalendarDays, Gauge, MapPin, CheckSquare, Layers3, Zap, FileText, Printer } from 'lucide-react';
+import { Car, User, CalendarDays, Gauge, MapPin, CheckSquare, Layers3, Zap, FileText, Printer, X } from 'lucide-react';
 
 const legendaAvarias = { 'A': 'Amassado', 'R': 'Riscado', 'X': 'Quebrado', 'F': 'Faltante', 'T': 'Trincado', 'M': 'Manchado' };
 const legendaStatus = { 'S': 'Sim/OK', 'N': 'Não', 'I': 'Incompleto', 'A': 'Avariado', 'M': 'Manchado' };
 
-// Mapeamento para renderizar os pontos de avarias visuais no relatório final
 const pecasMapeadas = {
   'frente': { nome: 'Para-choque Dianteiro / Grade', top: '50%', left: '12%' },
   'capo': { nome: 'Capô Dianteiro', top: '50%', left: '30%' },
@@ -29,24 +28,41 @@ function getNomePneu(id) {
 export default function FinalReportView({ report, onClose }) {
   if (!report) return null;
 
-  // Realiza o PARSE seguro dos campos JSON do banco de dados
+  // Mapeamento tolerante a Letras Maiúsculas/Minúsculas do Banco
+  const idRelatorio = report.id || report.Id || 'N/D';
+  const placaRelatorio = report.placa || report.Placa || 'N/D';
+  const modeloRelatorio = report.modelo || report.Modelo || 'N/D';
+  const corRelatorio = report.cor || report.Cor || 'N/D';
+  const anoRelatorio = report.ano || report.Ano || 'N/D';
+  const combustivelRelatorio = report.combustivel || report.Combustivel || 'N/D';
+  const clienteRelatorio = report.cliente || report.Cliente || 'N/D';
+  const telefoneRelatorio = report.telefone || report.Telefone || 'N/D';
+  const kmRelatorio = report.km || report.Km || '0';
+  const nivelCombustivelRelatorio = report.nivel_combustivel || report.NivelCombustivel || 'R';
+  const observacoesRelatorio = report.observacoes || report.Observacoes || '';
+  const criadoPorRelatorio = report.criado_por || report.CriadoPor || 'Vistoriador';
+  const dataCadastroRelatorio = report.data_cadastro || report.DataCadastro || report.dataCriacao;
+
+  // PARSE dos objetos JSON vindos do Banco de Dados
   let avarias = {};
   let checklistItens = {};
   let pneus = {};
 
+  const jsonAvarias = report.avarias_carro_json || report.AvariasCarroJson;
   try {
-    avarias = typeof report.AvariasCarroJson === 'string' ? JSON.parse(report.AvariasCarroJson) : (report.AvariasCarroJson || {});
-  } catch(e) { console.error(e); }
+    avarias = typeof jsonAvarias === 'string' ? JSON.parse(jsonAvarias) : (jsonAvarias || {});
+  } catch(e) { console.error("Erro no parse de avarias:", e); }
 
+  const jsonChecklist = report.checklist_itens_json || report.ChecklistItensJson;
   try {
-    checklistItens = typeof report.ChecklistItensJson === 'string' ? JSON.parse(report.ChecklistItensJson) : (report.ChecklistItensJson || {});
-  } catch(e) { console.error(e); }
+    checklistItens = typeof jsonChecklist === 'string' ? JSON.parse(jsonChecklist) : (jsonChecklist || {});
+  } catch(e) { console.error("Erro no parse do checklist:", e); }
 
+  const jsonPneus = report.pneus_json || report.PneusJson;
   try {
-    pneus = typeof report.PneusJson === 'string' ? JSON.parse(report.PneusJson) : (report.PneusJson || {});
-  } catch(e) { console.error(e); }
+    pneus = typeof jsonPneus === 'string' ? JSON.parse(jsonPneus) : (jsonPneus || {});
+  } catch(e) { console.error("Erro no parse de pneus:", e); }
 
-  // Filtra as avarias registradas
   const pecasComAvaria = Object.entries(avarias)
     .filter(([key, value]) => value && value !== 'OK')
     .map(([id, codigo]) => ({ id, nome: getNomePeca(id), avaria: legendaAvarias[codigo] || codigo }));
@@ -57,10 +73,6 @@ export default function FinalReportView({ report, onClose }) {
     return data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div className="report-print-container" style={styles.container}>
       
@@ -69,13 +81,13 @@ export default function FinalReportView({ report, onClose }) {
         <div>
           <h1 style={styles.title}>RELATÓRIO DE VISTORIA PERICIAL DE ENTRADA</h1>
           <div style={styles.metaInfo}>
-            <span><FileText size={12} /> ID: <strong>{report.Id || report.id || 'N/D'}</strong></span> | 
-            <span><CalendarDays size={12} /> Gerado em: <strong>{formatarData(report.DataCadastro || report.dataCriacao)}</strong></span> | 
-            <span><Zap size={12} /> Por: <strong>{report.CriadoPor || 'Vistoriador'}</strong></span>
+            <span><FileText size={12} /> ID: <strong>{idRelatorio}</strong></span> | 
+            <span><CalendarDays size={12} /> Gerado em: <strong>{formatarData(dataCadastroRelatorio)}</strong></span> | 
+            <span><Zap size={12} /> Por: <strong>{criadoPorRelatorio}</strong></span>
           </div>
         </div>
         <div style={styles.actionButtons} className="no-print">
-          <button onClick={handlePrint} style={styles.btnPrint}><Printer size={18} /> IMPRIMIR</button>
+          <button onClick={() => window.print()} style={styles.btnPrint}><Printer size={18} /> IMPRIMIR</button>
           <button onClick={onClose} style={styles.btnCloseOverlay}><X size={18} /> FECHAR</button>
         </div>
       </div>
@@ -88,19 +100,19 @@ export default function FinalReportView({ report, onClose }) {
         <div style={styles.grid2Col}>
           <div style={styles.infoGroup}>
             <label style={styles.label}>Placa</label>
-            <span style={styles.placaBadge}>{report.Placa || 'N/D'}</span>
+            <span style={styles.placaBadge}>{placaRelatorio}</span>
           </div>
           <div style={styles.infoGroup}>
             <label style={styles.label}>Cliente</label>
-            <span style={styles.valueLarge}>{report.Cliente || 'N/D'}</span>
+            <span style={styles.valueLarge}>{clienteRelatorio}</span>
           </div>
           <div style={styles.infoGroup}>
             <label style={styles.label}>Veículo</label>
-            <span style={styles.value}>{report.Modelo || 'N/D'} | {report.Cor || 'N/D'} | {report.Ano || 'N/D'} | {report.Combustivel || 'N/D'}</span>
+            <span style={styles.value}>{modeloRelatorio} | {corRelatorio} | {anoRelatorio} | {combustivelRelatorio}</span>
           </div>
           <div style={styles.infoGroup}>
             <label style={styles.label}>Telefone</label>
-            <span style={styles.value}>{report.Telefone || 'N/D'}</span>
+            <span style={styles.value}>{telefoneRelatorio}</span>
           </div>
         </div>
       </div>
@@ -111,13 +123,13 @@ export default function FinalReportView({ report, onClose }) {
         <div style={styles.flexRow}>
           <div style={styles.infoGroup}>
             <label style={styles.label}>Quilometragem Atual (KM)</label>
-            <span style={styles.valueLarge}>{report.Km || '0'} KM</span>
+            <span style={styles.valueLarge}>{kmRelatorio} KM</span>
           </div>
           <div style={styles.infoGroup}>
             <label style={styles.label}>Nível de Combustível</label>
             <div style={styles.combustivelVisual}>
               {['R', '1/4', '1/2', '3/4', '1/1'].map(nivel => (
-                <span key={nivel} style={report.NivelCombustivel === nivel ? styles.nivelAtivo : styles.nivelInativo}>
+                <span key={nivel} style={nivelCombustivelRelatorio === nivel ? styles.nivelAtivo : styles.nivelInativo}>
                   {nivel === 'R' ? 'R' : nivel}
                 </span>
               ))}
@@ -173,13 +185,19 @@ export default function FinalReportView({ report, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(pneus).map(([id, dados]) => (
-                <tr key={id}>
-                  <td style={{padding: '5px 0', borderBottom: '1px solid #f1f5f9'}}><strong>{getNomePneu(id)}</strong></td>
-                  <td style={{padding: '5px 0', borderBottom: '1px solid #f1f5f9'}}>{dados.marca || 'N/D'}</td>
-                  <td style={{padding: '5px 0', borderBottom: '1px solid #f1f5f9'}}>{dados.estado || 'N/D'}</td>
+              {Object.keys(pneus).length > 0 ? (
+                Object.entries(pneus).map(([id, dados]) => (
+                  <tr key={id}>
+                    <td style={{padding: '5px 0', borderBottom: '1px solid #f1f5f9'}}><strong>{getNomePneu(id)}</strong></td>
+                    <td style={{padding: '5px 0', borderBottom: '1px solid #f1f5f9'}}>{dados.marca || 'N/D'}</td>
+                    <td style={{padding: '5px 0', borderBottom: '1px solid #f1f5f9'}}>{dados.estado || 'N/D'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="3" style={{padding: '10px 0', color: '#64748b', fontSize: '12px'}}>Nenhum dado de pneus registrado.</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -213,7 +231,7 @@ export default function FinalReportView({ report, onClose }) {
       <div style={styles.card}>
         <div style={styles.sectionTitle}><Zap size={18} /> Observações do Perito</div>
         <p style={styles.textareaValue}>
-          {report.Observacoes ? report.Observacoes : "Nenhuma observação adicional registrada."}
+          {observacoesRelatorio ? observacoesRelatorio : "Nenhuma observação adicional registrada."}
         </p>
       </div>
 
@@ -222,12 +240,12 @@ export default function FinalReportView({ report, onClose }) {
         <div style={styles.assinaturaBox}>
           <div style={styles.linhaAssinatura}></div>
           <p style={styles.labelAssinatura}>Assinatura do Vistoriador / Perito (GMC)</p>
-          <p style={styles.valueSmall}>{report.CriadoPor || 'Vistoriador'}</p>
+          <p style={styles.valueSmall}>{criadoPorRelatorio}</p>
         </div>
         <div style={styles.assinaturaBox}>
           <div style={styles.linhaAssinatura}></div>
           <p style={styles.labelAssinatura}>Assinatura do Cliente (Recebimento)</p>
-          <p style={styles.valueSmall}>{report.Cliente || 'Cliente'}</p>
+          <p style={styles.valueSmall}>{clienteRelatorio}</p>
         </div>
       </div>
 
