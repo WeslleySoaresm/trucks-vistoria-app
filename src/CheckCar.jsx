@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
 // Removemos totalmente o 'Car' daqui para não ter perigo de erro de digitação/importação
-import { CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
+// IMPORTANTE: Importamos novos ícones do 'lucide-react' para a busca: 'FileText' e 'Search'
+import { CheckCircle2, Info, ShieldAlert, Gauge, X, FileText, Search } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
 export default function CheckCar({ user }) {
   const [loading, setLoading] = useState(false);
   
+  // =========================================================================
+  // NOVOS ESTADOS PARA A FUNCIONALIDADE DE BUSCA DE RELATÓRIOS (Não remova)
+  const [showSearch, setShowSearch] = useState(false);     // Controla a exibição do dropdown de busca
+  const [searchTerm, setSearchTerm] = useState('');       // Armazena o termo digitado (Placa, Cliente, Veículo)
+  const [searchResults, setSearchResults] = useState([]); // Armazena a lista de resultados retornados pela API
+  const [selectedReport, setSelectedReport] = useState(null); // Armazena o relatório completo selecionado para visualização final
+  // =========================================================================
+
   const [dadosVeiculo, setDadosVeiculo] = useState({
     placa: '', modelo: '', cor: '', ano: '', combustivel: '', cliente: '', telefone: '', km: ''
   });
@@ -126,6 +135,28 @@ export default function CheckCar({ user }) {
     }
   };
 
+  // =========================================================================
+  // NOVA FUNÇÃO PARA BUSCAR RELATÓRIOS NA API (Não remova)
+  const buscarRelatorios = async () => {
+    // Validação básica: requer pelo menos 2 caracteres para buscar
+    if (searchTerm.trim().length < 2) return;
+    setLoading(true);
+    try {
+      // Faz a chamada para o endpoint de busca da sua API, passando o termo na URL
+      const response = await fetch(`${API_URL}/CheckCar/search?term=${searchTerm}`);
+      if (!response.ok) throw new Error("Erro na busca de relatórios.");
+      const data = await response.json();
+      // Atualiza o estado com a lista de resultados recebida
+      setSearchResults(data);
+    } catch (err) {
+      console.error(err);
+      alert(`Falha na busca: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // =========================================================================
+
   const pecasMapeadas = [
     { id: 'frente', nome: 'Para-choque Dianteiro / Grade', top: '50%', left: '12%', width: '25px', height: '60px' },
     { id: 'capo', nome: 'Capô Dianteiro', top: '50%', left: '30%', width: '65px', height: '55px' },
@@ -141,13 +172,72 @@ export default function CheckCar({ user }) {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}>Checklist de Entrada (G.M.C)</h2>
-        <span style={styles.subtitle}>Inspeção Pericial Dinâmica do Veículo</span>
+        {/* Modificamos o flex para alinhar o título e o novo botão de busca */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={styles.title}>Checklist de Entrada (G.M.C)</h2>
+            <span style={styles.subtitle}>Inspeção Pericial Dinâmica do Veículo</span>
+          </div>
+          {/* =============================================================== */}
+          {/* NOVO BOTÃO PARA EXIBIR/OCULTAR A ABA DE BUSCA (Não remova) */}
+          <button 
+            type="button" 
+            onClick={() => setShowSearch(!showSearch)} 
+            style={styles.btnSearchTab}
+          >
+            {showSearch ? <><X size={18} /> FECHAR RELATÓRIOS</> : <><FileText size={18} /> BUSCAR RELATÓRIOS</>}
+          </button>
+          {/* =============================================================== */}
+        </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* NOVA ABA/DROPDOWN DE BUSCA DE RELATÓRIOS (Não remova) */}
+      {showSearch && (
+        <div style={styles.dropdownSearch}>
+          <div style={styles.cardHeader}><Search size={18} color="#60a5fa" /> Buscar por Placa, Cliente ou Veículo</div>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+            <input 
+              placeholder="Digite Placa ou Cliente..." 
+              value={searchTerm} 
+              // Garante que o termo de busca esteja em maiúsculas (padrão de placa)
+              onChange={e => setSearchTerm(e.target.value.toUpperCase())}
+              style={styles.input}
+              // Permite buscar pressionando 'Enter'
+              onKeyPress={(e) => e.key === 'Enter' && buscarRelatorios()}
+            />
+            <button type="button" onClick={buscarRelatorios} style={styles.btnAction}>BUSCAR</button>
+          </div>
+
+          <div style={styles.resultsContainer}>
+            {loading && <p style={styles.infoTxt}>Carregando...</p>}
+            {!loading && searchResults.length === 0 && searchTerm && <p style={styles.infoTxt}>Nenhum relatório encontrado para "{searchTerm}".</p>}
+            
+            {/* Mapeia e renderiza a lista de relatórios encontrados */}
+            {searchResults.map(report => (
+              <div 
+                key={report.id} 
+                style={styles.reportItem} 
+                // Ao clicar no item da lista, armazena o relatório inteiro no estado 'selectedReport' para abrir a visualização final
+                onClick={() => { setSelectedReport(report); setShowSearch(false); }}
+              >
+                <div style={styles.reportHeaderItem}>
+                  <strong style={{fontSize: '15px', color: '#fff'}}>{report.Placa}</strong>
+                  <span style={styles.tag}>{report.dataCriacao}</span>
+                </div>
+                <div style={styles.reportDetailItem}>
+                  <span>🚗 {report.Modelo} | {report.Cor} | {report.Ano}</span>
+                  <span style={{textAlign: 'right'}}>👤 {report.Cliente}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
 
       {/* BLOCO 1: DADOS DO VEÍCULO E CLIENTE */}
       <div style={styles.card}>
-        {/* CORREÇÃO SUBSTANCIAL: Trocado o componente <Car /> por um texto com emoji para evitar dependências quebradas */}
         <div style={styles.cardHeader}><span style={{fontSize: '18px'}}>🚗</span> Dados de Entrada</div>
         <div style={styles.gridForm}>
           <input placeholder="PLACA" value={dadosVeiculo.placa} onChange={e => handleInputChange('placa', e.target.value)} style={styles.input} />
@@ -210,7 +300,6 @@ export default function CheckCar({ user }) {
               })}
             </div>
 
-            {peccaSelecionada => null /* Segurança extra contra modais presos */}
             {pecaSelecionada && (
               <div style={styles.avariaModal}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -318,6 +407,30 @@ export default function CheckCar({ user }) {
       <button onClick={salvarChecklistEntrada} disabled={loading} style={styles.btnSalvarTudo}>
         {loading ? "SALVANDO..." : <><CheckCircle2 size={20} /> FINALIZAR ENTRADA E GERAR RELATÓRIO</>}
       </button>
+
+      {/* ========================================================================= */}
+      {/* NOVA COMPONENTE PARA VISUALIZAÇÃO DO RELATÓRIO FINAL (Overlay) (Não remova) */}
+      {selectedReport && (
+        <div style={styles.finalReportOverlay}>
+          <div style={styles.finalReportContent}>
+            <div style={styles.finalReportHeader}>
+              <h2 style={{margin: 0, color: '#f8fafc'}}>Relatório de Vistoria Final - {selectedReport.Placa}</h2>
+              {/* Botão para fechar a visualização do relatório final */}
+              <button onClick={() => setSelectedReport(null)} style={styles.btnCloseModal}><X size={24} /></button>
+            </div>
+            {/* ======================================================= */}
+            {/* IMPLEMENTAÇÃO DO CONTEÚDO VISUAL DO RELATÓRIO FINAL */}
+            {/* Este componente precisa ser preenchido com a estrutura e o design que você deseja para o relatório final. */}
+            {/* Abaixo está um exemplo básico apenas para demonstrar que os dados foram carregados. */}
+            <p style={styles.infoTxt}>Detalhes do Relatório Final para {selectedReport.Placa} de {selectedReport.Cliente} vão aqui.</p>
+            <p style={styles.infoTxt}>O objeto 'selectedReport' contém todos os dados que você salvou no checklist.</p>
+            <p style={styles.infoTxt}>Este componente de Relatório Final precisa ser desenvolvido separadamente com a estrutura visual do relatório.</p>
+            {/* ======================================================= */}
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+
     </div>
   );
 }
@@ -327,6 +440,83 @@ const styles = {
   header: { marginBottom: '20px' },
   title: { fontSize: '22px', fontWeight: '800', margin: '0 0 5px 0', color: '#f8fafc' },
   subtitle: { fontSize: '13px', color: '#94a3b8' },
+  
+  // =========================================================================
+  // NOVOS ESTILOS PARA A FUNCIONALIDADE DE BUSCA E RELATÓRIO FINAL (Não remova)
+  btnSearchTab: { 
+    background: '#1f2937', 
+    color: '#fff', 
+    border: '1px solid rgba(255,255,255,0.05)', 
+    borderRadius: '10px', 
+    padding: '10px 16px', 
+    fontWeight: '600', 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '8px', 
+    cursor: 'pointer', 
+    transition: 'all 0.1s' 
+  },
+  btnAction: { 
+    background: '#3b82f6', 
+    color: '#fff', 
+    border: 'none', 
+    borderRadius: '10px', 
+    padding: '12px 20px', 
+    fontWeight: '700', 
+    cursor: 'pointer', 
+    outline: 'none' 
+  },
+  dropdownSearch: { 
+    background: '#111827', 
+    border: '1px solid rgba(255,255,255,0.05)', 
+    borderRadius: '16px', 
+    padding: '16px', 
+    marginBottom: '20px',
+    boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+  },
+  resultsContainer: { maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' },
+  reportItem: { 
+    background: '#0f172a', 
+    padding: '14px', 
+    borderRadius: '10px', 
+    marginBottom: '8px', 
+    border: '1px solid rgba(255,255,255,0.03)', 
+    cursor: 'pointer', 
+    transition: 'all 0.1s' 
+  },
+  reportHeaderItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' },
+  reportDetailItem: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94a3b8' },
+  tag: { background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' },
+  
+  finalReportOverlay: { 
+    position: 'fixed', 
+    top: 0, 
+    left: 0, 
+    width: '100vw', 
+    height: '100vh', 
+    background: 'rgba(0,0,0,0.85)', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    zIndex: 9999, 
+    overflowY: 'auto' 
+  },
+  finalReportContent: { 
+    background: '#111827', 
+    border: '1px solid #475569', 
+    borderRadius: '20px', 
+    width: '90%', 
+    maxWidth: '900px', 
+    maxHeight: '85vh', 
+    padding: '30px', 
+    color: '#fff', 
+    boxSizing: 'border-box',
+    overflowY: 'auto'
+  },
+  finalReportHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)' },
+  // =========================================================================
+
+  // ESTILOS ORIGINAIS (Não alterados)
   card: { background: 'rgba(30, 41, 59, 0.45)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', marginBottom: '20px' },
   cardInternal: { background: '#0f172a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '14px', marginBottom: '15px' },
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#cbd5e1', marginBottom: '15px' },
