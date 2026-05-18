@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-// Removemos totalmente o 'Car' daqui para não ter perigo de erro de digitação/importação
-// IMPORTANTE: Importamos novos ícones do 'lucide-react' para a busca: 'FileText' e 'Search'
 import { CheckCircle2, Info, ShieldAlert, Gauge, X, FileText, Search } from 'lucide-react';
+import FinalReportView from './FinalReportView';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
@@ -9,11 +8,11 @@ export default function CheckCar({ user }) {
   const [loading, setLoading] = useState(false);
   
   // =========================================================================
-  // NOVOS ESTADOS PARA A FUNCIONALIDADE DE BUSCA DE RELATÓRIOS (Não remova)
-  const [showSearch, setShowSearch] = useState(false);     // Controla a exibição do dropdown de busca
-  const [searchTerm, setSearchTerm] = useState('');       // Armazena o termo digitado (Placa, Cliente, Veículo)
-  const [searchResults, setSearchResults] = useState([]); // Armazena a lista de resultados retornados pela API
-  const [selectedReport, setSelectedReport] = useState(null); // Armazena o relatório completo selecionado para visualização final
+  // ESTADOS PARA A FUNCIONALIDADE DE BUSCA DE RELATÓRIOS (Mantidos)
+  const [showSearch, setShowSearch] = useState(false);     
+  const [searchTerm, setSearchTerm] = useState('');       
+  const [searchResults, setSearchResults] = useState([]); 
+  const [selectedReport, setSelectedReport] = useState(null); 
   // =========================================================================
 
   const [dadosVeiculo, setDadosVeiculo] = useState({
@@ -135,18 +134,14 @@ export default function CheckCar({ user }) {
     }
   };
 
-  // =========================================================================
-  // NOVA FUNÇÃO PARA BUSCAR RELATÓRIOS NA API (Não remova)
+  // BUSCAR RELATÓRIOS NA API (Mantido)
   const buscarRelatorios = async () => {
-    // Validação básica: requer pelo menos 2 caracteres para buscar
     if (searchTerm.trim().length < 2) return;
     setLoading(true);
     try {
-      // Faz a chamada para o endpoint de busca da sua API, passando o termo na URL
       const response = await fetch(`${API_URL}/CheckCar/search?term=${searchTerm}`);
       if (!response.ok) throw new Error("Erro na busca de relatórios.");
       const data = await response.json();
-      // Atualiza o estado com a lista de resultados recebida
       setSearchResults(data);
     } catch (err) {
       console.error(err);
@@ -155,7 +150,6 @@ export default function CheckCar({ user }) {
       setLoading(false);
     }
   };
-  // =========================================================================
 
   const pecasMapeadas = [
     { id: 'frente', nome: 'Para-choque Dianteiro / Grade', top: '50%', left: '12%', width: '25px', height: '60px' },
@@ -172,14 +166,11 @@ export default function CheckCar({ user }) {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        {/* Modificamos o flex para alinhar o título e o novo botão de busca */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div>
             <h2 style={styles.title}>Checklist de Entrada (G.M.C)</h2>
             <span style={styles.subtitle}>Inspeção Pericial Dinâmica do Veículo</span>
           </div>
-          {/* =============================================================== */}
-          {/* NOVO BOTÃO PARA EXIBIR/OCULTAR A ABA DE BUSCA (Não remova) */}
           <button 
             type="button" 
             onClick={() => setShowSearch(!showSearch)} 
@@ -187,12 +178,10 @@ export default function CheckCar({ user }) {
           >
             {showSearch ? <><X size={18} /> FECHAR RELATÓRIOS</> : <><FileText size={18} /> BUSCAR RELATÓRIOS</>}
           </button>
-          {/* =============================================================== */}
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* NOVA ABA/DROPDOWN DE BUSCA DE RELATÓRIOS (Não remova) */}
+      {/* DROPDOWN DE BUSCA DE RELATÓRIOS */}
       {showSearch && (
         <div style={styles.dropdownSearch}>
           <div style={styles.cardHeader}><Search size={18} color="#60a5fa" /> Buscar por Placa, Cliente ou Veículo</div>
@@ -200,10 +189,8 @@ export default function CheckCar({ user }) {
             <input 
               placeholder="Digite Placa ou Cliente..." 
               value={searchTerm} 
-              // Garante que o termo de busca esteja em maiúsculas (padrão de placa)
               onChange={e => setSearchTerm(e.target.value.toUpperCase())}
               style={styles.input}
-              // Permite buscar pressionando 'Enter'
               onKeyPress={(e) => e.key === 'Enter' && buscarRelatorios()}
             />
             <button type="button" onClick={buscarRelatorios} style={styles.btnAction}>BUSCAR</button>
@@ -213,17 +200,15 @@ export default function CheckCar({ user }) {
             {loading && <p style={styles.infoTxt}>Carregando...</p>}
             {!loading && searchResults.length === 0 && searchTerm && <p style={styles.infoTxt}>Nenhum relatório encontrado para "{searchTerm}".</p>}
             
-            {/* Mapeia e renderiza a lista de relatórios encontrados */}
             {searchResults.map(report => (
               <div 
-                key={report.id} 
+                key={report.Id || report.id} 
                 style={styles.reportItem} 
-                // Ao clicar no item da lista, armazena o relatório inteiro no estado 'selectedReport' para abrir a visualização final
                 onClick={() => { setSelectedReport(report); setShowSearch(false); }}
               >
                 <div style={styles.reportHeaderItem}>
                   <strong style={{fontSize: '15px', color: '#fff'}}>{report.Placa}</strong>
-                  <span style={styles.tag}>{report.dataCriacao}</span>
+                  <span style={styles.tag}>{report.DataCadastro || report.dataCriacao}</span>
                 </div>
                 <div style={styles.reportDetailItem}>
                   <span>🚗 {report.Modelo} | {report.Cor} | {report.Ano}</span>
@@ -234,7 +219,6 @@ export default function CheckCar({ user }) {
           </div>
         </div>
       )}
-      {/* ========================================================================= */}
 
       {/* BLOCO 1: DADOS DO VEÍCULO E CLIENTE */}
       <div style={styles.card}>
@@ -391,7 +375,6 @@ export default function CheckCar({ user }) {
             <strong>Status:</strong> S: Sim/OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
           </div>
         </div>
-
       </div>
 
       <div style={styles.card}>
@@ -408,29 +391,17 @@ export default function CheckCar({ user }) {
         {loading ? "SALVANDO..." : <><CheckCircle2 size={20} /> FINALIZAR ENTRADA E GERAR RELATÓRIO</>}
       </button>
 
-      {/* ========================================================================= */}
-      {/* NOVA COMPONENTE PARA VISUALIZAÇÃO DO RELATÓRIO FINAL (Overlay) (Não remova) */}
+      {/* INTERAÇÃO INTEGRADA: OVERLAY DO RELATÓRIO FINAL DETALHADO */}
       {selectedReport && (
         <div style={styles.finalReportOverlay}>
-          <div style={styles.finalReportContent}>
-            <div style={styles.finalReportHeader}>
-              <h2 style={{margin: 0, color: '#f8fafc'}}>Relatório de Vistoria Final - {selectedReport.Placa}</h2>
-              {/* Botão para fechar a visualização do relatório final */}
-              <button onClick={() => setSelectedReport(null)} style={styles.btnCloseModal}><X size={24} /></button>
-            </div>
-            {/* ======================================================= */}
-            {/* IMPLEMENTAÇÃO DO CONTEÚDO VISUAL DO RELATÓRIO FINAL */}
-            {/* Este componente precisa ser preenchido com a estrutura e o design que você deseja para o relatório final. */}
-            {/* Abaixo está um exemplo básico apenas para demonstrar que os dados foram carregados. */}
-            <p style={styles.infoTxt}>Detalhes do Relatório Final para {selectedReport.Placa} de {selectedReport.Cliente} vão aqui.</p>
-            <p style={styles.infoTxt}>O objeto 'selectedReport' contém todos os dados que você salvou no checklist.</p>
-            <p style={styles.infoTxt}>Este componente de Relatório Final precisa ser desenvolvido separadamente com a estrutura visual do relatório.</p>
-            {/* ======================================================= */}
+          <div style={styles.finalReportContentOrganized}> 
+            <FinalReportView 
+              report={selectedReport} 
+              onClose={() => setSelectedReport(null)} 
+            />
           </div>
         </div>
       )}
-      {/* ========================================================================= */}
-
     </div>
   );
 }
@@ -440,83 +411,6 @@ const styles = {
   header: { marginBottom: '20px' },
   title: { fontSize: '22px', fontWeight: '800', margin: '0 0 5px 0', color: '#f8fafc' },
   subtitle: { fontSize: '13px', color: '#94a3b8' },
-  
-  // =========================================================================
-  // NOVOS ESTILOS PARA A FUNCIONALIDADE DE BUSCA E RELATÓRIO FINAL (Não remova)
-  btnSearchTab: { 
-    background: '#1f2937', 
-    color: '#fff', 
-    border: '1px solid rgba(255,255,255,0.05)', 
-    borderRadius: '10px', 
-    padding: '10px 16px', 
-    fontWeight: '600', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '8px', 
-    cursor: 'pointer', 
-    transition: 'all 0.1s' 
-  },
-  btnAction: { 
-    background: '#3b82f6', 
-    color: '#fff', 
-    border: 'none', 
-    borderRadius: '10px', 
-    padding: '12px 20px', 
-    fontWeight: '700', 
-    cursor: 'pointer', 
-    outline: 'none' 
-  },
-  dropdownSearch: { 
-    background: '#111827', 
-    border: '1px solid rgba(255,255,255,0.05)', 
-    borderRadius: '16px', 
-    padding: '16px', 
-    marginBottom: '20px',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-  },
-  resultsContainer: { maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' },
-  reportItem: { 
-    background: '#0f172a', 
-    padding: '14px', 
-    borderRadius: '10px', 
-    marginBottom: '8px', 
-    border: '1px solid rgba(255,255,255,0.03)', 
-    cursor: 'pointer', 
-    transition: 'all 0.1s' 
-  },
-  reportHeaderItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' },
-  reportDetailItem: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94a3b8' },
-  tag: { background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', fontSize: '10px', padding: '2px 6px', borderRadius: '4px' },
-  
-  finalReportOverlay: { 
-    position: 'fixed', 
-    top: 0, 
-    left: 0, 
-    width: '100vw', 
-    height: '100vh', 
-    background: 'rgba(0,0,0,0.85)', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    zIndex: 9999, 
-    overflowY: 'auto' 
-  },
-  finalReportContent: { 
-    background: '#111827', 
-    border: '1px solid #475569', 
-    borderRadius: '20px', 
-    width: '90%', 
-    maxWidth: '900px', 
-    maxHeight: '85vh', 
-    padding: '30px', 
-    color: '#fff', 
-    boxSizing: 'border-box',
-    overflowY: 'auto'
-  },
-  finalReportHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', paddingBottom: '15px', borderBottom: '1px solid rgba(255,255,255,0.1)' },
-  // =========================================================================
-
-  // ESTILOS ORIGINAIS (Não alterados)
   card: { background: 'rgba(30, 41, 59, 0.45)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', marginBottom: '20px' },
   cardInternal: { background: '#0f172a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '14px', marginBottom: '15px' },
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#cbd5e1', marginBottom: '15px' },
@@ -553,5 +447,17 @@ const styles = {
   btnStatusAtivo: { width: '24px', height: '24px', background: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', fontSize: '10px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 0 8px rgba(16, 185, 129, 0.4)' },
   legendaStatusBox: { marginTop: '15px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' },
   textarea: { width: '100%', height: '80px', padding: '12px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none', fontSize: '14px' },
-  btnSalvarTudo: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)' }
+  btnSalvarTudo: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)', marginBottom: '15px' },
+  
+  // ESTILOS ADICIONAIS DA BUSCA E DO NOVO OVERLAY ORGANIZADO (Mantidos e Atualizados)
+  btnSearchTab: { background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', fontWeight: '700', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
+  dropdownSearch: { background: '#1e293b', border: '1px solid #475569', borderRadius: '12px', padding: '15px', marginBottom: '20px' },
+  btnAction: { background: '#10b981', color: '#fff', border: 'none', borderRadius: '10px', padding: '0 20px', fontWeight: '700', cursor: 'pointer' },
+  resultsContainer: { marginTop: '10px', maxHeight: '200px', overflowY: 'auto' },
+  reportItem: { background: '#0f172a', padding: '12px', borderRadius: '8px', marginBottom: '8px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)' },
+  reportHeaderItem: { display: 'flex', justifyContent: 'space-between', marginBottom: '5px' },
+  reportDetailItem: { display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94a3b8' },
+  tag: { fontSize: '11px', color: '#60a5fa' },
+  finalReportOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, overflowY: 'auto', padding: '20px' },
+  finalReportContentOrganized: { width: '100%', maxWidth: '950px', background: '#fff', borderRadius: '12px', padding: '20px', margin: '40px auto', boxSizing: 'border-box' }
 };
