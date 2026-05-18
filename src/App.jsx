@@ -9,7 +9,7 @@ import Instrucoes from './Instrucoes';
 // Importado o ícone Database para a aba de Gestão de Dados
 import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
-
+import CheckCar from './CheckCar';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -126,7 +126,11 @@ export default function App() {
             </button>
           </>
         )}
-        
+        <button onClick={() => setAbaAtiva('checkcar')} style={abaAtiva === 'checkcar' ? s.tabActive : s.tab}>
+          <Car size={18} /> CheckCar
+        </button>
+
+
         <button 
           onClick={() => setAbaAtiva('ajuda')} 
           style={abaAtiva === 'ajuda' ? s.tabActive : s.tab}
@@ -159,7 +163,8 @@ export default function App() {
         {abaAtiva === 'historico' && !isAdmin && (
           <HistoricoVistorias user={session.user} />
         )}
-
+        {abaAtiva === 'checkcar' && <CheckCar user={session.user} />}
+        
         {abaAtiva === 'ajuda' && <Instrucoes />}
       </main>
     </div>

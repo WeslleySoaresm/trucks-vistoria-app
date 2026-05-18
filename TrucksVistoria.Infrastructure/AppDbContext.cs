@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using SeuProjeto.Models;
 using TrucksVistoria.Domain.Entities;
 
 namespace TrucksVistoria.Infrastructure;
@@ -12,7 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Veiculo> Veiculos { get; set; }
     public DbSet<Evidencia> Evidencias { get; set; }
     public DbSet<Usuario> Usuarios { get; set; }
-
+    public DbSet<ChecklistEntrada> ChecklistsEntrada { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Usuario>()
