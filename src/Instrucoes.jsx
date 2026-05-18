@@ -47,7 +47,7 @@ export default function Instrucoes() {
         <ItemFAQ 
           icone={CheckCircle}
           pergunta="Como registrar uma vistoria?" 
-          resposta="Vá na aba 'Nova', selecione sua equipe (ex: 812), digite a placa do veículo e tire a foto. O sistema salvará automaticamente após o upload." 
+          resposta="Vá na aba 'Nova', selecione sua equipe (ex: teste01), digite a placa do veículo e tire a foto. O sistema salvará automaticamente após o upload." 
         />
         
         <ItemFAQ 

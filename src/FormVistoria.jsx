@@ -376,7 +376,7 @@ export default function FormVistoria({ user }) {
 
       <div style={styles.formHeader}>
         <div style={styles.iconCircle}>
-          <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
+          <img src="/public/CheckFrotas.png" alt="Logo" style={styles.logoImg} />
         </div>
         <h2 style={styles.title}>Nova Inspeção</h2>
       </div>

@@ -33,7 +33,7 @@ export default function Login() {
         <div style={styles.logoContainer}>
           <img 
             src="/logoInicial.png" 
-            alt="TruckVistoria Logo" 
+            alt="CheckFrota Logo" 
             style={styles.logoImg} 
           />
         </div>
@@ -94,7 +94,7 @@ export default function Login() {
         </form>
 
         <div style={styles.footer}>
-          <p style={styles.footerText}>© 2026 TruckVistoria Pro - v2.4.0</p>
+          <p style={styles.footerText}>© 2026 CheckFrota - v2.5.0</p>
         </div>
       </div>
     </div>
