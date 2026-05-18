@@ -145,7 +145,7 @@ export default function DashboardGestor() {
               const porcentagem = kpis.total > 0 ? (qtd / kpis.total) * 100 : 0;
               return (
                 <div key={equipe} style={styles.rankingRow}>
-                  <span style={styles.rankingLabel}>Equipe {equipe}</span>
+                  <span style={styles.rankingLabel}>{equipe}</span>
                   <div style={styles.barWrapper}>
                     <div style={{ ...styles.barFill, width: `${porcentagem}%` }} />
                   </div>
@@ -175,11 +175,11 @@ export default function DashboardGestor() {
         <div style={styles.selectGroup}>
           <select value={filtroEquipe} onChange={(e) => setFiltroEquipe(e.target.value)} style={styles.selectFiltragem}>
             <option value="TODAS">Todas Equipes</option>
-            <option value="812">Equipe 812</option>
-            <option value="811">Equipe 811</option>
-            <option value="TFF">Equipe TFF</option>
-            <option value="805">Equipe 805</option>
-            <option value="810">Equipe 810</option>
+            <option value="01">Equipe 01</option>
+            <option value="02">Equipe 02</option>
+            <option value="03">Equipe 03</option>
+            <option value="04">Equipe 04</option>
+            <option value="05">Equipe 05</option>
           </select>
 
           <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} style={styles.selectFiltragem}>
