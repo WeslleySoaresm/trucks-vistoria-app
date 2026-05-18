@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; 
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Search, Plus, CheckCircle2, XCircle, WifiOff, Car, User, Settings, ClipboardList } from 'lucide-react';
+import {  Camera, Search, Plus, CheckCircle2, XCircle, WifiOff, Car, User, Settings, ClipboardList } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
