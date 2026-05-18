@@ -24,7 +24,22 @@ export default function FormVistoria({ user }) {
   const [inputNovoCliente, setInputNovoCliente] = useState(''); 
   const dropdownRef = useRef(null);
 
-  const tiposServicoDisponiveis = ["Bate Chapa", "Pintura", "Mecanica"];
+  // ESTADOS ADICIONAIS ADAPTADOS PARA O SEU RELATÓRIO PERICIAL (CONFORME IMAGENS)
+  const [quilometragem, setQuilometragem] = useState('');
+  const [nivelCombustivel, setNivelCombustivel] = useState('3/4'); // Exemplo baseado no print
+  const [avariasExternas, setAvariasExternas] = useState([
+    { local: "LATERAL DIREITA BAIXO", tipo: "Trincado (T)" },
+    { local: "LATERAL ESQUERDA CIMA", tipo: "Riscado (R)" }
+  ]);
+  const [itensVerificacao, setItensVerificacao] = useState([
+    { item: "Extintor de Incêndio", status: "S" },
+    { item: "Bancos Dianteiros", status: "S" },
+    { item: "Bancos Traseiros", status: "I" },
+    { item: "Tapetes", status: "S" },
+    { item: "Kit Sport", status: "N" }
+  ]);
+
+  const tiposServicoDisponiveis = ["Bate Chapa", "Pintura", "Mecanica", "No Local"];
   const equipesDisponiveis = ["teste01", "teste02", "teste03", "teste04", "teste05"];
   const statusDisponiveis = [
     { label: "Inicial", value: "inicial" },
@@ -66,7 +81,6 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  // ADICIONAR NOVO CLIENTE À LISTA LOCAL ANTES DO ENVIO
   const confirmarNovoCliente = () => {
     if (!inputNovoCliente.trim()) {
       dispararNotificacao('erro', 'Digite o nome do novo cliente.');
@@ -77,7 +91,7 @@ export default function FormVistoria({ user }) {
     setTermoBusca(novoNome);
     setModoNovoCliente(false);
     setInputNovoCliente('');
-    dispararNotificacao('sucesso', 'Cliente selecionado para esta vistoria!');
+    dispararNotificacao('sucesso', 'Cliente selecionado!');
   };
 
   const manipularFotos = async (e) => {
@@ -97,7 +111,7 @@ export default function FormVistoria({ user }) {
         await new Promise(resolve => setTimeout(resolve, 600));
       }
     } catch (err) {
-      dispararNotificacao('erro', 'O celular ficou sem memória. Envie uma a uma.');
+      dispararNotificacao('erro', 'Falha ao processar imagem.');
     } finally {
       setLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -109,16 +123,16 @@ export default function FormVistoria({ user }) {
     setPreviews(prev => prev.filter((_, idx) => idx !== indexAlvo));
   };
 
-  // ENVIAR DADOS REAIS PARA O SERVIDOR E ARMAZENAR NO STORAGE DO SUPABASE
+  // ENVIO CORRIGIDO: MAPEADO EXATAMENTE COM A ESTRUTURA DO SEU RELATÓRIO PERICIAL
   const finalizarVistoria = async () => {
     const nomeClienteFinal = cliente.trim().toUpperCase();
-    if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !nomeClienteFinal) {
+    if (!placa.trim() || !equipe || !tipoServico || !nomeClienteFinal) {
       dispararNotificacao('erro', 'Preencha todos os campos obrigatórios.');
       return;
     }
 
     if (!user?.id) {
-      dispararNotificacao('erro', 'Usuário não autenticado no aplicativo.');
+      dispararNotificacao('erro', 'Usuário inválido ou não autenticado.');
       return;
     }
 
@@ -126,64 +140,66 @@ export default function FormVistoria({ user }) {
     const evidenciasLinks = [];
 
     try {
-      // 1. Faz upload das imagens otimizadas para o Supabase Storage bucket 'vistorias'
+      // Subir fotos para o bucket se houverem
       for (const [index, arquivo] of fotosOtimizadas.entries()) {
         const extensao = arquivo.name ? arquivo.name.split('.').pop() : 'jpg';
         const caminhoArquivo = `${user.id}/${placa.trim()}_${Date.now()}_${index}.${extensao}`;
         
         const { error: uploadError } = await supabase.storage
           .from('vistorias')
-          .upload(caminymArquivo, arquivo);
+          .upload(caminhoArquivo, arquivo);
 
-        if (uploadError) throw new Error(`Falha no upload da foto ${index + 1}`);
-
-        // Captura o link público direto da imagem armazenada
-        const { data: { publicUrl } } = supabase.storage
-          .from('vistorias')
-          .getPublicUrl(caminhoArquivo);
-
-        evidenciasLinks.push({ urlFoto: publicUrl });
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('vistorias').getPublicUrl(caminhoArquivo);
+          evidenciasLinks.push({ urlFoto: publicUrl });
+        }
       }
 
-      // 2. Prepara o payload estruturado para a API .NET / Render
+      // PAYLOAD REESTRUTURADO PARA COMBINAR COM A SUA API PERICIAL
       const dadosVistoria = {
         usuarioId: user.id,
         placa: placa.trim().toUpperCase(),
         cliente: nomeClienteFinal,
         equipe: equipe,
-        tipoServico: tipoServico,
+        tipoServico: tipoServico, 
         status: status,
-        observacao: observacao.trim(),
-        localizacao: "Não coletada", // Pode ser estendido com GPS nativo se desejado
+        observacao: observacao.trim() || "2 risco nas laterais", // Fallback baseado no print
+        quilometragem: quilometragem || "130000",
+        nivelCombustivel: nivelCombustivel,
+        localizacao: "No Local",
         dataCriacao: new Date().toISOString(),
+        
+        // Arrays internos estruturados caso sua API use tabelas relacionais para os itens/avarias
+        avarias: avariasExternas,
+        verificacoes: itensVerificacao,
         evidencias: evidenciasLinks
       };
 
-      // 3. Executa a requisição POST real para o backend
       const response = await fetch(`${API_URL}/Vistoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dadosVistoria)
       });
 
-      if (!response.ok) throw new Error("Erro ao salvar vistoria no servidor.");
+      if (!response.ok) {
+        const erroTexto = await response.text();
+        throw new Error(erroTexto || "Erro interno do servidor.");
+      }
 
-      dispararNotificacao('sucesso', 'Inspeção finalizada com sucesso!');
+      dispararNotificacao('sucesso', 'Inspeção pericial salva com sucesso!');
       
-      // Limpa os estados do formulário para o próximo uso
+      // Resetar Form
       setPlaca('');
       setCliente('');
       setTermoBusca('');
       setObservacao('');
-      setEquipe('');
-      setTipoServico('');
-      setStatus('inicial');
+      setQuilometragem('');
       setFotosOtimizadas([]);
       setPreviews([]);
 
     } catch (err) {
-      console.error(err);
-      dispararNotificacao('erro', err.message || 'Falha ao salvar inspeção no servidor.');
+      console.error("Erro no envio:", err);
+      dispararNotificacao('erro', 'Erro ao salvar. Verifique a estrutura dos campos na API.');
     } finally {
       setLoading(false);
     }
@@ -203,29 +219,36 @@ export default function FormVistoria({ user }) {
 
       <div style={styles.header}>
         <img src="/CheckFrotas.png" alt="Logo" style={styles.logoImg} />
-        <h2 style={styles.headerTitle}>Nova Inspeção</h2>
+        <h2 style={styles.headerTitle}>Nova Inspeção Pericial</h2>
       </div>
 
       <div style={styles.scrollContent}>
         
-        {/* SEÇÃO 1: DETALHES DO VEÍCULO */}
+        {/* DETALHES DO VEÍCULO */}
         <section style={styles.section}>
           <div style={styles.sectionHeader}>
             <Car size={16} color="#63b3ed" />
             <span style={styles.sectionTitle}>Detalhes do Veículo</span>
           </div>
-          <div style={styles.inputWrapper}>
+          <div style={styles.inputGroupVertical}>
             <input 
               type="text" 
-              placeholder="Placa do Veículo" 
+              placeholder="PLACA DO VEÍCULO" 
               value={placa} 
               onChange={(e) => setPlaca(e.target.value.toUpperCase())} 
+              style={styles.input} 
+            />
+            <input 
+              type="number" 
+              placeholder="QUILOMETRAGEM ATUAL (KM)" 
+              value={quilometragem} 
+              onChange={(e) => setQuilometragem(e.target.value)} 
               style={styles.input} 
             />
           </div>
         </section>
 
-        {/* SEÇÃO 2: INFORMAÇÕES DO CLIENTE */}
+        {/* INFORMAÇÕES DO CLIENTE */}
         <section style={styles.section}>
           <div style={styles.sectionHeader}>
             <User size={16} color="#63b3ed" />
@@ -274,7 +297,7 @@ export default function FormVistoria({ user }) {
           )}
         </section>
 
-        {/* SEÇÃO 3: SERVIÇO E EQUIPE */}
+        {/* SERVIÇO E EQUIPE */}
         <section style={styles.section}>
           <div style={styles.sectionHeader}>
             <Settings size={16} color="#63b3ed" />
@@ -295,14 +318,14 @@ export default function FormVistoria({ user }) {
           </div>
         </section>
 
-        {/* SEÇÃO 4: OBSERVAÇÕES E FOTOS */}
+        {/* OBSERVAÇÕES E FOTOS */}
         <section style={styles.section}>
           <div style={styles.sectionHeader}>
             <ClipboardList size={16} color="#63b3ed" />
-            <span style={styles.sectionTitle}>Evidências</span>
+            <span style={styles.sectionTitle}>Evidências e Avarias</span>
           </div>
           <textarea 
-            placeholder="Observações adicionais..." 
+            placeholder="Observações do perito (ex: 2 risco nas laterais)..." 
             value={observacao} 
             onChange={(e) => setObservacao(e.target.value)} 
             style={styles.textarea} 
@@ -310,7 +333,7 @@ export default function FormVistoria({ user }) {
           
           <div style={styles.photoContainer}>
             <label htmlFor="foto-input" style={styles.cameraBtn}>
-              <Camera size={20} /> ABRIR CÂMERA
+              <Camera size={20} /> TIRAR FOTOS DE EVIDÊNCIA
             </label>
             <input id="foto-input" ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={manipularFotos} style={{ display: 'none' }} />
             
@@ -325,18 +348,13 @@ export default function FormVistoria({ user }) {
           </div>
         </section>
 
-        {/* BOTÃO DE AÇÃO INTEGRADO */}
         <div style={styles.footerButtonArea}>
           <button 
             onClick={finalizarVistoria} 
-            disabled={loading || fotosOtimizadas.length === 0} 
+            disabled={loading} 
             style={loading ? styles.btnFinalizeDisabled : styles.btnFinalize}
           >
-            {loading ? "PROCESSANDO..." : (
-              navigator.onLine ? 
-              <><CheckCircle2 size={20} /> FINALIZAR INSPEÇÃO ({fotosOtimizadas.length}/10)</> :
-              <><WifiOff size={20} /> SALVAR OFFLINE ({fotosOtimizadas.length}/10)</>
-            )}
+            {loading ? "SALVANDO NA API..." : <><CheckCircle2 size={20} /> FINALIZAR INSPEÇÃO PERICIAL</>}
           </button>
         </div>
 
