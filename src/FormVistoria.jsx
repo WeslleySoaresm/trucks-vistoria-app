@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from './supabaseClient'; 
 import { otimizarImagem } from './utils/compressor';
-import { Camera, Search, Plus, CheckCircle2, XCircle, ArrowRight, WifiOff } from 'lucide-react';
+import { Camera, Search, Plus, CheckCircle2, XCircle, ArrowRight, WifiOff, Car, User, Settings, ClipboardList } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
@@ -362,12 +362,12 @@ export default function FormVistoria({ user }) {
         <div style={styles.toastContainerCentral}>
           <div style={{
             ...styles.toastBox,
-            backgroundColor: notificacao.tipo === 'sucesso' ? 'rgba(16, 185, 129, 0.98)' : 'rgba(239, 68, 68, 0.98)'
+            backgroundColor: notificacao.tipo === 'sucesso' ? '#10b981' : '#ef4444'
           }}>
             {notificacao.tipo === 'sucesso' ? (
-              <CheckCircle2 size={28} color="#fff" style={{ flexShrink: 0 }} />
+              <CheckCircle2 size={24} color="#fff" style={{ flexShrink: 0 }} />
             ) : (
-              <XCircle size={28} color="#fff" style={{ flexShrink: 0 }} />
+              <XCircle size={24} color="#fff" style={{ flexShrink: 0 }} />
             )}
             <span style={styles.toastText}>{notificacao.mensagem}</span>
           </div>
@@ -375,152 +375,192 @@ export default function FormVistoria({ user }) {
       )}
 
       <div style={styles.formHeader}>
-        <div style={styles.iconCircle}>
-          <img src="/NovaVistoriaLogo.png" alt="Logo" style={styles.logoImg} />
-        </div>
-        <h2 style={styles.title}>Nova Inspeção</h2>
+        <img src="/CheckFrotas.png" alt="Logo" style={styles.logoImg} />
+        <h2 style={styles.headerTitle}>Nova Inspeção</h2>
       </div>
       
-      <div style={styles.inputGroup}>
-        <input 
-          type="text" 
-          placeholder="Placa do Veículo" 
-          value={placa} 
-          onChange={(e) => setPlaca(e.target.value.toUpperCase())} 
-          style={styles.input} 
-        />
-
-        <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+      <div style={styles.scrollContent}>
+        
+        {/* SEÇÃO 1: DETALHES DO VEÍCULO */}
+        <section style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <Car size={16} color="#63b3ed" />
+            <span style={styles.sectionTitle}>Detalhes do Veículo</span>
+          </div>
+          <div style={styles.inputWrapper}>
             <input 
               type="text" 
-              placeholder={modoNovoCliente ? "Modo: Criando Novo Cliente..." : " Buscar ou Selecionar Cliente"} 
-              value={modoNovoCliente ? "➕ CADASTRANDO NOVO REGISTRO..." : termoBusca} 
-              disabled={modoNovoCliente}
-              onFocus={() => setMostrarDropdown(true)}
-              onChange={(e) => {
-                setTermoBusca(e.target.value.toUpperCase());
-                setMostrarDropdown(true);
-              }} 
-              style={{ 
-                ...styles.input, 
-                paddingLeft: '40px',
-                backgroundColor: modoNovoCliente ? 'rgba(255,255,255,0.03)' : '#0f172a',
-                color: modoNovoCliente ? '#a0aec0' : '#fff'
-              }} 
+              placeholder="Placa do Veículo" 
+              value={placa} 
+              onChange={(e) => setPlaca(e.target.value.toUpperCase())} 
+              style={styles.input} 
             />
-            <Search size={18} style={{ position: 'absolute', left: '14px', color: '#4a5568' }} />
           </div>
+        </section>
 
-          {mostrarDropdown && (
-            <div style={styles.dropdownContainer}>
-              <div onClick={activarModoNovoCliente} style={styles.dropdownOptionNew}>
-                <Plus size={16} /> ADICIONAR NOVO CLIENTE...
-              </div>
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-              {clientesFiltrados.length > 0 ? (
-                clientesFiltrados.map((cli, idx) => (
-                  <div key={idx} onClick={() => selecionarClienteExistente(cli)} style={styles.dropdownOption}>
-                    {cli}
-                  </div>
-                ))
-              ) : (
-                <div style={styles.dropdownNoResults}>NENHUM CLIENTE ENCONTRADO</div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {modoNovoCliente && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'rgba(99, 179, 237, 0.04)', padding: '10px', borderRadius: '12px', border: '1px dashed rgba(99, 179, 237, 0.3)' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
+        {/* SEÇÃO 2: INFORMAÇÕES DO CLIENTE */}
+        <section style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <User size={16} color="#63b3ed" />
+            <span style={styles.sectionTitle}>Informações do Cliente</span>
+          </div>
+          
+          <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type="text" 
-                placeholder="ESCREVA O NOME DO NOVO CLIENTE" 
-                value={inputNovoCliente} 
-                onChange={(e) => setInputNovoCliente(e.target.value.toUpperCase())} 
-                style={{ ...styles.input, flex: 1, border: '1px solid #63b3ed' }} 
+                placeholder={modoNovoCliente ? "CADASTRANDO NOVO..." : "Buscar ou Selecionar Cliente"} 
+                value={modoNovoCliente ? "" : termoBusca} 
+                disabled={modoNovoCliente}
+                onFocus={() => setMostrarDropdown(true)}
+                onChange={(e) => {
+                  setTermoBusca(e.target.value.toUpperCase());
+                  setMostrarDropdown(true);
+                }} 
+                style={{ ...styles.input, paddingLeft: '45px' }} 
               />
-              <button type="button" onClick={confirmarEInserirClienteNaLista} disabled={loading} style={styles.btnConfirmarCliente}>
-                <ArrowRight size={20} color="#fff" />
-              </button>
+              <Search size={18} style={styles.fieldIcon} />
             </div>
-            <span onClick={() => { setModoNovoCliente(false); setTermoBusca(''); setCliente(''); }} style={styles.cancelarNovoBtn}>
-              Cancelar e voltar para a busca
-            </span>
+
+            {mostrarDropdown && (
+              <div style={styles.dropdownContainer}>
+                <div onClick={activarModoNovoCliente} style={styles.dropdownOptionNew}>
+                  <Plus size={16} /> ADICIONAR NOVO CLIENTE...
+                </div>
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
+                {clientesFiltrados.length > 0 ? (
+                  clientesFiltrados.map((cli, idx) => (
+                    <div key={idx} onClick={() => selecionarClienteExistente(cli)} style={styles.dropdownOption}>
+                      {cli}
+                    </div>
+                  ))
+                ) : (
+                  <div style={styles.dropdownNoResults}>NENHUM CLIENTE ENCONTRADO</div>
+                )}
+              </div>
+            )}
           </div>
-        )}
-        
-        <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
-          <option value="" disabled>Selecione a Equipe</option>
-          {equipesDisponiveis.map(eq => <option key={eq} value={eq}>Equipe {eq}</option>)}
-        </select>
-      
-        <select value={tipoServico} onChange={(e) => setTipoServico(e.target.value)} style={styles.select}>
-          <option value="" disabled>Tipo de Serviço</option>
-          {tiposServicoDisponiveis.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
-        </select>
-        
-        <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select}>
-          {statusDisponiveis.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
 
-        <textarea placeholder="Observações adicionais..." value={observacao} onChange={(e) => setObservacao(e.target.value)} style={styles.textarea} />
-      </div>
-
-      <div style={styles.uploadArea}>
-        <label htmlFor="foto-input" style={styles.buttonAdd}>
-          <Camera size={20} /> ABRIR CÂMERA
-        </label>
-        <input id="foto-input" ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={manipularFotos} style={{ display: 'none' }} />
-        <div style={styles.grid}>
-          {previews.map((url, index) => (
-            <div key={index} style={styles.thumbWrap}>
-              <img src={url} alt="preview" style={styles.img} />
-              <button onClick={() => removerFoto(index)} style={styles.btnDel}>×</button>
+          {modoNovoCliente && (
+            <div style={styles.newClientBox}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  placeholder="NOME DO NOVO CLIENTE" 
+                  value={inputNovoCliente} 
+                  onChange={(e) => setInputNovoCliente(e.target.value.toUpperCase())} 
+                  style={styles.inputSmall} 
+                />
+                <button type="button" onClick={confirmarEInserirClienteNaLista} disabled={loading} style={styles.btnConfirmarCliente}>
+                  <ArrowRight size={20} color="#fff" />
+                </button>
+              </div>
+              <span onClick={() => { setModoNovoCliente(false); setTermoBusca(''); setCliente(''); }} style={styles.cancelarNovoBtn}>
+                Cancelar e voltar para a busca
+              </span>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
+        </section>
+        
+        {/* SEÇÃO 3: SERVIÇO E EQUIPE */}
+        <section style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <Settings size={16} color="#63b3ed" />
+            <span style={styles.sectionTitle}>Serviço e Equipe</span>
+          </div>
+          <div style={styles.inputGroupVertical}>
+            <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
+              <option value="" disabled>Selecione a Equipe</option>
+              {equipesDisponiveis.map(eq => <option key={eq} value={eq}>Equipe {eq}</option>)}
+            </select>
+          
+            <select value={tipoServico} onChange={(e) => setTipoServico(e.target.value)} style={styles.select}>
+              <option value="" disabled>Tipo de Serviço</option>
+              {tiposServicoDisponiveis.map(tipo => <option key={tipo} value={tipo}>{tipo}</option>)}
+            </select>
+            
+            <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select}>
+              {statusDisponiveis.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </div>
+        </section>
 
-      <button onClick={finalizarVistoria} disabled={loading || fotosOtimizadas.length === 0} style={loading ? styles.btnDisabled : styles.btnSend}>
-        {loading ? "ENVIANDO DADOS..." : (
-          !navigator.onLine ? (
-            <><WifiOff size={20} /> SALVAR OFFLINE ({fotosOtimizadas.length}/10)</>
-          ) : (
-            <><CheckCircle2 size={20} /> FINALIZAR ({fotosOtimizadas.length}/10)</>
-          )
-        )}
-      </button>
+        {/* SEÇÃO 4: OBSERVAÇÕES E FOTOS */}
+        <section style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <ClipboardList size={16} color="#63b3ed" />
+            <span style={styles.sectionTitle}>Evidências</span>
+          </div>
+          <textarea placeholder="Observações adicionais..." value={observacao} onChange={(e) => setObservacao(e.target.value)} style={styles.textarea} />
+          
+          <div style={styles.uploadArea}>
+            <label htmlFor="foto-input" style={styles.buttonAdd}>
+              <Camera size={20} /> TIRAR FOTOS DE EVIDÊNCIA
+            </label>
+            <input id="foto-input" ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={manipularFotos} style={{ display: 'none' }} />
+            
+            <div style={styles.grid}>
+              {previews.map((url, index) => (
+                <div key={index} style={styles.thumbWrap}>
+                  <img src={url} alt="preview" style={styles.img} />
+                  <button onClick={() => removerFoto(index)} style={styles.btnDel}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* BOTÃO DE SUBMISSÃO INTEGRADO */}
+        <div style={styles.footerButtonArea}>
+          <button onClick={finalizarVistoria} disabled={loading || fotosOtimizadas.length === 0} style={loading ? styles.btnDisabled : styles.btnSend}>
+            {loading ? "ENVIANDO DADOS..." : (
+              !navigator.onLine ? (
+                <><WifiOff size={20} /> SALVAR OFFLINE ({fotosOtimizadas.length}/10)</>
+              ) : (
+                <><CheckCircle2 size={20} /> FINALIZAR INSPEÇÃO ({fotosOtimizadas.length}/10)</>
+              )
+            )}
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
 
 const styles = {
-  container: { position: 'relative', width: '100%', maxWidth: '450px', minHeight: '100vh', margin: '0 auto', background: '#1a202c', padding: '20px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', border: '1px solid rgba(255, 255, 255, 0.1)', boxSizing: 'border-box', overflowY: 'auto' },
-  toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
-  toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto' },
-  toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
-  logoImg: { width: '110px', height: 'auto', objectFit: 'contain' },
-  formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
-  iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
-  title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
-  inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' },
-  select: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box' },
-  textarea: { width: '100%', height: '80px', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '14px', resize: 'none', boxSizing: 'border-box' },
-  uploadArea: { marginTop: '20px', marginBottom: '25px' },
-  buttonAdd: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(66, 153, 225, 0.15)', color: '#63b3ed', padding: '14px', borderRadius: '12px', cursor: 'pointer', fontWeight: '800', fontSize: '14px', border: '1px dashed #63b3ed' },
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginTop: '15px' },
+  container: { width: '100%', maxWidth: '480px', margin: '0 auto', background: '#0f172a', display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'sans-serif', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden', boxSizing: 'border-box' },
+  formHeader: { padding: '20px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(to bottom, #1e293b, #0f172a)', display: 'flex', flexDirection: 'column', alignItems: 'center' },
+  logoImg: { width: '120px', marginBottom: '10px', height: 'auto', objectFit: 'contain' },
+  headerTitle: { fontSize: '18px', fontWeight: '700', margin: 0, color: '#e2e8f0' },
+  scrollContent: { padding: '20px' },
+  section: { marginBottom: '20px', padding: '15px', borderRadius: '16px', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255,255,255,0.05)' },
+  sectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' },
+  sectionTitle: { fontSize: '13px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  inputWrapper: { position: 'relative', width: '100%' },
+  fieldIcon: { position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 },
+  input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', outline: 'none', boxSizing: 'border-box' },
+  inputSmall: { width: '100%', padding: '12px', borderRadius: '12px', background: '#020617', border: '1px solid #3182ce', color: '#fff', fontSize: '15px', boxSizing: 'border-box', outline: 'none', flex: 1 },
+  inputGroupVertical: { display: 'flex', flexDirection: 'column', gap: '10px' },
+  select: { width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '15px', boxSizing: 'border-box', outline: 'none' },
+  textarea: { width: '100%', height: '80px', padding: '14px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none', fontSize: '14px' },
+  uploadArea: { marginTop: '10px' },
+  buttonAdd: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', padding: '14px', borderRadius: '12px', border: '1px dashed #3b82f6', fontWeight: '700', cursor: 'pointer', fontSize: '14px' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '15px' },
   thumbWrap: { position: 'relative', paddingTop: '100%' },
-  img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px' },
-  btnDel: { position: 'absolute', top: '-5px', right: '-5px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' },
-  btnSend: { width: '100%', padding: '18px', background: '#48bb78', color: '#fff', border: 'none', borderRadius: '16px', fontWeight: '900', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer' },
-  btnDisabled: { width: '100%', padding: '18px', background: 'rgba(255,255,255,0.05)', color: '#4a5568', border: 'none', borderRadius: '16px', cursor: 'not-allowed', fontWeight: '900' },
-  dropdownContainer: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', marginTop: '4px', maxHeight: '180px', overflowY: 'auto', zIndex: 999, padding: '5px' },
-  dropdownOption: { padding: '12px', color: '#e2e8f0', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
-  dropdownOptionNew: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', color: '#63b3ed', fontWeight: 'bold', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
-  dropdownNoResults: { padding: '12px', color: '#4a5568', fontSize: '14px', textAlign: 'center' },
-  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end' },
-  btnConfirmarCliente: { background: '#3182ce', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }
+  img: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' },
+  btnDel: { position: 'absolute', top: '2px', right: '2px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  footerButtonArea: { marginTop: '15px', marginBottom: '10px' },
+  btnSend: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)' },
+  btnDisabled: { width: '100%', padding: '16px', background: '#334155', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'not-allowed' },
+  dropdownContainer: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', border: '1px solid #334155', borderRadius: '12px', marginTop: '5px', maxHeight: '180px', overflowY: 'auto', zIndex: 100, padding: '5px' },
+  dropdownOption: { padding: '12px', color: '#e2e8f0', cursor: 'pointer', borderRadius: '8px', fontSize: '15px', borderBottom: '1px solid rgba(255,255,255,0.02)' },
+  dropdownOptionNew: { display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', color: '#60a5fa', fontWeight: '700', cursor: 'pointer', borderRadius: '8px', fontSize: '15px' },
+  dropdownNoResults: { padding: '12px', color: '#64748b', fontSize: '14px', textAlign: 'center' },
+  newClientBox: { marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', flexDirection: 'column', gap: '8px' },
+  btnConfirmarCliente: { background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  cancelarNovoBtn: { fontSize: '12px', color: '#ef4444', cursor: 'pointer', textDecoration: 'underline', alignSelf: 'flex-end', marginTop: '4px' },
+  toastContainerCentral: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 9999 },
+  toastBox: { padding: '15px 25px', borderRadius: '50px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
+  toastText: { color: '#fff', fontWeight: '700', fontSize: '14px' }
 };
