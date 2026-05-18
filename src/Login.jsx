@@ -32,7 +32,7 @@ export default function Login() {
         {/* LOGO AJUSTADA - Removido o círculo restritivo */}
         <div style={styles.logoContainer}>
           <img 
-            src="/logoInicial.png" 
+            src="/CheckFrotas.png" 
             alt="CheckFrota Logo" 
             style={styles.logoImg} 
           />
