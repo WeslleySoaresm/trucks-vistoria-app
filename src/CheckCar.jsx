@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+// CORREÇÃO AQUI: 'Car' foi reinserido nas importações para matar o erro de ReferenceError
 import { Car, CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
@@ -18,7 +19,16 @@ export default function CheckCar({ user }) {
   const [avariasCarro, setAvariasCarro] = useState({});
   const [pecaSelecionada, setPecaSelecionada] = useState(null);
 
-  // 4. Checklist Lateral Direita
+  // 4. Mapeamento de Pneus (Conforme a ficha impressa da GMC que você enviou)
+  const [pneus, setPneus] = useState({
+    dianteiroDireito: { marca: '', estado: '' },
+    dianteiroEsquerdo: { marca: '', estado: '' },
+    traseiroDireito: { marca: '', estado: '' },
+    traseiroEsquerdo: { marca: '', estado: '' },
+    estepe: { marca: '', estado: '' }
+  });
+
+  // 5. Checklist Lateral Direita
   const itensVistoriaLista = [
     "Extintor de Incêndio", "Bancos Dianteiros", "Bancos Traseiros", "Tapetes",
     "Radio (CD/DVD/Disqueteira)", "Retirada de Pertences Pessoais", "Documentos do Veículo",
@@ -34,7 +44,6 @@ export default function CheckCar({ user }) {
     "Break Light", "Amplificador", "Chaves", "Chaveiro"
   ];
 
-  // Estado que armazena a resposta de cada item do checklist (Chave do Item -> Status)
   const [checklistItens, setChecklistItens] = useState(
     itensVistoriaLista.reduce((acc, item) => ({ ...acc, [item]: 'S' }), {})
   );
@@ -44,6 +53,13 @@ export default function CheckCar({ user }) {
   // Manipuladores de Input
   const handleInputChange = (campo, valor) => {
     setDadosVeiculo(prev => ({ ...prev, [campo]: valor.toUpperCase() }));
+  };
+
+  const handlePneuChange = (posicao, campo, valor) => {
+    setPneus(prev => ({
+      ...prev,
+      [posicao]: { ...prev[posicao], [campo]: valor.toUpperCase() }
+    }));
   };
 
   const alternarStatusItem = (item, status) => {
@@ -59,16 +75,14 @@ export default function CheckCar({ user }) {
     setPecaSelecionada(null);
   };
 
-  // Envio dos dados estruturados para a API C#
   const salvarChecklistEntrada = async () => {
     if (!dadosVeiculo.placa || !dadosVeiculo.cliente) {
-      alert("Placa e Cliente são campos obrigatórios para abrir o Checklist!");
+      alert("Placa e Cliente são campos obrigatórios!");
       return;
     }
 
     setLoading(true);
     try {
-      // Montagem do payload batendo com as propriedades exatas da entidade C#
       const payload = {
         Placa: dadosVeiculo.placa.trim().toUpperCase(),
         Modelo: dadosVeiculo.modelo.trim(),
@@ -79,17 +93,16 @@ export default function CheckCar({ user }) {
         Cliente: dadosVeiculo.cliente.trim().toUpperCase(),
         Telefone: dadosVeiculo.telefone.trim(),
         NivelCombustivel: nivelCombustivel,
-        AvariasCarroJson: JSON.stringify(avariasCarro), // Transforma o objeto em String JSON para o campo jsonb
-        ChecklistItensJson: JSON.stringify(checklistItens), // Transforma o checklist em String JSON para o campo jsonb
+        AvariasCarroJson: JSON.stringify(avariasCarro),
+        ChecklistItensJson: JSON.stringify(checklistItens),
+        PneusJson: JSON.stringify(pneus), // Enviando o mapeamento dos pneus também
         Observacoes: observacoes.trim(),
         CriadoPor: user?.email || 'Vistoriador'
       };
 
       const response = await fetch(`${API_URL}/CheckCar`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
@@ -98,12 +111,19 @@ export default function CheckCar({ user }) {
         throw new Error(errorData.mensagem || "Erro ao salvar na API.");
       }
 
-      alert("Checklist de Entrada salvo com sucesso e relatório gerado no banco!");
+      alert("Checklist de Entrada GMC salvo com sucesso!");
       
-      // Limpeza dos estados após o sucesso
+      // Limpeza completa do formulário
       setDadosVeiculo({ placa: '', modelo: '', cor: '', ano: '', combustivel: '', cliente: '', telefone: '', km: '' });
       setAvariasCarro({});
       setChecklistItens(itensVistoriaLista.reduce((acc, item) => ({ ...acc, [item]: 'S' }), {}));
+      setPneus({
+        dianteiroDireito: { marca: '', estado: '' },
+        dianteiroEsquerdo: { marca: '', estado: '' },
+        traseiroDireito: { marca: '', estado: '' },
+        traseiroEsquerdo: { marca: '', estado: '' },
+        estepe: { marca: '', estado: '' }
+      });
       setObservacoes('');
       setNivelCombustivel('R');
     } catch (err) {
@@ -114,17 +134,17 @@ export default function CheckCar({ user }) {
     }
   };
 
+  // Coordenadas calibradas baseadas na folha oficial GMC
   const pecasMapeadas = [
-    { id: 'capo', nome: 'Capô Dianteiro', top: '48%', left: '32%', width: '60px', height: '50px' },
-    { id: 'teto', nome: 'Teto / Capota', top: '48%', left: '50%', width: '60px', height: '60px' },
-    { id: 'porta_de', nome: 'Porta Dianteira Esquerda', top: '15%', left: '46%', width: '65px', height: '25px' },
-    { id: 'porta_te', nome: 'Porta Traseira Esquerda', top: '15%', left: '57%', width: '55px', height: '25px' },
-    { id: 'porta_dd', nome: 'Porta Dianteira Direita', top: '78%', left: '46%', width: '65px', height: '25px' },
-    { id: 'porta_td', nome: 'Porta Traseira Direita', top: '78%', left: '57%', width: '55px', height: '25px' },
-    { id: 'para_brisa', nome: 'Para-brisa Dianteiro', top: '48%', left: '41%', width: '20px', height: '50px' },
-    { id: 'vidro_traseiro', nome: 'Vidro Traseiro', top: '48%', left: '61%', width: '20px', height: '50px' },
-    { id: 'traseira', nome: 'Porta-Malas / Traseira', top: '48%', left: '67%', width: '40px', height: '50px' },
-    { id: 'frente', nome: 'Parachoque Dianteiro', top: '48%', left: '17%', width: '25px', height: '50px' },
+    { id: 'frente', nome: 'Para-choque Dianteiro / Grade', top: '50%', left: '12%', width: '25px', height: '60px' },
+    { id: 'capo', nome: 'Capô Dianteiro', top: '50%', left: '30%', width: '65px', height: '55px' },
+    { id: 'para_brisa', nome: 'Para-brisa', top: '50%', left: '41%', width: '20px', height: '55px' },
+    { id: 'teto', nome: 'Teto / Capota', top: '50%', left: '51%', width: '55px', height: '55px' },
+    { id: 'vidro_traseiro', nome: 'Vidro Traseiro', top: '50%', left: '61%', width: '20px', height: '55px' },
+    { id: 'traseira', nome: 'Tampa do Porta-Malas', top: '50%', left: '69%', width: '40px', height: '55px' },
+    { id: 'traseira_bumper', nome: 'Para-choque Traseiro', top: '50%', left: '79%', width: '20px', height: '60px' },
+    { id: 'lateral_esquerda_cima', nome: 'Lateral Esquerda (Cima no Layout)', top: '16%', left: '49%', width: '180px', height: '40px' },
+    { id: 'lateral_direita_baixo', nome: 'Lateral Direita (Baixo no Layout)', top: '84%', left: '49%', width: '180px', height: '40px' },
   ];
 
   return (
@@ -149,83 +169,132 @@ export default function CheckCar({ user }) {
         </div>
       </div>
 
-      {/* BLOCO 2: NÍVEL DE COMBUSTÍVEL */}
-      <div style={styles.card}>
-        <div style={styles.cardHeader}><Gauge size={18} color="#60a5fa" /> Nível de Combustível</div>
-        <div style={styles.combustivelFlex}>
-          {['R', '1/4', '1/2', '3/4', '1/1'].map(nivel => (
-            <button 
-              key={nivel} 
-              type="button"
-              onClick={() => setNivelCombustivel(nivel)} 
-              style={nivelCombustivel === nivel ? styles.btnNivelActive : styles.btnNivel}
-            >
-              {nivel === 'R' ? 'Reserva (R)' : nivel}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* LAYOUT DOIS LADOS: MAPA INTERATIVO VS CHECKLIST ITEM A ITEM */}
+      {/* LAYOUT DOIS LADOS */}
       <div style={styles.splitLayout}>
         
-        {/* LADO ESQUERDO: CARRO INTERATIVO */}
-        <div style={styles.mapaContainer}>
-          <div style={styles.cardHeader}><ShieldAlert size={18} color="#f87171" /> Mapeamento de Avarias Visuais</div>
-          <p style={styles.infoTxt}>Clique diretamente sobre as partes do carro abaixo para assinalar danos:</p>
+        {/* LADO ESQUERDO: CARRO INTERATIVO + PNEUS + COMBUSTÍVEL */}
+        <div style={styles.leftColumn}>
           
-          <div style={styles.carWrapper}>
-            <img src="/contorno-carro.png" alt="Mapeamento Veicular" style={styles.carImg} />
-            
-            {pecasMapeadas.map(peca => {
-              const possuiAvaria = avariasCarro[peca.id];
-              return (
-                <button
-                  key={peca.id}
+          {/* NÍVEL DE COMBUSTÍVEL */}
+          <div style={styles.cardInternal}>
+            <div style={styles.cardHeader}><Gauge size={18} color="#60a5fa" /> Nível de Combustível</div>
+            <div style={styles.combustivelFlex}>
+              {['R', '1/4', '1/2', '3/4', '1/1'].map(nivel => (
+                <button 
+                  key={nivel} 
                   type="button"
-                  onClick={() => setPecaSelecionada(peca.id)}
-                  title={peca.nome}
-                  style={{
-                    ...styles.pecaBotao,
-                    top: peca.top,
-                    left: peca.left,
-                    width: peca.width,
-                    height: peca.height,
-                    backgroundColor: possuiAvaria ? 'rgba(239, 68, 68, 0.45)' : 'rgba(59, 130, 246, 0.08)',
-                    borderColor: possuiAvaria ? '#ef4444' : 'rgba(255,255,255,0.15)'
-                  }}
+                  onClick={() => setNivelCombustivel(nivel)} 
+                  style={nivelCombustivel === nivel ? styles.btnNivelActive : styles.btnNivel}
                 >
-                  {possuiAvaria ? <span style={styles.badgeAvaria}>{possuiAvaria}</span> : null}
+                  {nivel === 'R' ? 'Reserva (R)' : nivel}
                 </button>
-              );
-            })}
-          </div>
-
-          {/* Modal Suspenso Interno Otimizado */}
-          {pecaSelecionada && (
-            <div style={styles.avariaModal}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h4 style={{ margin: 0, fontSize: '14px', color: '#f1f5f9' }}>Assinalar em: {pecasMapeadas.find(p => p.id === pecaSelecionada)?.nome}</h4>
-                <button type="button" onClick={() => setPecaSelecionada(null)} style={styles.btnCloseModal}><X size={16} /></button>
-              </div>
-              <div style={styles.avariaOpcoesGrid}>
-                <button type="button" onClick={() => aplicarAvariaPeça('A')} style={styles.btnOpcaoAvaria}>[A] Amassado</button>
-                <button type="button" onClick={() => aplicarAvariaPeça('R')} style={styles.btnOpcaoAvaria}>[R] Riscado</button>
-                <button type="button" onClick={() => aplicarAvariaPeça('X')} style={styles.btnOpcaoAvaria}>[X] Quebrado</button>
-                <button type="button" onClick={() => aplicarAvariaPeça('F')} style={styles.btnOpcaoAvaria}>[F] Faltante</button>
-                <button type="button" onClick={() => aplicarAvariaPeça('T')} style={styles.btnOpcaoAvaria}>[T] Trincado</button>
-                <button type="button" onClick={() => aplicarAvariaPeça('M')} style={styles.btnOpcaoAvaria}>[M] Manchado</button>
-                <button type="button" onClick={() => aplicarAvariaPeça('OK')} style={styles.btnLimparAvaria}>Sem Avarias (OK)</button>
-              </div>
+              ))}
             </div>
-          )}
-
-          <div style={styles.legendaBox}>
-            <strong>Legenda de Danos:</strong> A: Amassado | R: Riscado | X: Quebrado | F: Faltante | T: Trincado | M: Manchado
           </div>
+
+          {/* MAPA DO CARRO */}
+          <div style={styles.mapaContainer}>
+            <div style={styles.cardHeader}><ShieldAlert size={18} color="#f87171" /> Mapeamento de Avarias Visuais</div>
+            <p style={styles.infoTxt}>Clique diretamente sobre o contorno das peças para registrar danos:</p>
+            
+            <div style={styles.carWrapper}>
+              {/* Note: Certifique-se de que a imagem está na sua pasta public com este nome exato */}
+              <img src="/contorno-carro.png" alt="Mapeamento Veicular" style={styles.carImg} />
+              
+              {pecasMapeadas.map(peca => {
+                const possuiAvaria = avariasCarro[peca.id];
+                return (
+                  <button
+                    key={peca.id}
+                    type="button"
+                    onClick={() => setPecaSelecionada(peca.id)}
+                    title={peca.nome}
+                    style={{
+                      ...styles.pecaBotao,
+                      top: peca.top,
+                      left: peca.left,
+                      width: peca.width,
+                      height: peca.height,
+                      backgroundColor: possuiAvaria ? 'rgba(239, 68, 68, 0.5)' : 'rgba(59, 130, 246, 0.04)',
+                      borderColor: possuiAvaria ? '#ef4444' : 'rgba(255,255,255,0.1)'
+                    }}
+                  >
+                    {possuiAvaria ? <span style={styles.badgeAvaria}>{possuiAvaria}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Modal de Avarias */}
+            {pecaSelecionada && (
+              <div style={styles.avariaModal}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h4 style={{ margin: 0, fontSize: '13px', color: '#f1f5f9' }}>Dano em: {pecasMapeadas.find(p => p.id === pecaSelecionada)?.nome}</h4>
+                  <button type="button" onClick={() => setPecaSelecionada(null)} style={styles.btnCloseModal}><X size={16} /></button>
+                </div>
+                <div style={styles.avariaOpcoesGrid}>
+                  <button type="button" onClick={() => aplicarAvariaPeça('A')} style={styles.btnOpcaoAvaria}>[A] Amassado</button>
+                  <button type="button" onClick={() => aplicarAvariaPeça('R')} style={styles.btnOpcaoAvaria}>[R] Riscado</button>
+                  <button type="button" onClick={() => aplicarAvariaPeça('X')} style={styles.btnOpcaoAvaria}>[X] Quebrado</button>
+                  <button type="button" onClick={() => aplicarAvariaPeça('F')} style={styles.btnOpcaoAvaria}>[F] Faltante</button>
+                  <button type="button" onClick={() => aplicarAvariaPeça('T')} style={styles.btnOpcaoAvaria}>[T] Trincado</button>
+                  <button type="button" onClick={() => aplicarAvariaPeça('M')} style={styles.btnOpcaoAvaria}>[M] Manchado</button>
+                  <button type="button" onClick={() => aplicarAvariaPeça('OK')} style={styles.btnLimparAvaria}>Sem Avarias (OK)</button>
+                </div>
+              </div>
+            )}
+
+            <div style={styles.legendaBox}>
+              <strong>Legenda:</strong> A: Amassado | R: Riscado | X: Quebrado | F: Faltante | T: Trincado | M: Manchado
+            </div>
+          </div>
+
+          {/* TABELA DE PNEUS CONFORME FICHA GMC */}
+          <div style={styles.cardInternal}>
+            <div style={styles.cardHeader}><Info size={16} color="#60a5fa" /> Verificação de Pneus</div>
+            <table style={styles.tablePneus}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>PNEU</th>
+                  <th style={styles.th}>MARCA</th>
+                  <th style={styles.th}>ESTADO (Ex: Novo, Careca, Regular)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { id: 'dianteiroDireito', label: 'Dianteiro Direito' },
+                  { id: 'dianteiroEsquerdo', label: 'Dianteiro Esquerdo' },
+                  { id: 'traseiroDireito', label: 'Traseiro Direito' },
+                  { id: 'traseiroEsquerdo', label: 'Traseiro Esquerdo' },
+                  { id: 'estepe', label: 'Estepe' }
+                ].map(pneu => (
+                  <tr key={pneu.id}>
+                    <td style={styles.tdLabel}>{pneu.label}</td>
+                    <td style={styles.tdInput}>
+                      <input 
+                        value={pneus[pneu.id].marca} 
+                        onChange={e => handlePneuChange(pneu.id, 'marca', e.target.value)} 
+                        style={styles.tableInputField} 
+                        placeholder="Marca"
+                      />
+                    </td>
+                    <td style={styles.tdInput}>
+                      <input 
+                        value={pneus[pneu.id].estado} 
+                        onChange={e => handlePneuChange(pneu.id, 'estado', e.target.value)} 
+                        style={styles.tableInputField} 
+                        placeholder="Estado"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
         </div>
 
-        {/* LADO DIREITO: CHECKLIST EXTRATOR/ACESSÓRIOS */}
+        {/* LADO DIREITO: CHECKLIST COMPLETO */}
         <div style={styles.checklistItensBox}>
           <div style={styles.cardHeader}><Info size={18} color="#10b981" /> Itens de Vistoria e Verificação</div>
           <div style={styles.scrollChecklist}>
@@ -283,33 +352,40 @@ const styles = {
   title: { fontSize: '22px', fontWeight: '800', margin: '0 0 5px 0', color: '#f8fafc' },
   subtitle: { fontSize: '13px', color: '#94a3b8' },
   card: { background: 'rgba(30, 41, 59, 0.45)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', marginBottom: '20px' },
+  cardInternal: { background: '#0f172a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '14px', marginBottom: '15px' },
   cardHeader: { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#cbd5e1', marginBottom: '15px' },
   gridForm: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' },
   input: { width: '100%', padding: '12px', borderRadius: '10px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' },
-  combustivelFlex: { display: 'flex', gap: '10px', flexWrap: 'wrap' },
-  btnNivel: { flex: 1, padding: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '10px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' },
-  btnNivelActive: { flex: 1, padding: '12px', background: '#3b82f6', border: '1px solid #3b82f6', color: '#fff', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '13px', boxShadow: '0 0 12px rgba(59, 130, 246, 0.4)' },
   splitLayout: { display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '20px' },
-  mapaContainer: { flex: 1.2, minWidth: '320px', background: 'rgba(30, 41, 59, 0.45)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', position: 'relative' },
-  infoTxt: { fontSize: '13px', color: '#94a3b8', margin: '0 0 15px 0' },
+  leftColumn: { flex: 1.3, minWidth: '320px', display: 'flex', flexDirection: 'column' },
+  combustivelFlex: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
+  btnNivel: { flex: 1, padding: '10px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '12px' },
+  btnNivelActive: { flex: 1, padding: '10px', background: '#3b82f6', border: '1px solid #3b82f6', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '12px', boxShadow: '0 0 10px rgba(59, 130, 246, 0.4)' },
+  mapaContainer: { background: 'rgba(30, 41, 59, 0.45)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', position: 'relative', marginBottom: '15px' },
+  infoTxt: { fontSize: '12px', color: '#94a3b8', margin: '0 0 12px 0' },
   carWrapper: { position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', background: '#0f172a', borderRadius: '12px', padding: '20px 0', overflow: 'hidden' },
-  carImg: { width: '90%', maxWidth: '440px', height: 'auto', pointerEvents: 'none', opacity: 0.85 },
-  pecaBotao: { position: 'absolute', transform: 'translate(-50%, -50%)', border: '1px dashed', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', outline: 'none', zIndex: 5 },
-  badgeAvaria: { background: '#ef4444', color: '#fff', fontSize: '11px', fontWeight: '900', padding: '2px 5px', borderRadius: '4px' },
-  avariaModal: { position: 'absolute', bottom: '70px', left: '16px', right: '16px', background: '#1e293b', border: '1px solid #475569', borderRadius: '12px', padding: '14px', zIndex: 50, boxShadow: '0 10px 25px rgba(0,0,0,0.6)' },
+  carImg: { width: '95%', maxWidth: '450px', height: 'auto', pointerEvents: 'none', opacity: 0.9 },
+  pecaBotao: { position: 'absolute', transform: 'translate(-50%, -50%)', border: '1px dashed', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s', outline: 'none', zIndex: 5 },
+  badgeAvaria: { background: '#ef4444', color: '#fff', fontSize: '10px', fontWeight: '900', padding: '1px 4px', borderRadius: '3px' },
+  avariaModal: { position: 'absolute', bottom: '65px', left: '16px', right: '16px', background: '#1e293b', border: '1px solid #475569', borderRadius: '12px', padding: '12px', zIndex: 50, boxShadow: '0 10px 25px rgba(0,0,0,0.6)' },
   btnCloseModal: { background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  avariaOpcoesGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' },
+  avariaOpcoesGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' },
   btnOpcaoAvaria: { padding: '8px', background: '#334155', border: 'none', color: '#f1f5f9', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' },
-  btnLimparAvaria: { gridColumn: 'span 3', padding: '8px', background: '#10b981', border: 'none', color: '#fff', borderRadius: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '4px' },
-  legendaBox: { marginTop: '15px', background: 'rgba(255,255,255,0.02)', padding: '10px', borderRadius: '8px', fontSize: '11px', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' },
+  btnLimparAvaria: { gridColumn: 'span 3', padding: '8px', background: '#10b981', border: 'none', color: '#fff', borderRadius: '6px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', marginTop: '2px' },
+  legendaBox: { marginTop: '12px', background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '6px', fontSize: '11px', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' },
+  tablePneus: { width: '100%', borderCollapse: 'collapse', marginTop: '5px' },
+  th: { textAlign: 'left', padding: '8px', fontSize: '11px', color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.1)', fontWeight: '600' },
+  tdLabel: { padding: '8px', fontSize: '12px', color: '#e2e8f0', fontWeight: '500' },
+  tdInput: { padding: '4px' },
+  tableInputField: { width: '100%', padding: '6px 10px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', fontSize: '12px', outline: 'none' },
   checklistItensBox: { flex: 1, minWidth: '320px', background: 'rgba(30, 41, 59, 0.45)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column' },
-  scrollChecklist: { flex: 1, maxHeight: '380px', overflowY: 'auto', paddingRight: '5px' },
-  itemLinha: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' },
-  itemNome: { fontSize: '12px', color: '#e2e8f0', fontWeight: '500', maxWidth: '170px' },
+  scrollChecklist: { flex: 1, maxHeight: '540px', overflowY: 'auto', paddingRight: '5px' },
+  itemLinha: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.03)' },
+  itemNome: { fontSize: '12px', color: '#e2e8f0', fontWeight: '500' },
   grupoBotoesStatus: { display: 'flex', gap: '3px' },
   btnStatusInativo: { width: '24px', height: '24px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', borderRadius: '4px', fontSize: '10px', fontWeight: '700', cursor: 'pointer' },
   btnStatusAtivo: { width: '24px', height: '24px', background: '#10b981', border: 'none', color: '#fff', borderRadius: '4px', fontSize: '10px', fontWeight: '900', cursor: 'pointer', boxShadow: '0 0 8px rgba(16, 185, 129, 0.4)' },
   legendaStatusBox: { marginTop: '15px', fontSize: '11px', color: '#94a3b8', textAlign: 'center' },
   textarea: { width: '100%', height: '80px', padding: '12px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none', fontSize: '14px' },
-  btnSalvarTudo: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)', transition: 'all 0.2s' }
+  btnSalvarTudo: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)' }
 };
