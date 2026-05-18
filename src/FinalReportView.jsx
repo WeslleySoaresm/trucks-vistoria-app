@@ -17,7 +17,7 @@ export default function FinalReportView({ report, onClose }) {
   const observacoes = report.observacoes || report.Observacoes || "Nenhuma observação registrada.";
   const dataCriacao = report.data_cadastro || report.DataCadastro || report.dataCriacao || "N/D";
 
-  // 2. Parse seguro das strings JSON
+  // 2. Parse seguro das strings JSON vindo do Banco de Dados
   const parseJsonSeguro = (dados) => {
     if (!dados) return {};
     if (typeof dados === 'object') return dados;
@@ -33,6 +33,7 @@ export default function FinalReportView({ report, onClose }) {
   const checklistItens = parseJsonSeguro(report.checklistItensJson || report.ChecklistItensJson || report.checklistItens || report.ChecklistItens);
   const pneus = parseJsonSeguro(report.pneusJson || report.PneusJson || report.pneus || report.Pneus);
 
+  // Coordenadas das peças baseadas na imagem oficial de contorno
   const pecasMapeadas = [
     { id: 'frente', top: '50%', left: '12%' },
     { id: 'capo', top: '50%', left: '30%' },
@@ -58,16 +59,16 @@ export default function FinalReportView({ report, onClose }) {
 
   return (
     <div style={styles.pageContainer}>
-      {/* Botões de Controle (Ocultados na Impressão) */}
+      {/* Botões superiores de controle (Ocultados na Impressão Física) */}
       <div className="no-print-header" style={styles.noPrintHeader}>
         <button onClick={handlePrint} style={styles.btnPrint}><Printer size={16} /> IMPRIMIR RELATÓRIO</button>
         <button onClick={onClose} style={styles.btnClose}><X size={16} /> FECHAR</button>
       </div>
 
-      {/* ÁREA DO RELATÓRIO */}
+      {/* ÁREA DE IMPRESSÃO DO RELATÓRIO */}
       <div className="print-area" style={styles.printArea}>
         
-        {/* CABEÇALHO */}
+        {/* CABEÇALHO TIMBRADO */}
         <div style={styles.headerFlex}>
           <div>
             <h1 style={styles.mainTitle}>CHECKLIST DE ENTRADA</h1>
@@ -113,12 +114,12 @@ export default function FinalReportView({ report, onClose }) {
           </div>
         </div>
 
-        {/* COLUNAS LADO A LADO PERFEITAS PARA IMPRESSÃO */}
-        <div style={styles.colunasFlex}>
+        {/* COLUNAS LADO A LADO - SEGURO PARA IMPRESSÃO EM TABELA */}
+        <div className="print-colunas-wrapper" style={styles.colunasFlex}>
           
-          {/* COLUNA ESQUERDA: AVARIAS + PNEUS */}
-          <div style={styles.colunaMetade}>
-            <div style={styles.subSecaoTitulo}>MAPEAMENTO DE AVARIAS EXTERNAS</div>
+          {/* COLUNA DA ESQUERDA: AVARIAS E PNEUS */}
+          <div className="print-coluna-item" style={styles.colunaEsquerda}>
+            <div style={styles.subSecaoTitulo}>APEAMENTO DE AVARIAS EXTERNAS</div>
             <div style={styles.carWrapper}>
               <img src="/contorno-carro.png" alt="Carro" style={styles.carImg} />
               {pecasMapeadas.map(peca => {
@@ -167,17 +168,17 @@ export default function FinalReportView({ report, onClose }) {
                       </tr>
                     ))
                   ) : (
-                    <tr><td colSpan={3} style={styles.tdPneu}>Sem registros.</td></tr>
+                    <tr><td colSpan={3} style={styles.tdPneu}>Sem registros de pneus.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* COLUNA DIREITA: ITENS DO CHECKLIST SEM SCROLL (EXIBE TUDO NA IMPRESSÃO) */}
-          <div style={styles.colunaMetade}>
+          {/* COLUNA DA DIREITA: CHECKLIST TOTALMENTE EXPANDIDO NA IMPRESSÃO */}
+          <div className="print-coluna-item" style={styles.colunaDireita}>
             <div style={styles.subSecaoTitulo}>ITENS DE VISTORIA E VERIFICAÇÃO</div>
-            <div style={styles.checklistGridContainer}>
+            <div className="print-checklist-container" style={styles.checklistGridContainer}>
               <table style={styles.tabelaItens}>
                 <thead>
                   <tr>
@@ -198,14 +199,14 @@ export default function FinalReportView({ report, onClose }) {
               </table>
             </div>
             <div style={styles.legendaItensPrint}>
-              <strong>Legenda:</strong> S: Sim/OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
+              <strong>Legenda:</strong> S: OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
             </div>
           </div>
 
         </div>
 
-        {/* OBSERVAÇÕES */}
-        <div style={styles.secaoTitulo}>OBSERVAÇÕES DO PERITO</div>
+        {/* OBSERVAÇÕES DO PERITO */}
+        <div style={styles.secaoTitulo}>OBSERVAÇÕES DO PERITO / DEMAIS OBSERVAÇÕES</div>
         <div style={styles.observacoesBox}>{observacoes}</div>
 
         {/* ASSINATURAS */}
@@ -216,42 +217,60 @@ export default function FinalReportView({ report, onClose }) {
           </div>
           <div style={styles.blocoAssinatura}>
             <div style={styles.linhaAssinatura}></div>
-            <span>Assinatura do Cliente / Autorizado</span>
+            <span>Assinatura do Cliente ou Autorizado</span>
           </div>
         </div>
 
       </div>
 
-      {/* ESTILOS EXCLUSIVOS DE IMPRESSÃO CSS COLARES */}
+      {/* REGRAS RÍGIDAS DE IMPRESSÃO CSS PARA ELIMINAR O SCROLL */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; }
+          body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .no-print-header { display: none !important; }
           .print-area { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10px !important; box-shadow: none !important; border: none !important; }
-          /* Força as colunas a ficarem lado a lado rigidamente na folha de papel */
-          .print-colunas-flex { display: flex !important; flex-direction: row !important; gap: 20px !important; }
-          .print-coluna-metade { width: 50% !important; flex: 1 !important; }
-          /* Remove limites de altura para que os 49 itens apareçam por completo sem cortar */
-          .print-checklist-container { max-height: none !important; overflow: visible !important; }
+          
+          /* Força o navegador a tratar as colunas lado a lado como uma estrutura de tabela física */
+          .print-colunas-wrapper { display: table !important; width: 100% !important; table-layout: fixed !important; }
+          .print-coluna-item { display: table-cell !important; vertical-align: top !important; }
+          
+          .print-coluna-item:first-child { width: 52% !important; padding-right: 15px !important; }
+          .print-coluna-item:last-child { width: 48% !important; }
+
+          /* Mata o Scrollbar e força a exibição linear contínua de todos os itens */
+          .print-checklist-container { 
+            max-height: none !important; 
+            overflow: visible !important; 
+            overflow-y: visible !important;
+            height: auto !important;
+            border: none !important;
+          }
+
+          /* Ajuste cirúrgico do padding para condensar os 49 itens em uma única folha A4 */
+          .print-checklist-container table td {
+            padding: 3px 4px !important;
+            font-size: 9px !important;
+            line-height: 1.1 !important;
+          }
         }
       `}} />
     </div>
   );
 }
 
-// ESTILOS AJUSTADOS PARA COMPACTAÇÃO MÁXIMA
+// ESTILOS DE TELA E PADRÃO DE ESTRUTURA
 const styles = {
   pageContainer: { width: '100%', background: '#111827', minHeight: '100vh', padding: '20px 0', boxSizing: 'border-box' },
-  noPrintHeader: { display: 'flex', justifyContent: 'flex-end', gap: '10px', maxWidth: '920px', margin: '0 auto 15px auto', padding: '0 10px' },
+  noPrintHeader: { display: 'flex', justifyContent: 'flex-end', gap: '10px', maxWidth: '940px', margin: '0 auto 15px auto', padding: '0 10px' },
   btnPrint: { background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
   btnClose: { background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
-  printArea: { background: '#fff', color: '#000', maxWidth: '920px', margin: '0 auto', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
+  printArea: { background: '#fff', color: '#000', maxWidth: '940px', margin: '0 auto', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
   headerFlex: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '10px' },
   mainTitle: { fontSize: '20px', fontWeight: '900', margin: 0, color: '#000' },
   subTitle: { fontSize: '11px', margin: '2px 0 0 0', color: '#4b5563', fontWeight: 'bold' },
   boxDataHora: { background: '#f3f4f6', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', textAlign: 'right' },
   secaoTitulo: { background: '#334155', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '5px 8px', borderRadius: '4px', marginTop: '12px', marginBottom: '8px', textTransform: 'uppercase' },
-  subSecaoTitulo: { background: '#f1f5f9', borderLeft: '3px solid #334155', color: '#000', fontSize: '10px', fontWeight: 'bold', padding: '4px 6px', marginBottom: '8px' },
+  subSecaoTitulo: { background: '#f1f5f9', borderLeft: '3px solid #334155', color: '#000', fontSize: '10px', fontWeight: 'bold', padding: '5px 6px', marginBottom: '8px' },
   tabelaDados: { width: '100%', borderCollapse: 'collapse', marginBottom: '5px' },
   tdDado: { border: '1px solid #cbd5e1', padding: '6px', fontSize: '11px', color: '#000' },
   valorPlaca: { background: '#000', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px' },
@@ -260,9 +279,10 @@ const styles = {
   nivelInativo: { padding: '2px 5px', background: '#f3f4f6', color: '#9ca3af', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '10px' },
   nivelAtivo: { padding: '2px 5px', background: '#000', color: '#fff', fontWeight: 'bold', borderRadius: '4px', fontSize: '10px' },
   
-  // ESTRUTURA REFORÇADA DAS DUAS COLUNAS LADO A LADO
-  colunasFlex: { display: 'flex', gap: '20px', marginTop: '10px', alignItems: 'flex-start', className: 'print-colunas-flex' },
-  colunaMetade: { flex: 1, width: '50%', display: 'flex', flexDirection: 'column', className: 'print-coluna-metade' },
+  // CONFIGURAÇÃO DE COLUNAS EM TELA (FLEX)
+  colunasFlex: { display: 'flex', gap: '20px', marginTop: '10px', alignItems: 'flex-start' },
+  colunaEsquerda: { flex: '1.1', width: '52%', display: 'flex', flexDirection: 'column' },
+  colunaDireita: { flex: '0.9', width: '48%', display: 'flex', flexDirection: 'column' },
   
   carWrapper: { position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 0' },
   carImg: { width: '85%', maxWidth: '280px', height: 'auto', opacity: 0.85 },
@@ -272,14 +292,14 @@ const styles = {
   thPneu: { textTransform: 'uppercase', background: '#f1f5f9', fontSize: '9px', padding: '5px', border: '1px solid #cbd5e1', textAlign: 'left' },
   tdPneu: { fontSize: '10px', padding: '5px', border: '1px solid #cbd5e1', color: '#000' },
   
-  // RECIPIENTE DO CHECKLIST SEM SOBREPOSIÇÃO
-  checklistGridContainer: { border: '1px solid #cbd5e1', borderRadius: '6px', overflowY: 'auto', maxHeight: '430px', className: 'print-checklist-container' },
+  // CAIXA DE CHECKLIST NA TELA (MANTÉM O SCROLL NO MONITOR, REMOVE NA IMPRESSÃO)
+  checklistGridContainer: { border: '1px solid #cbd5e1', borderRadius: '6px', overflowY: 'auto', maxHeight: '440px' },
   tabelaItens: { width: '100%', borderCollapse: 'collapse' },
   thItem: { background: '#f1f5f9', fontSize: '10px', padding: '6px', borderBottom: '1px solid #cbd5e1', textAlign: 'left' },
   thItemCentrado: { background: '#f1f5f9', fontSize: '10px', padding: '6px', borderBottom: '1px solid #cbd5e1', textAlign: 'center', width: '40px' },
   linhaItem: { borderBottom: '1px solid #e2e8f0' },
-  tdItemName: { fontSize: '10px', padding: '4px 6px', color: '#000', fontWeight: '500' },
-  tdItemStatus: { padding: '2px', textAlign: 'center' },
+  tdItemName: { fontSize: '10px', padding: '5px 6px', color: '#000', fontWeight: '500' },
+  tdItemStatus: { padding: '3px', textAlign: 'center' },
   badgeStatus: (status) => ({
     display: 'inline-block',
     width: '16px',
@@ -294,7 +314,7 @@ const styles = {
   }),
   legendaItensPrint: { marginTop: '6px', fontSize: '9px', color: '#4b5563', textAlign: 'center' },
   observacoesBox: { width: '100%', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px', fontSize: '11px', minHeight: '45px', background: '#f8fafc', boxSizing: 'border-box' },
-  assinaturasFlex: { display: 'flex', justifyContent: 'space-between', marginTop: '40px', gap: '40px' },
+  assinaturasFlex: { display: 'flex', justifyContent: 'space-between', marginTop: '35px', gap: '40px' },
   blocoAssinatura: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '10px', color: '#374151' },
   linhaAssinatura: { width: '100%', borderTop: '1px solid #000', marginBottom: '4px' }
 };
