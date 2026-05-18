@@ -13,7 +13,7 @@ export default function DashboardFuncionario({ user }) {
   const [isMobile, setIsMobile] = useState(false);
   const [fotosModal, setFotosModal] = useState(null);
   
-  // NOVOS ESTADOS PARA PAGINAÇÃO PERFORMANCE
+  // PAGINAÇÃO PERFORMANCE
   const [pagina, setPagina] = useState(1);
   const [temMaisRegistros, setTemMaisRegistros] = useState(true);
   const ITENS_POR_PAGINA = 20;
@@ -28,7 +28,7 @@ export default function DashboardFuncionario({ user }) {
     }, 3000);
   };
 
-  // FUNÇÃO DE CARREGAMENTO ADAPTADA PARA ENVIAR FILTROS AO BACKEND
+  // FUNÇÃO DE CARREGAMENTO OTIMIZADA E RETIFICADA
   const carregarDados = useCallback(async (paginaAlvo = 1, append = false) => {
     if (!user?.id) return;
     
@@ -39,8 +39,7 @@ export default function DashboardFuncionario({ user }) {
     }
 
     try {
-      // ENGENHARIA DE DADOS: Passando paginação e ID do usuário direto na rota se o backend suportar,
-      // ou tratando de forma otimizada. (Ideal: ajustar a rota .NET para este padrão)
+      // Passa os parâmetros de paginação e o ID do usuário conectado
       const urlComFiltros = `${API_URL}/Vistoria?usuarioId=${user.id}&pagina=${paginaAlvo}&limite=${ITENS_POR_PAGINA}`;
       
       const response = await fetch(urlComFiltros);
@@ -48,46 +47,50 @@ export default function DashboardFuncionario({ user }) {
       
       const data = await response.json();
 
-      // Fallback caso a API ainda não filtre no banco: fazemos o filtro seguro por ID
-      const minhasVistorias = Array.isArray(data) ? data.filter(v => {
-        const idDoUsuarioNoBanco = v.usuarioId || v.UsuarioId;
-        return String(idDoUsuarioNoBanco).trim().toLowerCase() === String(user.id).trim().toLowerCase();
-      }) : [];
+      // Normaliza se a API responder com objeto paginado { dados: [...] } ou array direta
+      const listaBruta = Array.isArray(data) ? data : (data.dados || data.vistorias || []);
 
-      const formatados = minhasVistorias.map(v => {
-        const dataCriacao = v.dataCriacao || v.DataCriacao;
+      // Mapeamento tolerante a variações de letras maiúsculas/minúsculas do banco de dados
+      const formatados = listaBruta.map(v => {
+        const dataCriacao = v.dataCriacao || v.DataCriacao || v.data_cadastro;
         return {
           id: v.id || v.Id,
           data_formatada: dataCriacao ? new Date(dataCriacao).toLocaleDateString('pt-BR') : '---',
           placa: v.placa || v.Placa || '---',
           tipo_servico: v.tipoServico || v.TipoServico || 'Geral',
-          status: v.status || v.Status,
-          equipe: v.equipe || v.Equipe,
-          observacao: v.observacao || v.Observacao,
-          localizacao_texto: v.localizacao || v.Localizacao,
-          todas_fotos: v.evidencias || v.Evidencias ? (v.evidencias || v.Evidencias).map(e => e.urlFoto || e.UrlFoto || e) : [],
+          status: v.status || v.Status || 'Concluída',
+          equipe: v.equipe || v.Equipe || 'Padrão',
+          observacao: v.observacao || v.Observacao || '',
+          localizacao_texto: v.localizacao || v.Localizacao || '',
+          todas_fotos: v.evidencias || v.Evidencias ? (Array.isArray(v.evidencias || v.Evidencias) ? (v.evidencias || v.Evidencias).map(e => e.urlFoto || e.UrlFoto || e) : []) : [],
           qtd_fotos: v.evidencias || v.Evidencias ? (v.evidencias || v.Evidencias).length : 0
         };
       });
 
+      // Atualização segura do estado das vistorias
+      let listaAtualizada;
       if (append) {
-        setVistorias(prev => [...prev, ...formatados]);
+        setVistorias(prev => {
+          listaAtualizada = [...prev, ...formatados];
+          return listaAtualizada;
+        });
       } else {
+        listaAtualizada = formatados;
         setVistorias(formatados);
       }
 
-      // Se a resposta trouxe menos itens que o limite da página, significa que os registros acabaram
+      // Validação de fim de registros
       if (formatados.length < ITENS_POR_PAGINA) {
         setTemMaisRegistros(false);
       } else {
         setTemMaisRegistros(true);
       }
 
-      // Atualiza estatísticas com base no total do usuário
-      const total = append ? vistorias.length + formatados.length : formatados.length;
+      // CORREÇÃO DA META: Baseia-se no tamanho total real do histórico carregado
+      const totalVistoriasUsuario = listaAtualizada ? listaAtualizada.length : formatados.length;
       setStats({
-        total_vistorias: total,
-        porcentagem_meta: (total / META_MENSAL) * 100
+        total_vistorias: totalVistoriasUsuario,
+        porcentagem_meta: (totalVistoriasUsuario / META_MENSAL) * 100
       });
 
     } catch (err) {
@@ -97,25 +100,26 @@ export default function DashboardFuncionario({ user }) {
       setLoading(false);
       setLoadingMais(false);
     }
-  }, [user?.id, vistorias.length]);
+  }, [user?.id]);
 
-  // Carrega a primeira página ao iniciar
+  // Monitora alterações de usuário e monta o componente
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
+    
+    setPagina(1);
     carregarDados(1, false);
+    
     return () => window.removeEventListener('resize', checkMobile);
-  }, [user?.id]);
+  }, [user?.id, carregarDados]);
 
-  // Função para o botão "Carregar Mais"
   const lidarComCarregarMais = () => {
     const proximaPagina = pagina + 1;
     setPagina(proximaPagina);
     carregarDados(proximaPagina, true);
   };
 
-  // EXPORTADOR EXCEL INTEGRADO
   const exportarExcel = () => {
     try {
       if (vistorias.length === 0) {
@@ -126,9 +130,9 @@ export default function DashboardFuncionario({ user }) {
         'Data': reg.data_formatada,
         'Placa': reg.placa,
         'Serviço': reg.tipo_servico,
-        'Equipe': reg.equipe || 'S/N',
-        'Status': reg.status || 'Concluída',
-        'Observação': reg.observacao || '',
+        'Equipe': reg.equipe,
+        'Status': reg.status,
+        'Observação': reg.observacao,
         'Localização': reg.localizacao_texto,
         'Total Fotos': reg.qtd_fotos
       }));
@@ -145,7 +149,6 @@ export default function DashboardFuncionario({ user }) {
     }
   };
 
-  // DOWNLOAD INDIVIDUAL E PACOTE DE IMAGENS
   const baixarFoto = async (path, placa) => {
     try {
       const finalUrl = path.startsWith('http') 
@@ -181,14 +184,13 @@ export default function DashboardFuncionario({ user }) {
 
       if (response.ok) {
         dispararNotificacao('sucesso', 'Vistoria excluída!');
-        setVistorias(prev => prev.filter(v => v.id !== id));
-        setStats(prev => {
-          const novoTotal = Math.max(0, prev.total_vistorias - 1);
-          return { 
-            ...prev, 
-            total_vistorias: novoTotal,
-            porcentagem_meta: (novoTotal / META_MENSAL) * 100
-          };
+        setVistorias(prev => {
+          const filtrados = prev.filter(v => v.id !== id);
+          setStats({ 
+            total_vistorias: filtrados.length,
+            porcentagem_meta: (filtrados.length / META_MENSAL) * 100
+          });
+          return filtrados;
         });
       } else {
         dispararNotificacao('erro', 'Não foi possível excluir no servidor.');
@@ -204,14 +206,13 @@ export default function DashboardFuncionario({ user }) {
       dispararNotificacao('erro', 'Localização GPS indisponível.');
       return;
     }
-    const url = loc.includes('http') ? loc : `http://maps.google.com/?q=${encodeURIComponent(loc)}`;
+    const url = loc.includes('http') ? loc : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
   return (
     <div style={styles.pageWrapper}>
       
-      {/* TOAST DE NOTIFICAÇÃO CENTRALIZADO */}
       {notificacao.exibir && (
         <div style={styles.toastContainerCentral}>
           <div style={{
@@ -260,7 +261,7 @@ export default function DashboardFuncionario({ user }) {
       </div>
 
       {loading && pagina === 1 ? (
-        <div style={{ textAlign: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
       ) : (
         <>
           <div style={styles.tableWrapper}>
@@ -270,11 +271,11 @@ export default function DashboardFuncionario({ user }) {
                   <div key={reg.id} style={styles.mobileCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <strong style={{ color: '#fff' }}>{reg.placa}</strong>
-                      <span style={styles.badge}>{reg.equipe || 'Equipe'}</span>
+                      <span style={styles.badge}>{reg.equipe}</span>
                     </div>
                     <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
                       <div>📅 {reg.data_formatada}</div>
-                      <div>🛠️ {reg.tipo_servico || 'Geral'}</div>
+                      <div>🛠️ {reg.tipo_servico}</div>
                       {reg.observacao && <div style={{marginTop: '4px', fontStyle: 'italic', color: '#a0aec0'}}>📝 {reg.observacao}</div>}
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -289,7 +290,7 @@ export default function DashboardFuncionario({ user }) {
                       </button>
                     </div>
                   </div>
-                )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado.</div>}
+                )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhuma vistoria encontrada.</div>}
               </div>
             ) : (
               <table style={styles.table}>
@@ -325,7 +326,6 @@ export default function DashboardFuncionario({ user }) {
             )}
           </div>
 
-          {/* BOTÃO DE CARREGAR MAIS REGISTROS (PAGINAÇÃO) */}
           {temMaisRegistros && vistorias.length >= ITENS_POR_PAGINA && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', marginBottom: '20px' }}>
               <button 
@@ -385,7 +385,7 @@ export default function DashboardFuncionario({ user }) {
 
 const styles = {
   pageWrapper: { position: 'relative', padding: '20px', backgroundColor: '#1a202c', minHeight: '100vh', width: '100%', boxSizing: 'border-box', fontFamily: '"Inter", sans-serif' },
-  toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 13000 },
+  toastContainerCentral: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'none', zIndex: 12500 },
   toastBox: { padding: '16px 28px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 20px 40px rgba(0,0,0,0.7)', border: '1px solid rgba(255,255,255,0.15)', maxWidth: '90%', pointerEvents: 'auto' },
   toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
   cardMeta: { background: 'rgba(30, 41, 59, 0.9)', padding: '20px', borderRadius: '20px', marginBottom: '25px', border: '1px solid rgba(255,255,255,0.1)' },
@@ -415,7 +415,5 @@ const styles = {
   fotoWrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' },
   fotoItem: { width: '100%', height: '120px', objectFit: 'cover', borderRadius: '8px' },
   btnDownloadSmall: { width: '100%', background: 'transparent', border: '1px solid #3182ce', color: '#63b3ed', padding: '5px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' },
-  
-  // ESTILO DO NOVO BOTÃO DE PERFORMANCE (PAGINAÇÃO)
   btnCarregarMais: { display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(99, 179, 237, 0.15)', color: '#63b3ed', border: '1px solid #63b3ed', padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }
 };
