@@ -62,7 +62,9 @@ export default function Login() {
           <div style={styles.inputGroup}>
             <div style={styles.labelRow}>
               <label style={styles.label}>Senha de Acesso</label>
-              <span style={styles.forgotPass}>Esqueceu a senha?</span>
+              <span onClick={() => setTelaAtual('esqueci-senha')} style={{ cursor: 'pointer' }}>
+                Esqueceu a senha?
+              </span>
             </div>
             <div style={styles.inputWrapper}>
               <Lock size={18} style={styles.inputIcon} />

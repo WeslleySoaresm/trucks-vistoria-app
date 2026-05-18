@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Login from './Login';
+import EsqueciSenha from './EsqueciSenha'; // 1. IMPORTAÇÃO DA NOVA TELA
 import FormVistoria from './FormVistoria';
 import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-// CORREÇÃO AQUI: Adicionado 'Car' dentro das chaves de importação do lucide-react
 import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
@@ -15,20 +15,18 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState('nova');
+  const [telaRecuperacao, setTelaRecuperacao] = useState(false); // 2. ESTADO PARA CONTROLAR A TELA
   const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
 
   useEffect(() => {
-    // 1. Adiciona a classe 'notranslate' na tag <html> principal do navegador
     document.documentElement.classList.add('notranslate');
     document.documentElement.setAttribute('lang', 'pt-BR');
 
-    // 2. Cria e injeta a meta tag que avisa o Google Tradutor para não traduzir
     const meta = document.createElement('meta');
     meta.name = "google";
     meta.content = "notranslate";
     document.head.appendChild(meta);
 
-    // 3. Gerenciamento de Sessão do Supabase
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
@@ -38,7 +36,6 @@ export default function App() {
       setSession(session);
     });
 
-    // Função de limpeza (cleanup) ao desmontar o componente
     return () => {
       document.documentElement.classList.remove('notranslate');
       if (document.head.contains(meta)) {
@@ -49,7 +46,15 @@ export default function App() {
   }, []);
 
   if (loading) return <div style={s.loadingScreen}>Iniciando sistema...</div>;
-  if (!session) return <Login />;
+
+  // 3. LOGICA DE EXIBIÇÃO QUANDO NÃO HÁ SESSÃO (CHAMA LOGIN OU ESQUECI SENHA)
+  if (!session) {
+    if (telaRecuperacao) {
+      return <EsqueciSenha aoVoltar={() => setTelaRecuperacao(false)} />;
+    }
+    // Passamos a propriedade para o Login conseguir ativar a tela de recuperação
+    return <Login aoEsquecerSenha={() => setTelaRecuperacao(true)} />;
+  }
 
   const userEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : "";
   const adminCheck = emailAdmin ? emailAdmin.toLowerCase().trim() : "";
@@ -126,7 +131,6 @@ export default function App() {
           </>
         )}
         
-        {/* Agora o componente <Car /> vai funcionar perfeitamente aqui */}
         <button onClick={() => setAbaAtiva('checkcar')} style={abaAtiva === 'checkcar' ? s.tabActive : s.tab}>
           <Car size={18} /> CheckCar
         </button>
@@ -171,111 +175,15 @@ export default function App() {
 }
 
 const s = {
-  appWrapper: { 
-    minHeight: '100vh', 
-    backgroundColor: '#1a202c', 
-    display: 'flex', 
-    flexDirection: 'column', 
-    fontFamily: '"Inter", sans-serif' 
-  },
-  loadingScreen: {
-    height: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1a202c',
-    color: '#fff',
-    fontSize: '18px'
-  },
-  header: { 
-    background: 'rgba(30, 41, 59, 0.8)', 
-    backdropFilter: 'blur(10px)',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-    padding: '12px 20px', 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100
-  },
+  appWrapper: { minHeight: '100vh', backgroundColor: '#1a202c', display: 'flex', flexDirection: 'column', fontFamily: '"Inter", sans-serif' },
+  loadingScreen: { height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a202c', color: '#fff', fontSize: '18px' },
+  header: { background: 'rgba(30, 41, 59, 0.8)', backdropFilter: 'blur(10px)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 },
   userInfo: { display: 'flex', flexDirection: 'column', gap: '4px' },
   userEmailText: { color: '#a0aec0', fontSize: '13px', fontWeight: '500' },
-  badge: { 
-    fontSize: '10px', 
-    color: '#fff', 
-    padding: '2px 8px', 
-    borderRadius: '6px', 
-    fontWeight: '900',
-    width: 'fit-content',
-    letterSpacing: '0.5px'
-  },
-  btnLogout: { 
-    background: 'rgba(239, 68, 68, 0.1)', 
-    color: '#ef4444', 
-    border: '1px solid rgba(239, 68, 68, 0.2)', 
-    padding: '8px 16px', 
-    borderRadius: '10px', 
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    transition: 'all 0.2s'
-  },
-  nav: { 
-    display: 'flex', 
-    background: 'rgba(30, 41, 59, 0.5)', 
-    padding: '8px',
-    margin: '15px',
-    borderRadius: '16px',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
-    gap: '8px',
-    overflowX: 'auto' 
-  },
-  tab: { 
-    flex: 1, 
-    padding: '12px', 
-    border: 'none', 
-    background: 'transparent', 
-    color: '#718096', 
-    fontWeight: '700', 
-    cursor: 'pointer',
-    borderRadius: '12px',
-    display: 'flex',
-    flexDirection: 'column', 
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '4px',
-    fontSize: '11px', 
-    transition: 'all 0.3s',
-    minWidth: '60px'
-  },
-  tabActive: { 
-    flex: 1, 
-    padding: '12px', 
-    border: 'none', 
-    background: '#3182ce', 
-    color: '#fff', 
-    fontWeight: '700', 
-    cursor: 'pointer',
-    borderRadius: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '4px',
-    fontSize: '11px',
-    boxShadow: '0 4px 15px rgba(49, 130, 206, 0.4)',
-    transition: 'all 0.3s',
-    minWidth: '60px'
-  },
-  mainContent: { 
-    padding: '0 15px 30px 15px', 
-    flex: 1,
-    maxWidth: '1200px',
-    width: '100%',
-    margin: '0 auto',
-    boxSizing: 'border-box'
-  }
+  badge: { fontSize: '10px', color: '#fff', padding: '2px 8px', borderRadius: '6px', fontWeight: '900', width: 'fit-content', letterSpacing: '0.5px' },
+  btnLogout: { background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '8px 16px', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', transition: 'all 0.2s' },
+  nav: { display: 'flex', background: 'rgba(30, 41, 59, 0.5)', padding: '8px', margin: '15px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)', gap: '8px', overflowX: 'auto' },
+  tab: { flex: 1, padding: '12px', border: 'none', background: 'transparent', color: '#718096', fontWeight: '700', cursor: 'pointer', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justify'content': 'center', gap: '4px', fontSize: '11px', transition: 'all 0.3s', minWidth: '60px' },
+  tabActive: { flex: 1, padding: '12px', border: 'none', background: '#3182ce', color: '#fff', fontWeight: '700', cursor: 'pointer', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', fontSize: '11px', boxShadow: '0 4px 15px rgba(49, 130, 206, 0.4)', transition: 'all 0.3s', minWidth: '60px' },
+  mainContent: { padding: '0 15px 30px 15px', flex: 1, maxWidth: '1200px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }
 };
