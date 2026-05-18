@@ -17,7 +17,7 @@ export default function FinalReportView({ report, onClose }) {
   const observacoes = report.observacoes || report.Observacoes || "Nenhuma observação registrada.";
   const dataCriacao = report.data_cadastro || report.DataCadastro || report.dataCriacao || "N/D";
 
-  // 2. Parse seguro das strings JSON vindo do Banco de Dados
+  // 2. Parse seguro das strings JSON
   const parseJsonSeguro = (dados) => {
     if (!dados) return {};
     if (typeof dados === 'object') return dados;
@@ -32,11 +32,6 @@ export default function FinalReportView({ report, onClose }) {
   const avarias = parseJsonSeguro(report.avariasCarroJson || report.AvariasCarroJson || report.avariasCarro || report.AvariasCarro);
   const checklistItens = parseJsonSeguro(report.checklistItensJson || report.ChecklistItensJson || report.checklistItens || report.ChecklistItens);
   const pneus = parseJsonSeguro(report.pneusJson || report.PneusJson || report.pneus || report.Pneus);
-
-  // FILTRO CRUCIAL: Pega apenas itens que possuem um status válido (ignora vazios ou nulos)
-  const itensModificados = Object.entries(checklistItens).filter(([_, status]) => {
-    return status && status.trim() !== "" && status !== null;
-  });
 
   const pecasMapeadas = [
     { id: 'frente', top: '50%', left: '12%' },
@@ -63,13 +58,13 @@ export default function FinalReportView({ report, onClose }) {
 
   return (
     <div style={styles.pageContainer}>
-      {/* Botões superiores (Ocultados na Impressão) */}
+      {/* Botões de Controle (Ocultados na Impressão) */}
       <div className="no-print-header" style={styles.noPrintHeader}>
-        <button onClick={handlePrint} style={styles.btnPrint}><Printer size={16} /> IMPRIMIR</button>
+        <button onClick={handlePrint} style={styles.btnPrint}><Printer size={16} /> IMPRIMIR RELATÓRIO</button>
         <button onClick={onClose} style={styles.btnClose}><X size={16} /> FECHAR</button>
       </div>
 
-      {/* ÁREA DE IMPRESSÃO DO RELATÓRIO */}
+      {/* ÁREA DO RELATÓRIO */}
       <div className="print-area" style={styles.printArea}>
         
         {/* CABEÇALHO */}
@@ -118,11 +113,11 @@ export default function FinalReportView({ report, onClose }) {
           </div>
         </div>
 
-        {/* COLUNAS LADO A LADO - COMPACTADAS */}
-        <div className="print-colunas-wrapper" style={styles.colunasFlex}>
+        {/* COLUNAS LADO A LADO PERFEITAS PARA IMPRESSÃO */}
+        <div style={styles.colunasFlex}>
           
-          {/* COLUNA ESQUERDA: AVARIAS E PNEUS */}
-          <div className="print-coluna-item" style={styles.colunaEsquerda}>
+          {/* COLUNA ESQUERDA: AVARIAS + PNEUS */}
+          <div style={styles.colunaMetade}>
             <div style={styles.subSecaoTitulo}>MAPEAMENTO DE AVARIAS EXTERNAS</div>
             <div style={styles.carWrapper}>
               <img src="/contorno-carro.png" alt="Carro" style={styles.carImg} />
@@ -179,10 +174,10 @@ export default function FinalReportView({ report, onClose }) {
             </div>
           </div>
 
-          {/* COLUNA DIREITA: APENAS ITENS MODIFICADOS (SEM SCROLL) */}
-          <div className="print-coluna-item" style={styles.colunaDireita}>
-            <div style={styles.subSecaoTitulo}>ITENS MODIFICADOS / INSPEÇÃO</div>
-            <div className="print-checklist-container" style={styles.checklistGridContainer}>
+          {/* COLUNA DIREITA: ITENS DO CHECKLIST SEM SCROLL (EXIBE TUDO NA IMPRESSÃO) */}
+          <div style={styles.colunaMetade}>
+            <div style={styles.subSecaoTitulo}>ITENS DE VISTORIA E VERIFICAÇÃO</div>
+            <div style={styles.checklistGridContainer}>
               <table style={styles.tabelaItens}>
                 <thead>
                   <tr>
@@ -191,36 +186,26 @@ export default function FinalReportView({ report, onClose }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {itensModificados.length > 0 ? (
-                    itensModificados.map(([item, status]) => (
-                      <tr key={item} style={styles.linhaItem}>
-                        <td style={styles.tdItemName}>{item}</td>
-                        <td style={styles.tdItemStatus}>
-                          <span style={styles.badgeStatus(status)}>{status}</span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={2} style={{ ...styles.tdItemName, textAlign: 'center', padding: '15px', color: '#6b7280' }}>
-                        Nenhum item do checklist foi marcado.
+                  {Object.entries(checklistItens).map(([item, status]) => (
+                    <tr key={item} style={styles.linhaItem}>
+                      <td style={styles.tdItemName}>{item}</td>
+                      <td style={styles.tdItemStatus}>
+                        <span style={styles.badgeStatus(status)}>{status}</span>
                       </td>
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
-            {itensModificados.length > 0 && (
-              <div style={styles.legendaItensPrint}>
-                <strong>Legenda:</strong> S: OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
-              </div>
-            )}
+            <div style={styles.legendaItensPrint}>
+              <strong>Legenda:</strong> S: Sim/OK | N: Não | I: Incompleto | A: Avariado | M: Manchado
+            </div>
           </div>
 
         </div>
 
-        {/* OBSERVAÇÕES DO PERITO */}
-        <div style={styles.secaoTitulo}>OBSERVAÇÕES DO PERITO / DEMAIS OBSERVAÇÕES</div>
+        {/* OBSERVAÇÕES */}
+        <div style={styles.secaoTitulo}>OBSERVAÇÕES DO PERITO</div>
         <div style={styles.observacoesBox}>{observacoes}</div>
 
         {/* ASSINATURAS */}
@@ -231,66 +216,53 @@ export default function FinalReportView({ report, onClose }) {
           </div>
           <div style={styles.blocoAssinatura}>
             <div style={styles.linhaAssinatura}></div>
-            <span>Assinatura do Cliente ou Autorizado</span>
+            <span>Assinatura do Cliente / Autorizado</span>
           </div>
         </div>
 
       </div>
 
-      {/* ESTILOS REFORÇADOS PARA ASSGURAR UMA PÁGINA ÚNICA */}
+      {/* ESTILOS EXCLUSIVOS DE IMPRESSÃO CSS COLARES */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; }
           .no-print-header { display: none !important; }
-          .print-area { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 5px !important; box-shadow: none !important; border: none !important; }
-          
-          /* Mantém o lado a lado rígido */
-          .print-colunas-wrapper { display: table !important; width: 100% !important; table-layout: fixed !important; }
-          .print-coluna-item { display: table-cell !important; vertical-align: top !important; }
-          .print-coluna-item:first-child { width: 52% !important; padding-right: 15px !important; }
-          .print-coluna-item:last-child { width: 48% !important; }
-
-          /* Expande a lista totalmente sem barras de rolagem */
-          .print-checklist-container { 
-            max-height: none !important; 
-            overflow: visible !important; 
-            overflow-y: visible !important;
-            height: auto !important;
-            border: 1px solid #cbd5e1 !important;
-          }
-          
-          /* Força quebra de página inteligente caso passe um milímetro (evita 3 páginas) */
-          .print-area { page-break-inside: avoid !important; }
+          .print-area { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 10px !important; box-shadow: none !important; border: none !important; }
+          /* Força as colunas a ficarem lado a lado rigidamente na folha de papel */
+          .print-colunas-flex { display: flex !important; flex-direction: row !important; gap: 20px !important; }
+          .print-coluna-metade { width: 50% !important; flex: 1 !important; }
+          /* Remove limites de altura para que os 49 itens apareçam por completo sem cortar */
+          .print-checklist-container { max-height: none !important; overflow: visible !important; }
         }
       `}} />
     </div>
   );
 }
 
-// ESTILOS AJUSTADOS E COMPACTOS
+// ESTILOS AJUSTADOS PARA COMPACTAÇÃO MÁXIMA
 const styles = {
   pageContainer: { width: '100%', background: '#111827', minHeight: '100vh', padding: '20px 0', boxSizing: 'border-box' },
-  noPrintHeader: { display: 'flex', justifyContent: 'flex-end', gap: '10px', maxWidth: '940px', margin: '0 auto 15px auto', padding: '0 10px' },
+  noPrintHeader: { display: 'flex', justifyContent: 'flex-end', gap: '10px', maxWidth: '920px', margin: '0 auto 15px auto', padding: '0 10px' },
   btnPrint: { background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
   btnClose: { background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', padding: '10px 20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
-  printArea: { background: '#fff', color: '#000', maxWidth: '940px', margin: '0 auto', padding: '20px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
+  printArea: { background: '#fff', color: '#000', maxWidth: '920px', margin: '0 auto', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', boxSizing: 'border-box' },
   headerFlex: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '10px' },
   mainTitle: { fontSize: '20px', fontWeight: '900', margin: 0, color: '#000' },
   subTitle: { fontSize: '11px', margin: '2px 0 0 0', color: '#4b5563', fontWeight: 'bold' },
   boxDataHora: { background: '#f3f4f6', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', textAlign: 'right' },
   secaoTitulo: { background: '#334155', color: '#fff', fontSize: '10px', fontWeight: 'bold', padding: '5px 8px', borderRadius: '4px', marginTop: '12px', marginBottom: '8px', textTransform: 'uppercase' },
-  subSecaoTitulo: { background: '#f1f5f9', borderLeft: '3px solid #334155', color: '#000', fontSize: '10px', fontWeight: 'bold', padding: '5px 6px', marginBottom: '8px' },
+  subSecaoTitulo: { background: '#f1f5f9', borderLeft: '3px solid #334155', color: '#000', fontSize: '10px', fontWeight: 'bold', padding: '4px 6px', marginBottom: '8px' },
   tabelaDados: { width: '100%', borderCollapse: 'collapse', marginBottom: '5px' },
-  tdDado: { border: '1px solid #cbd5e1', padding: '5px', fontSize: '11px', color: '#000' },
+  tdDado: { border: '1px solid #cbd5e1', padding: '6px', fontSize: '11px', color: '#000' },
   valorPlaca: { background: '#000', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px' },
-  combustivelContainer: { display: 'flex', alignItems: 'center', gap: '15px', border: '1px solid #cbd5e1', padding: '5px', borderRadius: '6px', fontSize: '11px' },
+  combustivelContainer: { display: 'flex', alignItems: 'center', gap: '15px', border: '1px solid #cbd5e1', padding: '6px', borderRadius: '6px', fontSize: '11px' },
   combustivelBarra: { display: 'flex', gap: '4px' },
   nivelInativo: { padding: '2px 5px', background: '#f3f4f6', color: '#9ca3af', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '10px' },
   nivelAtivo: { padding: '2px 5px', background: '#000', color: '#fff', fontWeight: 'bold', borderRadius: '4px', fontSize: '10px' },
   
-  colunasFlex: { display: 'flex', gap: '20px', marginTop: '10px', alignItems: 'flex-start' },
-  colunaEsquerda: { flex: '1.1', width: '52%', display: 'flex', flexDirection: 'column' },
-  colunaDireita: { flex: '0.9', width: '48%', display: 'flex', flexDirection: 'column' },
+  // ESTRUTURA REFORÇADA DAS DUAS COLUNAS LADO A LADO
+  colunasFlex: { display: 'flex', gap: '20px', marginTop: '10px', alignItems: 'flex-start', className: 'print-colunas-flex' },
+  colunaMetade: { flex: 1, width: '50%', display: 'flex', flexDirection: 'column', className: 'print-coluna-metade' },
   
   carWrapper: { position: 'relative', width: '100%', display: 'flex', justifyContent: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 0' },
   carImg: { width: '85%', maxWidth: '280px', height: 'auto', opacity: 0.85 },
@@ -300,14 +272,14 @@ const styles = {
   thPneu: { textTransform: 'uppercase', background: '#f1f5f9', fontSize: '9px', padding: '5px', border: '1px solid #cbd5e1', textAlign: 'left' },
   tdPneu: { fontSize: '10px', padding: '5px', border: '1px solid #cbd5e1', color: '#000' },
   
-  // CONTAINER DO CHECKLIST (AGORA CONDENSADO E DINÂMICO)
-  checklistGridContainer: { border: '1px solid #cbd5e1', borderRadius: '6px', overflowY: 'auto', maxHeight: '430px' },
+  // RECIPIENTE DO CHECKLIST SEM SOBREPOSIÇÃO
+  checklistGridContainer: { border: '1px solid #cbd5e1', borderRadius: '6px', overflowY: 'auto', maxHeight: '430px', className: 'print-checklist-container' },
   tabelaItens: { width: '100%', borderCollapse: 'collapse' },
   thItem: { background: '#f1f5f9', fontSize: '10px', padding: '6px', borderBottom: '1px solid #cbd5e1', textAlign: 'left' },
   thItemCentrado: { background: '#f1f5f9', fontSize: '10px', padding: '6px', borderBottom: '1px solid #cbd5e1', textAlign: 'center', width: '40px' },
   linhaItem: { borderBottom: '1px solid #e2e8f0' },
-  tdItemName: { fontSize: '10px', padding: '5px 6px', color: '#000', fontWeight: '500' },
-  tdItemStatus: { padding: '3px', textAlign: 'center' },
+  tdItemName: { fontSize: '10px', padding: '4px 6px', color: '#000', fontWeight: '500' },
+  tdItemStatus: { padding: '2px', textAlign: 'center' },
   badgeStatus: (status) => ({
     display: 'inline-block',
     width: '16px',
@@ -322,7 +294,7 @@ const styles = {
   }),
   legendaItensPrint: { marginTop: '6px', fontSize: '9px', color: '#4b5563', textAlign: 'center' },
   observacoesBox: { width: '100%', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px', fontSize: '11px', minHeight: '45px', background: '#f8fafc', boxSizing: 'border-box' },
-  assinaturasFlex: { display: 'flex', justifyContent: 'space-between', marginTop: '35px', gap: '40px' },
+  assinaturasFlex: { display: 'flex', justifyContent: 'space-between', marginTop: '40px', gap: '40px' },
   blocoAssinatura: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '10px', color: '#374151' },
   linhaAssinatura: { width: '100%', borderTop: '1px solid #000', marginBottom: '4px' }
 };
