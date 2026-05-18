@@ -11,15 +11,18 @@ import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Da
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
 
-
-
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState('nova');
   const [telaRecuperacao, setTelaRecuperacao] = useState(false); // 2. ESTADO PARA CONTROLAR A TELA
-  const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
   
+  // NOVOS ESTADOS PARA REDEFINIÇÃO DE SENHA (Sem alterar o restante)
+  const [modoAtualizarSenha, setModoAtualizarSenha] = useState(false);
+  const [novaSenha, setNovaSenha] = useState('');
+  const [atualizando, setAtualizando] = useState(false);
+
+  const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
 
   useEffect(() => {
     document.documentElement.classList.add('notranslate');
@@ -35,8 +38,14 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Escuta mudanças de autenticação (inclusive o clique no link do e-mail)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
+      
+      // Se o usuário veio pelo link do e-mail de recuperação
+      if (event === 'PASSWORD_RECOVERY') {
+        setModoAtualizarSenha(true);
+      }
     });
 
     return () => {
@@ -48,15 +57,58 @@ export default function App() {
     };
   }, []);
 
+  // Função para processar a nova senha no banco
+  const handleAtualizarSenha = async (e) => {
+    e.preventDefault();
+    if (novaSenha.length < 6) {
+      alert("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+    setAtualizando(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: novaSenha });
+      if (error) throw error;
+      alert("Senha atualizada com sucesso!");
+      setModoAtualizarSenha(false);
+      setNovaSenha('');
+    } catch (error) {
+      alert("Erro ao atualizar senha: " + error.message);
+    } finally {
+      setAtualizando(false);
+    }
+  };
+
   if (loading) return <div style={s.loadingScreen}>Iniciando sistema...</div>;
+
+  // INTERCEPTADOR: Mostra a tela de digitação de nova senha se vier do link
+  if (modoAtualizarSenha) {
+    return (
+      <div style={s.loadingScreen}>
+        <form onSubmit={handleAtualizarSenha} style={{ background: 'rgba(30, 41, 59, 0.95)', padding: '30px', borderRadius: '20px', maxWidth: '400px', width: '100%', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <h2 style={{ marginBottom: '10px', color: '#fff', fontSize: '24px', fontWeight: 'bold' }}>Definir Nova Senha</h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '20px', lineHeight: '1.5' }}>Digite a sua nova senha de acesso abaixo.</p>
+          <input
+            type="password"
+            placeholder="No mínimo 6 caracteres"
+            value={novaSenha}
+            onChange={(e) => setNovaSenha(e.target.value)}
+            required
+            style={{ width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: '#0f172a', color: '#fff', marginBottom: '20px', boxSizing: 'border-box', fontSize: '15px', outline: 'none' }}
+          />
+          <button type="submit" disabled={atualizando} style={{ width: '100%', padding: '14px', backgroundColor: '#3182ce', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
+            {atualizando ? "SALVANDO..." : "ATUALIZAR SENHA"}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   // 3. LOGICA DE EXIBIÇÃO QUANDO NÃO HÁ SESSÃO (CHAMA LOGIN OU ESQUECI SENHA)
   if (!session) {
-  if (telaRecuperacao) {
-    return <EsqueciSenha aoVoltar={() => setTelaRecuperacao(false)} />;
-  }
-  // Passamos a função para o Login saber o que fazer ao ser clicado
-  return <Login aoEsquecerSenha={() => setTelaRecuperacao(true)} />;
+    if (telaRecuperacao) {
+      return <EsqueciSenha aoVoltar={() => setTelaRecuperacao(false)} />;
+    }
+    return <Login aoEsquecerSenha={() => setTelaRecuperacao(true)} />;
   }
 
   const userEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : "";
