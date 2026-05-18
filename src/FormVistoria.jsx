@@ -66,7 +66,6 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  // ADICIONAR NOVO CLIENTE À LISTA LOCAL ANTES DO ENVIO
   const confirmarNovoCliente = () => {
     if (!inputNovoCliente.trim()) {
       dispararNotificacao('erro', 'Digite o nome do novo cliente.');
@@ -109,7 +108,6 @@ export default function FormVistoria({ user }) {
     setPreviews(prev => prev.filter((_, idx) => idx !== indexAlvo));
   };
 
-  // ENVIAR DADOS REAIS PARA O SERVIDOR E ARMAZENAR NO STORAGE DO SUPABASE
   const finalizarVistoria = async () => {
     const nomeClienteFinal = cliente.trim().toUpperCase();
     if (!placa.trim() || fotosOtimizadas.length === 0 || !equipe || !tipoServico || !nomeClienteFinal) {
@@ -131,9 +129,10 @@ export default function FormVistoria({ user }) {
         const extensao = arquivo.name ? arquivo.name.split('.').pop() : 'jpg';
         const caminhoArquivo = `${user.id}/${placa.trim()}_${Date.now()}_${index}.${extensao}`;
         
+        // CORRIGIDO: de caminymArquivo para caminhoArquivo
         const { error: uploadError } = await supabase.storage
           .from('vistorias')
-          .upload(caminymArquivo, arquivo);
+          .upload(caminhoArquivo, arquivo);
 
         if (uploadError) throw new Error(`Falha no upload da foto ${index + 1}`);
 
@@ -154,7 +153,7 @@ export default function FormVistoria({ user }) {
         tipoServico: tipoServico,
         status: status,
         observacao: observacao.trim(),
-        localizacao: "Não coletada", // Pode ser estendido com GPS nativo se desejado
+        localizacao: "Não coletada", 
         dataCriacao: new Date().toISOString(),
         evidencias: evidenciasLinks
       };
