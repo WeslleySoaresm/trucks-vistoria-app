@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// CORREÇÃO AQUI: 'Car' foi reinserido nas importações para matar o erro de ReferenceError
-import {  CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
+// CORREÇÃO: 'Car' foi incluído de volta na desestruturação dos ícones
+import { Car, CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
@@ -19,7 +19,7 @@ export default function CheckCar({ user }) {
   const [avariasCarro, setAvariasCarro] = useState({});
   const [pecaSelecionada, setPecaSelecionada] = useState(null);
 
-  // 4. Mapeamento de Pneus (Conforme a ficha impressa da GMC que você enviou)
+  // 4. Mapeamento de Pneus
   const [pneus, setPneus] = useState({
     dianteiroDireito: { marca: '', estado: '' },
     dianteiroEsquerdo: { marca: '', estado: '' },
@@ -95,7 +95,7 @@ export default function CheckCar({ user }) {
         NivelCombustivel: nivelCombustivel,
         AvariasCarroJson: JSON.stringify(avariasCarro),
         ChecklistItensJson: JSON.stringify(checklistItens),
-        PneusJson: JSON.stringify(pneus), // Enviando o mapeamento dos pneus também
+        PneusJson: JSON.stringify(pneus),
         Observacoes: observacoes.trim(),
         CriadoPor: user?.email || 'Vistoriador'
       };
@@ -113,7 +113,6 @@ export default function CheckCar({ user }) {
 
       alert("Checklist de Entrada GMC salvo com sucesso!");
       
-      // Limpeza completa do formulário
       setDadosVeiculo({ placa: '', modelo: '', cor: '', ano: '', combustivel: '', cliente: '', telefone: '', km: '' });
       setAvariasCarro({});
       setChecklistItens(itensVistoriaLista.reduce((acc, item) => ({ ...acc, [item]: 'S' }), {}));
@@ -134,7 +133,6 @@ export default function CheckCar({ user }) {
     }
   };
 
-  // Coordenadas calibradas baseadas na folha oficial GMC
   const pecasMapeadas = [
     { id: 'frente', nome: 'Para-choque Dianteiro / Grade', top: '50%', left: '12%', width: '25px', height: '60px' },
     { id: 'capo', nome: 'Capô Dianteiro', top: '50%', left: '30%', width: '65px', height: '55px' },
@@ -172,9 +170,7 @@ export default function CheckCar({ user }) {
       {/* LAYOUT DOIS LADOS */}
       <div style={styles.splitLayout}>
         
-        {/* LADO ESQUERDO: CARRO INTERATIVO + PNEUS + COMBUSTÍVEL */}
         <div style={styles.leftColumn}>
-          
           {/* NÍVEL DE COMBUSTÍVEL */}
           <div style={styles.cardInternal}>
             <div style={styles.cardHeader}><Gauge size={18} color="#60a5fa" /> Nível de Combustível</div>
@@ -198,7 +194,6 @@ export default function CheckCar({ user }) {
             <p style={styles.infoTxt}>Clique diretamente sobre o contorno das peças para registrar danos:</p>
             
             <div style={styles.carWrapper}>
-              {/* Note: Certifique-se de que a imagem está na sua pasta public com este nome exato */}
               <img src="/contorno-carro.png" alt="Mapeamento Veicular" style={styles.carImg} />
               
               {pecasMapeadas.map(peca => {
@@ -225,7 +220,6 @@ export default function CheckCar({ user }) {
               })}
             </div>
 
-            {/* Modal de Avarias */}
             {pecaSelecionada && (
               <div style={styles.avariaModal}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -249,7 +243,7 @@ export default function CheckCar({ user }) {
             </div>
           </div>
 
-          {/* TABELA DE PNEUS CONFORME FICHA GMC */}
+          {/* TABELA DE PNEUS */}
           <div style={styles.cardInternal}>
             <div style={styles.cardHeader}><Info size={16} color="#60a5fa" /> Verificação de Pneus</div>
             <table style={styles.tablePneus}>
@@ -257,7 +251,7 @@ export default function CheckCar({ user }) {
                 <tr>
                   <th style={styles.th}>PNEU</th>
                   <th style={styles.th}>MARCA</th>
-                  <th style={styles.th}>ESTADO (Ex: Novo, Careca, Regular)</th>
+                  <th style={styles.th}>ESTADO</th>
                 </tr>
               </thead>
               <tbody>
@@ -291,10 +285,9 @@ export default function CheckCar({ user }) {
               </tbody>
             </table>
           </div>
-
         </div>
 
-        {/* LADO DIREITO: CHECKLIST COMPLETO */}
+        {/* LADO DIREITO */}
         <div style={styles.checklistItensBox}>
           <div style={styles.cardHeader}><Info size={18} color="#10b981" /> Itens de Vistoria e Verificação</div>
           <div style={styles.scrollChecklist}>
@@ -323,24 +316,19 @@ export default function CheckCar({ user }) {
 
       </div>
 
-      {/* TEXTAREA DE OBSERVAÇÕES FINAIS */}
+      {/* OBSERVAÇÕES FINAIS */}
       <div style={styles.card}>
         <div style={styles.cardHeader}>Demais Observações do Perito</div>
         <textarea 
-          placeholder="Escreva aqui observações adicionais sobre o motor, barulhos, chassi ou itens não listados..." 
+          placeholder="Escreva aqui observações adicionais..." 
           value={observacoes} 
           onChange={e => setObservacoes(e.target.value)} 
           style={styles.textarea} 
         />
       </div>
 
-      {/* BOTÃO FINALIZAR GERAL */}
-      <button 
-        onClick={salvarChecklistEntrada} 
-        disabled={loading} 
-        style={styles.btnSalvarTudo}
-      >
-        {loading ? "SALVANDO E GERANDO RELATÓRIO..." : <><CheckCircle2 size={20} /> FINALIZAR ENTRADA E GERAR RELATÓRIO</>}
+      <button onClick={salvarChecklistEntrada} disabled={loading} style={styles.btnSalvarTudo}>
+        {loading ? "SALVANDO..." : <><CheckCircle2 size={20} /> FINALIZAR ENTRADA E GERAR RELATÓRIO</>}
       </button>
     </div>
   );
