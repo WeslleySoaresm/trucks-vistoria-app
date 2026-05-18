@@ -11,12 +11,15 @@ import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Da
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
 
+
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState('nova');
   const [telaRecuperacao, setTelaRecuperacao] = useState(false); // 2. ESTADO PARA CONTROLAR A TELA
   const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
+  
 
   useEffect(() => {
     document.documentElement.classList.add('notranslate');
@@ -49,11 +52,11 @@ export default function App() {
 
   // 3. LOGICA DE EXIBIÇÃO QUANDO NÃO HÁ SESSÃO (CHAMA LOGIN OU ESQUECI SENHA)
   if (!session) {
-    if (telaRecuperacao) {
-      return <EsqueciSenha aoVoltar={() => setTelaRecuperacao(false)} />;
-    }
-    // Passamos a propriedade para o Login conseguir ativar a tela de recuperação
-    return <Login aoEsquecerSenha={() => setTelaRecuperacao(true)} />;
+  if (telaRecuperacao) {
+    return <EsqueciSenha aoVoltar={() => setTelaRecuperacao(false)} />;
+  }
+  // Passamos a função para o Login saber o que fazer ao ser clicado
+  return <Login aoEsquecerSenha={() => setTelaRecuperacao(true)} />;
   }
 
   const userEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : "";

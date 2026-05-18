@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
-import { Lock, Mail, Loader2 } from 'lucide-react'; // Ícones para um ar mais premium
+import { Lock, Mail, Loader2 } from 'lucide-react';
 
-export default function Login() {
+// CORREÇÃO: Passamos 'aoEsquecerSenha' como propriedade aqui
+export default function Login({ aoEsquecerSenha }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,6 @@ export default function Login() {
     <div style={styles.pageWrapper}>
       <div style={styles.glassCard}>
         
-        {/* LOGO AJUSTADA - Removido o círculo restritivo */}
         <div style={styles.logoContainer}>
           <img 
             src="/CheckFrotas.png" 
@@ -39,7 +39,6 @@ export default function Login() {
         </div>
 
         <div style={styles.headerText}>
-          
           <p style={styles.subtitle}>Gestão de frotas e vistorias técnicas</p>
         </div>
 
@@ -62,7 +61,8 @@ export default function Login() {
           <div style={styles.inputGroup}>
             <div style={styles.labelRow}>
               <label style={styles.label}>Senha de Acesso</label>
-              <span onClick={() => setTelaAtual('esqueci-senha')} style={{ cursor: 'pointer' }}>
+              {/* CORREÇÃO AQUI: Mudado de setTelaAtual para aoEsquecerSenha */}
+              <span onClick={aoEsquecerSenha} style={styles.forgotPass}>
                 Esqueceu a senha?
               </span>
             </div>
@@ -102,6 +102,8 @@ export default function Login() {
     </div>
   );
 }
+
+// Mantenha o seu objeto const styles = { ... } exatamente igual embaixo
 
 const styles = {
   pageWrapper: {
