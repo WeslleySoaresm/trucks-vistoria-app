@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 // CORREÇÃO AQUI: 'Car' foi reinserido nas importações para matar o erro de ReferenceError
-import { Car, CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
+import {  CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
