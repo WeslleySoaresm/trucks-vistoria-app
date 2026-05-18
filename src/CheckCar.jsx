@@ -168,7 +168,7 @@ export default function CheckCar({ user }) {
       <div style={styles.header}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div>
-            <h2 style={styles.title}>Checklist de Entrada (G.M.C)</h2>
+            <h2 style={styles.title}>Checklist de Entrada (C.F)</h2>
             <span style={styles.subtitle}>Inspeção Pericial Dinâmica do Veículo</span>
           </div>
           <button 
