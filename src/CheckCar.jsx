@@ -1,25 +1,20 @@
 import React, { useState } from 'react';
-// CORREÇÃO: 'Car' foi incluído de volta na desestruturação dos ícones
-import { Car, CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
+// Removemos totalmente o 'Car' daqui para não ter perigo de erro de digitação/importação
+import { CheckCircle2, Info, ShieldAlert, Gauge, X } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api"; 
 
 export default function CheckCar({ user }) {
   const [loading, setLoading] = useState(false);
   
-  // 1. Dados Iniciais do Veículo
   const [dadosVeiculo, setDadosVeiculo] = useState({
     placa: '', modelo: '', cor: '', ano: '', combustivel: '', cliente: '', telefone: '', km: ''
   });
   
-  // 2. Nível de Combustível (R, 1/4, 1/2, 3/4, 1/1)
   const [nivelCombustivel, setNivelCombustivel] = useState('R');
-
-  // 3. Estado de Avarias do Carro Interativo (Peça -> Tipo de Avaria)
   const [avariasCarro, setAvariasCarro] = useState({});
   const [pecaSelecionada, setPecaSelecionada] = useState(null);
 
-  // 4. Mapeamento de Pneus
   const [pneus, setPneus] = useState({
     dianteiroDireito: { marca: '', estado: '' },
     dianteiroEsquerdo: { marca: '', estado: '' },
@@ -28,7 +23,6 @@ export default function CheckCar({ user }) {
     estepe: { marca: '', estado: '' }
   });
 
-  // 5. Checklist Lateral Direita
   const itensVistoriaLista = [
     "Extintor de Incêndio", "Bancos Dianteiros", "Bancos Traseiros", "Tapetes",
     "Radio (CD/DVD/Disqueteira)", "Retirada de Pertences Pessoais", "Documentos do Veículo",
@@ -50,7 +44,6 @@ export default function CheckCar({ user }) {
 
   const [observacoes, setObservacoes] = useState('');
 
-  // Manipuladores de Input
   const handleInputChange = (campo, valor) => {
     setDadosVeiculo(prev => ({ ...prev, [campo]: valor.toUpperCase() }));
   };
@@ -154,7 +147,8 @@ export default function CheckCar({ user }) {
 
       {/* BLOCO 1: DADOS DO VEÍCULO E CLIENTE */}
       <div style={styles.card}>
-        <div style={styles.cardHeader}><Car size={18} color="#60a5fa" /> Dados de Entrada</div>
+        {/* CORREÇÃO SUBSTANCIAL: Trocado o componente <Car /> por um texto com emoji para evitar dependências quebradas */}
+        <div style={styles.cardHeader}><span style={{fontSize: '18px'}}>🚗</span> Dados de Entrada</div>
         <div style={styles.gridForm}>
           <input placeholder="PLACA" value={dadosVeiculo.placa} onChange={e => handleInputChange('placa', e.target.value)} style={styles.input} />
           <input placeholder="MODELO" value={dadosVeiculo.modelo} onChange={e => handleInputChange('modelo', e.target.value)} style={styles.input} />
@@ -167,11 +161,8 @@ export default function CheckCar({ user }) {
         </div>
       </div>
 
-      {/* LAYOUT DOIS LADOS */}
       <div style={styles.splitLayout}>
-        
         <div style={styles.leftColumn}>
-          {/* NÍVEL DE COMBUSTÍVEL */}
           <div style={styles.cardInternal}>
             <div style={styles.cardHeader}><Gauge size={18} color="#60a5fa" /> Nível de Combustível</div>
             <div style={styles.combustivelFlex}>
@@ -188,7 +179,6 @@ export default function CheckCar({ user }) {
             </div>
           </div>
 
-          {/* MAPA DO CARRO */}
           <div style={styles.mapaContainer}>
             <div style={styles.cardHeader}><ShieldAlert size={18} color="#f87171" /> Mapeamento de Avarias Visuais</div>
             <p style={styles.infoTxt}>Clique diretamente sobre o contorno das peças para registrar danos:</p>
@@ -220,6 +210,7 @@ export default function CheckCar({ user }) {
               })}
             </div>
 
+            {peccaSelecionada => null /* Segurança extra contra modais presos */}
             {pecaSelecionada && (
               <div style={styles.avariaModal}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
@@ -243,7 +234,6 @@ export default function CheckCar({ user }) {
             </div>
           </div>
 
-          {/* TABELA DE PNEUS */}
           <div style={styles.cardInternal}>
             <div style={styles.cardHeader}><Info size={16} color="#60a5fa" /> Verificação de Pneus</div>
             <table style={styles.tablePneus}>
@@ -287,7 +277,6 @@ export default function CheckCar({ user }) {
           </div>
         </div>
 
-        {/* LADO DIREITO */}
         <div style={styles.checklistItensBox}>
           <div style={styles.cardHeader}><Info size={18} color="#10b981" /> Itens de Vistoria e Verificação</div>
           <div style={styles.scrollChecklist}>
@@ -316,7 +305,6 @@ export default function CheckCar({ user }) {
 
       </div>
 
-      {/* OBSERVAÇÕES FINAIS */}
       <div style={styles.card}>
         <div style={styles.cardHeader}>Demais Observações do Perito</div>
         <textarea 

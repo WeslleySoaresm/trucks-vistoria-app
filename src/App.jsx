@@ -6,8 +6,8 @@ import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-// Importado o ícone Database para a aba de Gestão de Dados
-import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database } from 'lucide-react'; 
+// CORREÇÃO AQUI: Adicionado 'Car' dentro das chaves de importação do lucide-react
+import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
 
@@ -99,7 +99,6 @@ export default function App() {
               Painel
             </button>
             
-            {/* NOVA ABA: Criada exclusivamente para o Gestor gerenciar as tabelas e dados brutos */}
             <button 
               onClick={() => setAbaAtiva('dados')} 
               style={abaAtiva === 'dados' ? s.tabActive : s.tab}
@@ -126,10 +125,11 @@ export default function App() {
             </button>
           </>
         )}
+        
+        {/* Agora o componente <Car /> vai funcionar perfeitamente aqui */}
         <button onClick={() => setAbaAtiva('checkcar')} style={abaAtiva === 'checkcar' ? s.tabActive : s.tab}>
           <Car size={18} /> CheckCar
         </button>
-
 
         <button 
           onClick={() => setAbaAtiva('ajuda')} 
@@ -144,26 +144,25 @@ export default function App() {
       <main style={s.mainContent}>
         {abaAtiva === 'nova' && <FormVistoria user={session.user} />}
 
-        {/* ABA PAINEL: Exibe apenas os gráficos executivos de BI */}
         {abaAtiva === 'admin' && isAdmin && (
           <div key="admin-view">
             <DashboardGestor />
           </div>
         )}
 
-        {/* ABA GESTÃO DADOS: Exibe de forma isolada a planilha e controles administrativos */}
         {abaAtiva === 'dados' && isAdmin && (
           <div key="dados-view">
             <Dashboard />
           </div>
         )}
-
+        
+        {abaAtiva === 'checkcar' && <CheckCar user={session.user} />}
+        
         {abaAtiva === 'meta' && !isAdmin && <DashboardFuncionario user={session.user} />}
 
         {abaAtiva === 'historico' && !isAdmin && (
           <HistoricoVistorias user={session.user} />
         )}
-        {abaAtiva === 'checkcar' && <CheckCar user={session.user} />}
         
         {abaAtiva === 'ajuda' && <Instrucoes />}
       </main>
@@ -171,7 +170,6 @@ export default function App() {
   );
 }
 
-// OBJETO DE ESTILOS "PREMIUM DARK"
 const s = {
   appWrapper: { 
     minHeight: '100vh', 
