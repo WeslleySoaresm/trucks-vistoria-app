@@ -503,7 +503,7 @@ const styles = {
   toastText: { color: '#fff', fontWeight: '800', fontSize: '14px', letterSpacing: '0.2px', textAlign: 'center' },
   logoImg: { width: '180px', height: 'auto', objectFit: 'contain' },
   formHeader: { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '25px', gap: '5px' },
-  iconCircle: { width: '140px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
+  iconCircle: { width: '180px', height: '140px', background: 'rgba(99, 179, 237, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid rgba(99, 179, 237, 0.2)' },
   title: { textAlign: 'center', margin: 0, color: '#fff', fontWeight: '800', fontSize: '22px' },
   inputGroup: { display: 'flex', flexDirection: 'column', gap: '12px' },
   input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', boxSizing: 'border-box', outline: 'none' },
