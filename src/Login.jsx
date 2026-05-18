@@ -132,7 +132,7 @@ const styles = {
     marginBottom: '20px',
   },
   logoImg: {
-    width: '160px', // Aumentado para dar destaque ao escudo
+    width: '250px', // Aumentado para dar destaque ao escudo
     height: 'auto',
     filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.3))',
   },
