@@ -49,7 +49,13 @@ export default function DashboardFuncionario({ user }) {
       const data = await response.json();
       const listaBruta = Array.isArray(data) ? data : (data.dados || data.vistorias || []);
 
-      const formatados = listaBruta.map(v => {
+      // CORREÇÃO CRUCIAL: Filtra estritamente no front-end para garantir que apenas as vistorias deste funcionário sejam processadas
+      const listaFiltradaPorUsuario = listaBruta.filter(v => {
+        const vId = v.usuarioId || v.UsuarioId || v.usuario_id;
+        return String(vId).trim() === String(user.id).trim();
+      });
+
+      const formatados = listaFiltradaPorUsuario.map(v => {
         const dataCriacao = v.dataCriacao || v.DataCriacao || v.data_cadastro;
         return {
           id: v.id || v.Id,
@@ -85,6 +91,7 @@ export default function DashboardFuncionario({ user }) {
         setTemMaisRegistros(true);
       }
 
+      // CORREÇÃO CONTABILIDADE: Agora calcula o total baseando-se estritamente na lista limpa e filtrada
       const totalVistoriasUsuario = listaAtualizada ? listaAtualizada.length : formatados.length;
       setStats({
         total_vistorias: totalVistoriasUsuario,
@@ -270,7 +277,7 @@ export default function DashboardFuncionario({ user }) {
       </div>
 
       {loading && pagina === 1 ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><Loader2 className="animate-spin" color="#63b3ed" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}><Loader2 style={{ animation: 'spin 1s linear infinite' }} color="#63b3ed" /></div>
       ) : (
         <>
           <div style={styles.tableWrapper}>
@@ -280,7 +287,7 @@ export default function DashboardFuncionario({ user }) {
                   <div key={reg.id} style={styles.mobileCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <strong style={{ color: '#fff' }}>{reg.placa}</strong>
-                      <span style={styles.badge}>{reg.equipe}</span>
+                      <span style={styles.badge}>Equipe {reg.equipe}</span>
                     </div>
                     <div style={{ fontSize: '13px', color: '#cbd5e0', marginBottom: '12px' }}>
                       <div>📅 {reg.data_formatada}</div>
@@ -299,7 +306,7 @@ export default function DashboardFuncionario({ user }) {
                       </button>
                     </div>
                   </div>
-                )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhuma vistoria encontrada.</div>}
+                )) : <div style={{ color: '#94a3b8', textAlign: 'center', padding: '20px' }}>Nenhuma vistoria vinculada ao seu usuário.</div>}
               </div>
             ) : (
               <table style={styles.table}>
@@ -343,7 +350,7 @@ export default function DashboardFuncionario({ user }) {
                 style={styles.btnCarregarMais}
               >
                 {loadingMais ? (
-                  <Loader2 className="animate-spin" size={16} />
+                  <Loader2 style={{ animation: 'spin 1s linear infinite' }} size={16} />
                 ) : (
                   <><ChevronDown size={16} /> Carregar Mais Vistorias</>
                 )}
