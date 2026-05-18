@@ -29,7 +29,7 @@ export default function FormVistoria({ user }) {
   const dropdownRef = useRef(null);
 
   const tiposServicoDisponiveis = ["No Local", "Novo Lead", "Indicação"];
-  const equipesDisponiveis = ["Equipe 01", "Equipe 02", "Equipe 03", "Equipe 04", "Equipe 05"];
+  const equipesDisponiveis = [" 01", " 02", " 03", " 04", " 05"];
   const statusDisponiveis = [
     { label: "Inicial", value: "inicial" },
     { label: "Em processo", value: "em_processo" },
