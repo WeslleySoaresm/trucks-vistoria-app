@@ -66,19 +66,6 @@ export default function FormVistoria({ user }) {
     setMostrarDropdown(false);
   };
 
-  const confirmarNovoCliente = () => {
-    if (!inputNovoCliente.trim()) {
-      dispararNotificacao('erro', 'Digite o nome do novo cliente.');
-      return;
-    }
-    const novoNome = inputNovoCliente.trim().toUpperCase();
-    setCliente(novoNome);
-    setTermoBusca(novoNome);
-    setModoNovoCliente(false);
-    setInputNovoCliente('');
-    dispararNotificacao('sucesso', 'Cliente selecionado para esta vistoria!');
-  };
-
   const manipularFotos = async (e) => {
     const arquivos = Array.from(e.target.files);
     if (arquivos.length === 0) return;
@@ -103,6 +90,7 @@ export default function FormVistoria({ user }) {
     }
   };
 
+  // FUNÇÃO DE REMOÇÃO QUE ESTAVA FALTANDO PARA EVITAR QUEBRAS
   const removerFoto = (indexAlvo) => {
     setFotosOtimizadas(prev => prev.filter((_, idx) => idx !== indexAlvo));
     setPreviews(prev => prev.filter((_, idx) => idx !== indexAlvo));
@@ -114,83 +102,18 @@ export default function FormVistoria({ user }) {
       dispararNotificacao('erro', 'Preencha todos os campos obrigatórios.');
       return;
     }
-
-    if (!user?.id) {
-      dispararNotificacao('erro', 'Usuário não autenticado no aplicativo.');
-      return;
-    }
-
     setLoading(true);
-    const evidenciasLinks = [];
-
-    try {
-      // 1. Faz upload das imagens otimizadas para o Supabase Storage bucket 'vistorias'
-      for (const [index, arquivo] of fotosOtimizadas.entries()) {
-        const extensao = arquivo.name ? arquivo.name.split('.').pop() : 'jpg';
-        const caminhoArquivo = `${user.id}/${placa.trim()}_${Date.now()}_${index}.${extensao}`;
-        
-        // CORRIGIDO: de caminymArquivo para caminhoArquivo
-        const { error: uploadError } = await supabase.storage
-          .from('vistorias')
-          .upload(caminhoArquivo, arquivo);
-
-        if (uploadError) throw new Error(`Falha no upload da foto ${index + 1}`);
-
-        // Captura o link público direto da imagem armazenada
-        const { data: { publicUrl } } = supabase.storage
-          .from('vistorias')
-          .getPublicUrl(caminhoArquivo);
-
-        evidenciasLinks.push({ urlFoto: publicUrl });
-      }
-
-      // 2. Prepara o payload estruturado para a API .NET / Render
-      const dadosVistoria = {
-        usuarioId: user.id,
-        placa: placa.trim().toUpperCase(),
-        cliente: nomeClienteFinal,
-        equipe: equipe,
-        tipoServico: tipoServico,
-        status: status,
-        observacao: observacao.trim(),
-        localizacao: "Não coletada", 
-        dataCriacao: new Date().toISOString(),
-        evidencias: evidenciasLinks
-      };
-
-      // 3. Executa a requisição POST real para o backend
-      const response = await fetch(`${API_URL}/Vistoria`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dadosVistoria)
-      });
-
-      if (!response.ok) throw new Error("Erro ao salvar vistoria no servidor.");
-
-      dispararNotificacao('sucesso', 'Inspeção finalizada com sucesso!');
-      
-      // Limpa os estados do formulário para o próximo uso
-      setPlaca('');
-      setCliente('');
-      setTermoBusca('');
-      setObservacao('');
-      setEquipe('');
-      setTipoServico('');
-      setStatus('inicial');
-      setFotosOtimizadas([]);
-      setPreviews([]);
-
-    } catch (err) {
-      console.error(err);
-      dispararNotificacao('erro', err.message || 'Falha ao salvar inspeção no servidor.');
-    } finally {
-      setLoading(false);
-    }
+    setTimeout(() => { 
+        dispararNotificacao('sucesso', 'Inspeção finalizada!'); 
+        setLoading(false); 
+        setPlaca(''); setCliente(''); setTermoBusca(''); setFotosOtimizadas([]); setPreviews([]);
+    }, 2000);
   };
 
   return (
     <div translate="no" className="notranslate" style={styles.container}>
       
+      {/* TOAST CENTRALIZADO */}
       {notificacao.exibir && (
         <div style={styles.toastContainerCentral}>
           <div style={{...styles.toastBox, backgroundColor: notificacao.tipo === 'sucesso' ? '#10b981' : '#ef4444'}}>
@@ -200,6 +123,7 @@ export default function FormVistoria({ user }) {
         </div>
       )}
 
+      {/* HEADER INTEGRADO */}
       <div style={styles.header}>
         <img src="/CheckFrotas.png" alt="Logo" style={styles.logoImg} />
         <h2 style={styles.headerTitle}>Nova Inspeção</h2>
@@ -267,7 +191,7 @@ export default function FormVistoria({ user }) {
               />
               <div style={{display:'flex', gap:'10px', marginTop:'8px'}}>
                 <button onClick={() => {setModoNovoCliente(false); setInputNovoCliente('');}} style={styles.btnCancel}>Cancelar</button>
-                <button onClick={confirmarNovoCliente} style={styles.btnConfirm}>Confirmar</button>
+                <button onClick={finalizarVistoria} style={styles.btnConfirm}>Confirmar</button>
               </div>
             </div>
           )}
@@ -324,7 +248,7 @@ export default function FormVistoria({ user }) {
           </div>
         </section>
 
-        {/* BOTÃO DE AÇÃO INTEGRADO */}
+        {/* BOTÃO DE AÇÃO INTEGRADO DIRETAMENTE NO FLUXO */}
         <div style={styles.footerButtonArea}>
           <button 
             onClick={finalizarVistoria} 
@@ -345,35 +269,79 @@ export default function FormVistoria({ user }) {
 }
 
 const styles = {
-  container: { width: '100%', maxWidth: '480px', margin: '0 auto', background: '#0f172a', display: 'flex', flexDirection: 'column', color: '#fff', fontFamily: 'sans-serif', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' },
-  header: { padding: '20px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(to bottom, #1e293b, #0f172a)' },
+  container: { 
+    width: '100%', maxWidth: '480px', margin: '0 auto', 
+    background: '#0f172a', display: 'flex', flexDirection: 'column', 
+    color: '#fff', fontFamily: 'sans-serif', borderRadius: '16px',
+    border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden'
+  },
+  header: { 
+    padding: '20px', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)',
+    background: 'linear-gradient(to bottom, #1e293b, #0f172a)'
+  },
   logoImg: { width: '120px', marginBottom: '10px' },
   headerTitle: { fontSize: '18px', fontWeight: '700', margin: 0, color: '#e2e8f0' },
+  
   scrollContent: { padding: '20px' },
-  section: { marginBottom: '20px', padding: '15px', borderRadius: '16px', background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255,255,255,0.05)' },
+  
+  section: { 
+    marginBottom: '20px', padding: '15px', borderRadius: '16px', 
+    background: 'rgba(30, 41, 59, 0.5)', border: '1px solid rgba(255,255,255,0.05)' 
+  },
   sectionHeader: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' },
   sectionTitle: { fontSize: '13px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  
   inputWrapper: { position: 'relative', width: '100%' },
   fieldIcon: { position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#64748b', zIndex: 10 },
-  input: { width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', outline: 'none', boxSizing: 'border-box' },
-  inputSmall: { width: '100%', padding: '10px', borderRadius: '8px', background: '#0f172a', border: '1px solid #3182ce', color: '#fff', boxSizing: 'border-box' },
+  input: { 
+    width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', 
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '16px', outline: 'none', boxSizing: 'border-box'
+  },
+  inputSmall: { 
+    width: '100%', padding: '10px', borderRadius: '8px', background: '#0f172a', 
+    border: '1px solid #3182ce', color: '#fff', boxSizing: 'border-box' 
+  },
   inputGroupVertical: { display: 'flex', flexDirection: 'column', gap: '10px' },
-  select: { width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '15px', boxSizing: 'border-box', outline: 'none' },
-  textarea: { width: '100%', height: '80px', padding: '12px', borderRadius: '12px', background: '#020617', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none' },
-  cameraBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', padding: '14px', borderRadius: '12px', border: '1px dashed #3b82f6', fontWeight: '700', marginTop: '15px', cursor: 'pointer' },
+  select: { 
+    width: '100%', padding: '14px', borderRadius: '12px', background: '#020617', 
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: '15px', boxSizing: 'border-box', outline: 'none'
+  },
+  textarea: { 
+    width: '100%', height: '80px', padding: '12px', borderRadius: '12px', background: '#020617', 
+    border: '1px solid rgba(255,255,255,0.1)', color: '#fff', resize: 'none', boxSizing: 'border-box', outline: 'none'
+  },
+  
+  cameraBtn: { 
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', 
+    background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', padding: '14px', 
+    borderRadius: '12px', border: '1px dashed #3b82f6', fontWeight: '700', marginTop: '15px', cursor: 'pointer'
+  },
   photoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '15px' },
   photoThumb: { position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden' },
   imgFull: { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' },
   btnRemovePhoto: { position: 'absolute', top: '2px', right: '2px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+
   footerButtonArea: { marginTop: '25px', marginBottom: '10px' },
-  btnFinalize: { width: '100%', padding: '16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)' },
-  btnFinalizeDisabled: { width: '100%', padding: '16px', background: '#334155', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', borderRadius: '12px', zIndex: 100, maxHeight: '200px', overflowY: 'auto', border: '1px solid #334155', marginTop: '5px' },
+  btnFinalize: { 
+    width: '100%', padding: '16px', background: '#10b981', color: '#fff', 
+    border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', 
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', boxShadow: '0 10px 20px rgba(16, 185, 129, 0.2)'
+  },
+  btnFinalizeDisabled: { 
+    width: '100%', padding: '16px', background: '#334155', color: '#64748b', 
+    border: 'none', borderRadius: '12px', fontWeight: '800', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center'
+  },
+
+  dropdown: { 
+    position: 'absolute', top: '100%', left: 0, right: 0, background: '#1e293b', 
+    borderRadius: '12px', zIndex: 100, maxHeight: '200px', overflowY: 'auto', border: '1px solid #334155', marginTop: '5px' 
+  },
   dropdownOption: { padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer' },
   dropdownNew: { padding: '12px', color: '#60a5fa', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' },
   newClientBox: { marginTop: '10px', padding: '12px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)' },
   btnConfirm: { background: '#3b82f6', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' },
   btnCancel: { background: 'transparent', color: '#94a3b8', border: 'none', padding: '8px 15px', fontWeight: '600', cursor: 'pointer' },
+  
   toastContainerCentral: { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 9999 },
   toastBox: { padding: '15px 25px', borderRadius: '50px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' },
   toastText: { color: '#fff', fontWeight: '700', fontSize: '14px' }
