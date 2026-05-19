@@ -1,9 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
 import { Search, Send, Mic, Image, Circle, Shield, User, Zap } from 'lucide-react';
-import { tocarSomNotificacao, vibrarDispositivo } from './chatUtils';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
+
+// ==========================================
+// FUNÇÕES UTILITÁRIAS DE ÁUDIO E VIBRAÇÃO NATIVAS
+// Incorporadas aqui para evitar erros de importação [UNRESOLVED_IMPORT] no Vite/Rolldown
+// ==========================================
+const tocarSomNotificacao = () => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+    
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.15);
+  } catch (err) {
+    console.warn("Ambiente do navegador bloqueou a reprodução automática de áudio:", err);
+  }
+};
+
+const vibrarDispositivo = () => {
+  if ('vibrate' in navigator) {
+    navigator.vibrate([100, 50, 100]);
+  }
+};
 
 export default function ChatInterno({ usuarioLogado }) {
   // Estados de dados
