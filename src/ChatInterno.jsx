@@ -49,7 +49,6 @@ export default function ChatInterno({ usuarioLogado }) {
   // Estados do Autocomplete (Sugestões Rápidas)
   const [sugestoes, setSugestoes] = useState([]);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
-  const [indiceSugestaoAtiva, setIndiceSugestaoAtiva] = useState(0);
 
   const mensagensEndRef = useRef(null);
 
@@ -58,12 +57,10 @@ export default function ChatInterno({ usuarioLogado }) {
     const buscarContatos = async () => {
       setLoadingContatos(true);
       try {
-        // Puxa todos os usuários que pertencem ao mesmo EmpresaId do usuário logado
         const response = await fetch(`${API_URL}/Usuario?empresaId=${usuarioLogado.empresaId}`);
         if (!response.ok) throw new Error("Erro ao buscar time");
         const dados = await response.json();
         
-        // Remove o próprio usuário logado da lista de contatos para ele não conversar consigo mesmo
         const filtrados = dados.filter(u => u.id !== usuarioLogado.id);
         setContatos(filtrados);
       } catch (err) {
@@ -73,15 +70,16 @@ export default function ChatInterno({ usuarioLogado }) {
       }
     };
 
-    buscarContatos();
+    if (usuarioLogado?.empresaId) {
+      buscarContatos();
+    }
   }, [usuarioLogado.empresaId, usuarioLogado.id]);
 
-  // 2. ALGORITMO DO AUTOCOMPLETE (Disparado em tempo real no input)
+  // 2. ALGORITMO DO AUTOCOMPLETE (Ajustado para limpar se o usuário apagar o texto)
   useEffect(() => {
     if (novoTexto.startsWith('/')) {
       const termoBusca = novoTexto.toLowerCase();
       
-      // Busca as frases no endpoint C# de alta performance
       fetch(`${API_URL}/Chat/sugestoes/${usuarioLogado.empresaId}?termo=${termoBusca}`)
         .then(res => res.json())
         .then(dados => {
@@ -91,6 +89,7 @@ export default function ChatInterno({ usuarioLogado }) {
         .catch(err => console.error("Erro no autocomplete:", err));
     } else {
       setMostrarSugestoes(false);
+      setSugestoes([]);
     }
   }, [novoTexto, usuarioLogado.empresaId]);
 
@@ -98,7 +97,6 @@ export default function ChatInterno({ usuarioLogado }) {
   const abrirConversa = async (contato) => {
     setContatoAtivo(contato);
     try {
-      // Chama o endpoint C# que criamos para buscar a sala existente ou criar uma nova
       const response = await fetch(`${API_URL}/Chat/sala?usuarioId2=${contato.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -110,7 +108,6 @@ export default function ChatInterno({ usuarioLogado }) {
       const sala = await response.json();
       setSalaAtiva(sala);
       
-      // Carrega o histórico de mensagens inicial da sala
       const resMsg = await fetch(`${API_URL}/Chat/mensagens/${sala.id}`);
       if (resMsg.ok) {
         const historico = await resMsg.json();
@@ -133,7 +130,6 @@ export default function ChatInterno({ usuarioLogado }) {
         (payload) => {
           const novaMsg = payload.new;
           
-          // Evita duplicar na tela a mensagem que o próprio usuário acabou de enviar
           setMensagens(prev => {
             if (prev.some(m => m.id === novaMsg.Id)) return prev;
             return [...prev, {
@@ -149,12 +145,10 @@ export default function ChatInterno({ usuarioLogado }) {
             }];
           });
           
-          // SE A MENSAGEM FOR DA OUTRA PESSOA: Toca som e vibra o celular na hora!
           if (novaMsg.RemetenteId !== usuarioLogado.id) {
             tocarSomNotificacao();
             vibrarDispositivo();
             
-            // Notifica o backend via EF que a mensagem foi aberta e visualizada
             fetch(`${API_URL}/Chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
           }
         }
@@ -166,7 +160,6 @@ export default function ChatInterno({ usuarioLogado }) {
     };
   }, [salaAtiva, usuarioLogado.id]);
 
-  // Rola a tela para a última mensagem de forma suave
   useEffect(() => {
     mensagensEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
@@ -187,7 +180,6 @@ export default function ChatInterno({ usuarioLogado }) {
       setNovoTexto('');
       setMostrarSugestoes(false);
 
-      // Envia via API .NET que persiste no Postgres e engatilha o Supabase Realtime
       await fetch(`${API_URL}/Chat/mensagem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,17 +196,15 @@ export default function ChatInterno({ usuarioLogado }) {
     fetch(`${API_URL}/Chat/sugestoes/computar-uso/${sugestao.id}`, { method: 'POST' });
   };
 
-  // Filtra os contatos digitados na busca lateral
   const contatosFiltrados = contatos.filter(c => 
-    c.nome.toLowerCase().includes(buscaContato.toLowerCase())
+    c.nome?.toLowerCase().includes(buscaContato.toLowerCase())
   );
 
-  // Retorna a cor exata baseado no status real do banco de dados
-  const obterCorStatus = (status) => {
+  const obtenerCorStatus = (status) => {
     switch (status?.toLowerCase()) {
-      case 'online': return '#48bb78';  // Verde
-      case 'pausa': return '#ed8936';   // Laranja
-      case 'offline': return '#e53e3e';  // Vermelho
+      case 'online': return '#48bb78';
+      case 'pausa': return '#ed8936';
+      case 'offline': return '#e53e3e';
       default: return '#a0aec0';
     }
   };
@@ -268,7 +258,7 @@ export default function ChatInterno({ usuarioLogado }) {
                 {c.fotoUrl ? (
                   <img src={c.fotoUrl} alt={c.nome} style={styles.avatarImagem} />
                 ) : (
-                  <div style={styles.avatarFallback}>{c.nome.substring(0,2).toUpperCase()}</div>
+                  <div style={styles.avatarFallback}>{c.nome?.substring(0,2).toUpperCase()}</div>
                 )}
                 <Circle size={12} fill={obterCorStatus(c.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
               </div>
@@ -294,7 +284,7 @@ export default function ChatInterno({ usuarioLogado }) {
                 {contatoAtivo.fotoUrl ? (
                   <img src={contatoAtivo.fotoUrl} alt={contatoAtivo.nome} style={styles.avatarImagem} />
                 ) : (
-                  <div style={styles.avatarFallback}>{contatoAtivo.nome.substring(0,2).toUpperCase()}</div>
+                  <div style={styles.avatarFallback}>{contatoAtivo.nome?.substring(0,2).toUpperCase()}</div>
                 )}
                 <Circle size={12} fill={obterCorStatus(contatoAtivo.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
               </div>
@@ -323,7 +313,6 @@ export default function ChatInterno({ usuarioLogado }) {
                           {msg.dataEnvio ? new Date(msg.dataEnvio).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : ''}
                         </span>
                         
-                        {/* REGRA DOS RAIOS SOLICITADA */}
                         {euEnviei && (
                           <div style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
                             {msg.visualizado ? (
@@ -351,7 +340,7 @@ export default function ChatInterno({ usuarioLogado }) {
               {mostrarSugestoes && (
                 <div style={styles.autocompleteBox}>
                   <div style={styles.autocompleteHeader}>Sugestões de eficiência</div>
-                  {sugestoes.map((sug, idx) => (
+                  {sugestoes.map((sug) => (
                     <div 
                       key={sug.id} 
                       onClick={() => selecionarSugestao(sug)}
@@ -383,7 +372,7 @@ export default function ChatInterno({ usuarioLogado }) {
         ) : (
           <div style={styles.noChatSelected}>
             <User size={48} color="#475569" />
-            <h3>Nenhuma conversa ativa</h3>
+            <h3>Nenhuma conversa activa</h3>
             <p>Selecione um membro do seu time na barra lateral para iniciar o chat criptografado.</p>
           </div>
         )}
@@ -428,7 +417,6 @@ const styles = {
   noChatSelected: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', padding: '4px' },
   AvisoLinha: { textAlign: 'center', color: '#64748b', fontSize: '13px', paddingTop: '20px' },
   
-  // ESTILOS EXCLUSIVOS DO MENU FLUTUANTE DE AUTOCOMPLETE
   autocompleteBox: { position: 'absolute', bottom: '75px', left: '20px', right: '20px', background: '#1e293b', borderRadius: '12px', border: '1px solid #3b82f6', boxShadow: '0 -4px 20px rgba(0,0,0,0.4)', zIndex: 10, overflow: 'hidden' },
   autocompleteHeader: { background: 'rgba(59, 130, 246, 0.1)', padding: '8px 14px', fontSize: '11px', color: '#63b3ed', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid rgba(255,255,255,0.03)' },
   autocompleteItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' },

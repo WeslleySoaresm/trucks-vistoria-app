@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { UserPlus, Shield, Building, Mail, User } from 'lucide-react';
+// ALTERADO: Adicionado ImageIcon na importação para evitar conflitos globais
+import { UserPlus, Shield, Building, Mail, User, Image as ImageIcon } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 
@@ -61,7 +62,8 @@ export default function FormCadastroUsuario() {
         <UserPlus size={24} color="#3182ce" />
         <h2 style={styles.titulo}>Painel do Desenvolvedor: Cadastrar Membro do Time</h2>
       </div>
-      <p style={styles.subtitulo}>Apenas você ({email}) tem acesso a esta tela para criar usuários atrelados às empresas parceiras.</p>
+      {/* AJUSTADO: Removida a variável {email} incorreta daqui */}
+      <p style={styles.subtitulo}>Apenas você tem acesso a esta tela para criar usuários atrelados às empresas parceiras.</p>
 
       <form onSubmit={handleCadastro} style={styles.form}>
         <div style={styles.inputGroup}>
@@ -80,7 +82,8 @@ export default function FormCadastroUsuario() {
         </div>
 
         <div style={styles.inputGroup}>
-          <label style={styles.label}><Image size={14} /> URL da Foto de Perfil (Opcional)</label>
+          {/* ALTERADO: Mudado de <Image /> para <ImageIcon /> de forma segura */}
+          <label style={styles.label}><ImageIcon size={14} /> URL da Foto de Perfil (Opcional)</label>
           <input type="url" value={fotoUrl} onChange={(e) => setFotoUrl(e.target.value)} placeholder="https://linkdafoto.com/imagem.png" style={styles.input} />
         </div>
 
