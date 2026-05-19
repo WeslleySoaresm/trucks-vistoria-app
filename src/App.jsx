@@ -7,12 +7,13 @@ import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-// IMPORTANTE: Adicionado o ícone MessageSquare para a aba do chat
-import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car, MessageSquare } from 'lucide-react'; 
+// IMPORTANTE: Adicionado o ícone MessageSquare para a aba do chat e UserPlus para o cadastro
+import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car, MessageSquare, UserPlus } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
 // 1. IMPORTAÇÃO DO SEU NOVO COMPONENTE DE CHAT INTERNO
 import ChatInterno from './ChatInterno'; 
+import FormCadastroUsuario from './FormCadastroUsuario';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -113,11 +114,10 @@ export default function App() {
   const isAdmin = userEmail === adminCheck;
 
   // 2. MONTAGEM DINÂMICA DO OBJETO DE USUÁRIO LOGADO PARA O CHAT
-  // Ele extrai as informações direto da metadata do Supabase Auth de forma segura
   const dadosUsuarioChat = {
     id: session.user.id,
-    nome: session.user.user_metadata?.nome || userEmail.split('@')[0], // Fallback pro primeiro nome do email caso não tenha metadado
-    empresaId: session.user.user_metadata?.empresaId || "00000000-0000-0000-0000-000000000000", // Evita quebrar o multi-tenant caso falte metadado
+    nome: session.user.user_metadata?.nome || userEmail.split('@')[0], 
+    empresaId: session.user.user_metadata?.empresaId || "00000000-0000-0000-0000-000000000000", 
     statusPresenca: session.user.user_metadata?.statusPresenca || "online",
     tipoUsuario: isAdmin ? "gestor" : "funcionario",
     fotoUrl: session.user.user_metadata?.fotoUrl || null
@@ -207,6 +207,17 @@ export default function App() {
           Chat Interno
         </button>
 
+        {/* 🔒 ABA EXCLUSIVA DO DESENVOLVEDOR MASTER */}
+        {userEmail === "correweslleysoares@gmail.com" && (
+          <button 
+            onClick={() => setAbaAtiva('dev_cadastro')} 
+            style={abaAtiva === 'dev_cadastro' ? s.tabActive : s.tab}
+          >
+            <UserPlus size={18} />
+            Cadastrar Usuário
+          </button>
+        )}
+
         <button 
           onClick={() => setAbaAtiva('ajuda')} 
           style={abaAtiva === 'ajuda' ? s.tabActive : s.tab}
@@ -243,6 +254,11 @@ export default function App() {
         {/* 4. RENDERIZAÇÃO DO COMPONENTE DO CHAT INTERNO */}
         {abaAtiva === 'chat' && (
           <ChatInterno usuarioLogado={dadosUsuarioChat} />
+        )}
+
+        {/* 🔒 RENDERIZAÇÃO EXCLUSIVA DO FORMULÁRIO DE CADASTRO */}
+        {abaAtiva === 'dev_cadastro' && userEmail === "correweslleysoares@gmail.com" && (
+          <FormCadastroUsuario />
         )}
         
         {abaAtiva === 'ajuda' && <Instrucoes />}
