@@ -29,7 +29,7 @@ export default function FormVistoria({ user }) {
   const dropdownRef = useRef(null);
 
   const tiposServicoDisponiveis = ["No Local", "Novo Lead", "Indicação"];
-  const equipesDisponiveis = [" Equipe 01", " Equipe 02", " Equipe 03", "Equipe 04", " Equipe 05"];
+  const equipesDisponiveis = [" Equipe 01", " Equipe 02", "Equipe 03", "Equipe 04", "Equipe 05"];
   const statusDisponiveis = [
     { label: "Inicial", value: "inicial" },
     { label: "Em processo", value: "em_processo" },
@@ -471,7 +471,7 @@ export default function FormVistoria({ user }) {
           <div style={styles.inputGroupVertical}>
             <select value={equipe} onChange={(e) => setEquipe(e.target.value)} style={styles.select}>
               <option value="" disabled>Selecione a Equipe</option>
-              {equipesDisponiveis.map(eq => <option key={eq} value={eq}>Equipe {eq}</option>)}
+              {equipesDisponiveis.map(eq => <option key={eq} value={eq}>{eq}</option>)}
             </select>
           
             <select value={tipoServico} onChange={(e) => setTipoServico(e.target.value)} style={styles.select}>
