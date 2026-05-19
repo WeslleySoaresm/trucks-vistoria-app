@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { Search, Send, Mic, Image, Circle, Shield, User, Zap } from 'lucide-react';
+import { Search, Send, Mic, ImageIcon, Circle, Shield, User, Zap } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 
@@ -365,7 +365,7 @@ export default function ChatInterno({ usuarioLogado }) {
               )}
 
               <form onSubmit={enviarMensagem} style={styles.inputForm}>
-                <button type="button" style={styles.midiaBtn} title="Enviar Foto"><Image size={20} /></button>
+                <button type="button" style={styles.midiaBtn} title="Enviar Foto"><ImageIcon size={20} /></button>
                 <button type="button" style={styles.midiaBtn} title="Gravar Áudio"><Mic size={20} /></button>
                 
                 <input 
