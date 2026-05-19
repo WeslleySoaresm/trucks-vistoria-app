@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Login from './Login';
-import EsqueciSenha from './EsqueciSenha'; // 1. IMPORTAÇÃO DA NOVA TELA
+import EsqueciSenha from './EsqueciSenha'; 
 import FormVistoria from './FormVistoria';
 import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car } from 'lucide-react'; 
+// IMPORTANTE: Adicionado o ícone MessageSquare para a aba do chat
+import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car, MessageSquare } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
+// 1. IMPORTAÇÃO DO SEU NOVO COMPONENTE DE CHAT INTERNO
+import ChatInterno from './ChatInterno'; 
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState('nova');
-  const [telaRecuperacao, setTelaRecuperacao] = useState(false); // 2. ESTADO PARA CONTROLAR A TELA
+  const [telaRecuperacao, setTelaRecuperacao] = useState(false); 
   
-  // NOVOS ESTADOS PARA REDEFINIÇÃO DE SENHA (Sem alterar o restante)
   const [modoAtualizarSenha, setModoAtualizarSenha] = useState(false);
   const [novaSenha, setNovaSenha] = useState('');
   const [atualizando, setAtualizando] = useState(false);
@@ -38,11 +40,9 @@ export default function App() {
       setLoading(false);
     });
 
-    // Escuta mudanças de autenticação (inclusive o clique no link do e-mail)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       
-      // Se o usuário veio pelo link do e-mail de recuperação
       if (event === 'PASSWORD_RECOVERY') {
         setModoAtualizarSenha(true);
       }
@@ -57,7 +57,6 @@ export default function App() {
     };
   }, []);
 
-  // Função para processar a nova senha no banco
   const handleAtualizarSenha = async (e) => {
     e.preventDefault();
     if (novaSenha.length < 6) {
@@ -68,7 +67,7 @@ export default function App() {
     try {
       const { error } = await supabase.auth.updateUser({ password: novaSenha });
       if (error) throw error;
-      alert("Senha atualizada com sucesso!");
+      alert("Senha updated com sucesso!");
       setModoAtualizarSenha(false);
       setNovaSenha('');
     } catch (error) {
@@ -80,7 +79,6 @@ export default function App() {
 
   if (loading) return <div style={s.loadingScreen}>Iniciando sistema...</div>;
 
-  // INTERCEPTADOR: Mostra a tela de digitação de nova senha se vier do link
   if (modoAtualizarSenha) {
     return (
       <div style={s.loadingScreen}>
@@ -103,7 +101,6 @@ export default function App() {
     );
   }
 
-  // 3. LOGICA DE EXIBIÇÃO QUANDO NÃO HÁ SESSÃO (CHAMA LOGIN OU ESQUECI SENHA)
   if (!session) {
     if (telaRecuperacao) {
       return <EsqueciSenha aoVoltar={() => setTelaRecuperacao(false)} />;
@@ -114,6 +111,17 @@ export default function App() {
   const userEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : "";
   const adminCheck = emailAdmin ? emailAdmin.toLowerCase().trim() : "";
   const isAdmin = userEmail === adminCheck;
+
+  // 2. MONTAGEM DINÂMICA DO OBJETO DE USUÁRIO LOGADO PARA O CHAT
+  // Ele extrai as informações direto da metadata do Supabase Auth de forma segura
+  const dadosUsuarioChat = {
+    id: session.user.id,
+    nome: session.user.user_metadata?.nome || userEmail.split('@')[0], // Fallback pro primeiro nome do email caso não tenha metadado
+    empresaId: session.user.user_metadata?.empresaId || "00000000-0000-0000-0000-000000000000", // Evita quebrar o multi-tenant caso falte metadado
+    statusPresenca: session.user.user_metadata?.statusPresenca || "online",
+    tipoUsuario: isAdmin ? "gestor" : "funcionario",
+    fotoUrl: session.user.user_metadata?.fotoUrl || null
+  };
 
   return (
     <div style={s.appWrapper}>
@@ -190,6 +198,15 @@ export default function App() {
           <Car size={18} /> CheckCar
         </button>
 
+        {/* 3. NOVA ABA DO CHAT: Visível para Gestores e Funcionários */}
+        <button 
+          onClick={() => setAbaAtiva('chat')} 
+          style={abaAtiva === 'chat' ? s.tabActive : s.tab}
+        >
+          <MessageSquare size={18} />
+          Chat Interno
+        </button>
+
         <button 
           onClick={() => setAbaAtiva('ajuda')} 
           style={abaAtiva === 'ajuda' ? s.tabActive : s.tab}
@@ -221,6 +238,11 @@ export default function App() {
 
         {abaAtiva === 'historico' && !isAdmin && (
           <HistoricoVistorias user={session.user} />
+        )}
+
+        {/* 4. RENDERIZAÇÃO DO COMPONENTE DO CHAT INTERNO */}
+        {abaAtiva === 'chat' && (
+          <ChatInterno usuarioLogado={dadosUsuarioChat} />
         )}
         
         {abaAtiva === 'ajuda' && <Instrucoes />}
