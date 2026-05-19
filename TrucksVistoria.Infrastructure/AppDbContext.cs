@@ -14,6 +14,10 @@ public class AppDbContext : DbContext
     public DbSet<Evidencia> Evidencias { get; set; }
     public DbSet<Usuario> Usuarios { get; set; }
     public DbSet<ChecklistEntrada> ChecklistsEntrada { get; set; }
+    public DbSet<ChatSala> ChatSalas { get; set; }
+    public DbSet<ChatParticipante> ChatParticipantes { get; set; }
+    public DbSet<ChatMensagem> ChatMensagens { get; set; }
+    public DbSet<ChatSugestao> ChatSugestoes { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Usuario>()
@@ -30,7 +34,16 @@ public class AppDbContext : DbContext
         // Aqui definimos que a Placa é a chave única do veículo
         modelBuilder.Entity<Veiculo>()
             .HasKey(v => v.Placa);
-            
+        
+        // Configuração de Chave Composta para os Participantes do Chat
+         modelBuilder.Entity<ChatParticipante>()
+            .HasKey(p => new { p.SalaId, p.UsuarioId });
+
+        // Criação de Índice Composto para otimizar a busca do Autocomplete por Empresa
+        modelBuilder.Entity<ChatSugestao>()
+            .HasIndex(s => new { s.EmpresaId, s.TextoCurto })
+            .HasDatabaseName("IX_ChatSugestoes_Busca"); 
+
         base.OnModelCreating(modelBuilder);
     }
 }
