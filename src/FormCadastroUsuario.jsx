@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// ALTERADO: Adicionado ImageIcon na importação para evitar conflitos globais
 import { UserPlus, Shield, Building, Mail, User, Image as ImageIcon } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
@@ -7,15 +6,15 @@ const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 export default function FormCadastroUsuario() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
-  const [empresaId, setEmpresaId] = useState('');
+  const [empresaNome, setEmpresaNome] = useState(''); // 👈 Alterado para nome descritivo
   const [tipoUsuario, setTipoUsuario] = useState('funcionario');
   const [fotoUrl, setFotoUrl] = useState('');
   const [enviando, setEnviando] = useState(false);
 
   const handleCadastro = async (e) => {
     e.preventDefault();
-    if (!nome || !email || !empresaId) {
-      alert("Por favor, preencha os campos obrigatórios (Nome, E-mail e Empresa ID).");
+    if (!nome || !email || !empresaNome) {
+      alert("Por favor, preencha os campos obrigatórios (Nome, E-mail e Nome da Empresa).");
       return;
     }
 
@@ -24,15 +23,13 @@ export default function FormCadastroUsuario() {
     const novoUsuario = {
       nome,
       email: email.toLowerCase().trim(),
-      empresaId,
+      empresaNome: empresaNome.toLowerCase().trim(), // 👈 Passando string limpa para a API
       tipoUsuario,
-      statusPresenca: 'offline', // Todo usuário novo começa offline
+      statusPresenca: 'offline', 
       fotoUrl: fotoUrl.trim() || null
     };
 
     try {
-      // CORRIGIDO: Alterado de /Usuario para /usuario (letra minúscula)
-      // Isso resolve o erro 404 causado pelo case-sensitivity do servidor Linux no Render
       const response = await fetch(`${API_URL}/usuario`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -43,14 +40,14 @@ export default function FormCadastroUsuario() {
         throw new Error("Erro ao salvar usuário na API.");
       }
 
-      alert(`Usuário ${nome} cadastrado com sucesso com a empresa especificada!`);
+      alert(`Usuário ${nome} cadastrado com sucesso na empresa ${empresaNome}!`);
       
-      // Limpa os campos após o sucesso
+      // Limpa todos os estados após o sucesso
       setNome('');
       setEmail('');
       setTipoUsuario('funcionario');
       setFotoUrl('');
-      setEmpresaId(''); // Adicionado para limpar também o campo de empresa após o sucesso
+      setEmpresaNome(''); 
     } catch (error) {
       console.error("Erro no cadastro:", error);
       alert("Erro ao cadastrar usuário: " + error.message);
@@ -78,9 +75,10 @@ export default function FormCadastroUsuario() {
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="exemplo@empresa.com" style={styles.input} required />
         </div>
 
+        {/* ALTERADO: Label, placeholder e variáveis alteradas para receber o texto comum da empresa */}
         <div style={styles.inputGroup}>
-          <label style={styles.label}><Building size={14} /> Empresa ID (GUID do Banco) *</label>
-          <input type="text" value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} placeholder="Cole o UUID da empresa aqui..." style={styles.input} required />
+          <label style={styles.label}><Building size={14} /> Nome da Empresa *</label>
+          <input type="text" value={empresaNome} onChange={(e) => setEmpresaNome(e.target.value)} placeholder="Ex: honorato ou janaina" style={styles.input} required />
         </div>
 
         <div style={styles.inputGroup}>

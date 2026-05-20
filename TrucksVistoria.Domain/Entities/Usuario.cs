@@ -11,7 +11,7 @@ public class Usuario
     
     // ADICIONADO: Campo crucial para isolar os dados por empresa parceira
     [Required]
-    public Guid EmpresaId { get; set; } 
+    public string EmpresaNome { get; set; } = string.Empty;
 
     [Column("PasswordHash")]
     public string PasswordHash { get; set; } = string.Empty;

@@ -21,7 +21,6 @@ namespace MobileTrucks.Controllers
         }
 
         // 1. POST: api/usuario
-        // Alterado para receber 'UsuarioRequest' para blindar a API e evitar o erro CS1061/CS1503
         [HttpPost]
         public async Task<IActionResult> CadastrarUsuario([FromBody] UsuarioRequest model)
         {
@@ -38,7 +37,10 @@ namespace MobileTrucks.Controllers
                     Id = model.Id == Guid.Empty ? Guid.NewGuid() : model.Id,
                     Nome = model.Nome,
                     Email = model.Email.ToLower().Trim(),
-                    EmpresaId = model.EmpresaId, // 👈 Vincula com segurança
+                    
+                    // ALTERADO: Mapeia o texto da empresa tratando espaços e letras maiúsculas
+                    EmpresaNome = model.EmpresaNome.ToLower().Trim(), 
+                    
                     TipoUsuario = model.TipoUsuario,
                     StatusPresenca = model.StatusPresenca ?? "offline",
                     FotoUrl = model.FotoUrl
@@ -55,16 +57,20 @@ namespace MobileTrucks.Controllers
             }
         }
 
-        // 2. GET: api/usuario?empresaId=GUID
+        // 2. GET: api/usuario?empresaNome=nome_da_empresa
         [HttpGet]
-        public async Task<IActionResult> ListarPorEmpresa([FromQuery] Guid empresaId)
+        public async Task<IActionResult> ListarPorEmpresa([FromQuery] string empresaNome)
         {
+            if (string.IsNullOrEmpty(empresaNome))
+            {
+                return BadRequest("O nome da empresa é obrigatório.");
+            }
+
             try
             {
-                // IMPORTANTE: Garanta que na sua classe 'Usuario' dentro de Domain.Entities, 
-                // a propriedade se chame exatamente 'EmpresaId' com 'I' maiúsculo e 'd' minúsculo.
+                // ALTERADO: O filtro do chat agora compara strings de forma segura
                 var usuarios = await _context.Usuarios
-                    .Where(u => u.EmpresaId == empresaId)
+                    .Where(u => u.EmpresaNome == empresaNome.ToLower().Trim())
                     .ToListAsync();
 
                 return Ok(usuarios);
@@ -76,13 +82,13 @@ namespace MobileTrucks.Controllers
         }
     }
 
-    // Modelo de apoio ajustado para evitar Warnings de nulos do .NET 9 (CS8618)
+    // Modelo de apoio ajustado com os tipos em String para o nome da empresa
     public class UsuarioRequest
     {
         public Guid Id { get; set; }
         public required string Nome { get; set; }
         public required string Email { get; set; }
-        public required Guid EmpresaId { get; set; }
+        public required string EmpresaNome { get; set; } // 👈 Alterado para string
         public required string TipoUsuario { get; set; }
         public string? StatusPresenca { get; set; }
         public string? FotoUrl { get; set; }
