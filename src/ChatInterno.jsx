@@ -60,72 +60,82 @@ export default function ChatInterno({ usuarioLogado }) {
     const buscarContatos = async () => {
       if (!usuarioLogado?.empresaNome || usuarioLogado.empresaNome.trim() === '') {
         console.warn("Aguardando um EmpresaNome válido para carregar os contatos.");
+        setContatos([]);
         setLoadingContatos(false);
         return;
       }
+
       setLoadingContatos(true);
       try {
-        // CORRIGIDO: Agora envia o parâmetro ?empresaNome=NomeDaEmpresa como string para a API
-        const response = await fetch(`${API_URL}/usuario?empresaNome=${encodeURIComponent(usuarioLogado.empresaNome)}`);
+        const response = await fetch(`${API_URL}/usuario?empresaNome=${encodeURIComponent(usuarioLogado.empresaNome.trim())}`);
         if (!response.ok) throw new Error("Erro ao buscar time");
         const dados = await response.json();
         
+        // Filtra para não listar a si mesmo no menu lateral do chat
         const filtrados = dados.filter(u => u.id !== usuarioLogado.id);
         setContatos(filtrados);
       } catch (err) {
         console.error("Erro ao carregar contatos do chat:", err);
+        setContatos([]);
       } finally {
         setLoadingContatos(false);
       }
     };
 
-    if (usuarioLogado?.empresaNome) {
-      buscarContatos();
-    }
-  }, [usuarioLogado.empresaNome, usuarioLogado.id]);
+    buscarContatos();
+  }, [usuarioLogado?.empresaNome, usuarioLogado?.id]);
 
   // 2. ALGORITMO DO AUTOCOMPLETE POR STRING
   useEffect(() => {
-    if (novoTexto.startsWith('/')) {
+    if (novoTexto.startsWith('/') && usuarioLogado?.empresaNome) {
       const termoBusca = novoTexto.toLowerCase();
       
-      fetch(`${API_URL}/chat/sugestoes/${encodeURIComponent(usuarioLogado.empresaNome)}?termo=${termoBusca}`)
+      fetch(`${API_URL}/chat/sugestoes/${encodeURIComponent(usuarioLogado.empresaNome.trim())}?termo=${termoBusca}`)
         .then(res => res.json())
         .then(dados => {
-          setSugestoes(dados);
-          setMostrarSugestoes(dados.length > 0);
+          setSugestoes(dados || []);
+          setMostrarSugestoes(dados && dados.length > 0);
         })
-        .catch(err => console.error("Erro no autocomplete:", err));
+        .catch(err => {
+          console.error("Erro no autocomplete:", err);
+          setMostrarSugestoes(false);
+        });
     } else {
       setMostrarSugestoes(false);
       setSugestoes([]);
     }
-  }, [novoTexto, usuarioLogado.empresaNome]);
+  }, [novoTexto, usuarioLogado?.empresaNome]);
 
+  // 3. SELECIONAR OU CRIAR UMA SALA AO CLICAR EM UM CONTATO
   const abrirConversa = async (contato) => {
     setContatoAtivo(contato);
     try {
+      // CORRIGIDO: Garante a passagem do parâmetro na URL (?usuarioId2=) mapeado pelo [FromQuery] do C#
       const response = await fetch(`${API_URL}/chat/sala?usuarioId2=${contato.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          empresaNome: usuarioLogado.empresaNome,
+          empresaNome: usuarioLogado.empresaNome.trim(),
           tipo: 'individual'
         })
       });
+      
+      if (!response.ok) throw new Error("Erro ao obter/criar sala");
       const sala = await response.json();
       setSalaAtiva(sala);
       
+      // Carrega o histórico de mensagens daquela sala específica
       const resMsg = await fetch(`${API_URL}/chat/mensagens/${sala.id}`);
       if (resMsg.ok) {
         const historico = await resMsg.json();
-        setMensagens(historico);
+        setMensagens(historico || []);
       }
     } catch (err) {
       console.error("Erro ao inicializar sala de chat:", err);
     }
   };
 
+  // 4. ESCUTA EM TEMPO REAL DO SUPABASE
   useEffect(() => {
     if (!salaAtiva) return;
 
@@ -155,7 +165,6 @@ export default function ChatInterno({ usuarioLogado }) {
           if (novaMsg.RemetenteId !== usuarioLogado.id) {
             tocarSomNotificacao();
             vibrarDispositivo();
-            
             fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
           }
         }
@@ -165,12 +174,13 @@ export default function ChatInterno({ usuarioLogado }) {
     return () => {
       supabase.removeChannel(canalRealtime);
     };
-  }, [salaAtiva, usuarioLogado.id]);
+  }, [salaAtiva, usuarioLogado?.id]);
 
   useEffect(() => {
     mensagensEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
 
+  // 5. ENVIAR MENSAGEM
   const enviarMensagem = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!novoTexto.trim() || !salaAtiva) return;
@@ -208,20 +218,21 @@ export default function ChatInterno({ usuarioLogado }) {
 
   return (
     <div style={styles.chatContainer}>
+      {/* BARRA LATERAL */}
       <div style={styles.sidebar}>
         <div style={styles.sidebarHeader}>
           <div style={styles.perfilLogado}>
             <div style={styles.avatarWrapper}>
-              {usuarioLogado.fotoUrl ? (
+              {usuarioLogado?.fotoUrl ? (
                 <img src={usuarioLogado.fotoUrl} alt="Eu" style={styles.avatarImagem} />
               ) : (
-                <div style={styles.avatarFallback}>{usuarioLogado.nome?.substring(0,2).toUpperCase()}</div>
+                <div style={styles.avatarFallback}>{usuarioLogado?.nome?.substring(0,2).toUpperCase()}</div>
               )}
-              <Circle size={12} fill={obterCorStatus(usuarioLogado.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
+              <Circle size={12} fill={obterCorStatus(usuarioLogado?.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
             </div>
             <div>
-              <span style={styles.nomePerfil}>{usuarioLogado.nome}</span>
-              <span style={styles.cargoPerfil}>{usuarioLogado.tipoUsuario === 'gestor' ? 'Gestor Master' : 'Inspecionador'}</span>
+              <span style={styles.nomePerfil}>{usuarioLogado?.nome}</span>
+              <span style={styles.cargoPerfil}>{usuarioLogado?.tipoUsuario === 'gestor' ? 'Gestor Master' : 'Inspecionador'}</span>
             </div>
           </div>
           
@@ -273,6 +284,7 @@ export default function ChatInterno({ usuarioLogado }) {
         </div>
       </div>
 
+      {/* ÁREA PRINCIPAL */}
       <div style={styles.chatArea}>
         {salaAtiva && contatoAtivo ? (
           <>
@@ -295,7 +307,7 @@ export default function ChatInterno({ usuarioLogado }) {
 
             <div style={styles.messagesArea}>
               {mensagens.map((msg, index) => {
-                const euEnviei = msg.remetenteId === usuarioLogado.id;
+                const euEnviei = msg.remetenteId === usuarioLogado?.id;
                 return (
                   <div key={msg.id || index} style={{ ...styles.messageRow, justifyContent: euEnviei ? 'flex-end' : 'flex-start' }}>
                     <div style={{
