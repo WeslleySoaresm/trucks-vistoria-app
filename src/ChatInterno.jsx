@@ -34,15 +34,24 @@ const vibrarDispositivo = () => {
 
 export default function ChatInterno({ usuarioLogado }) {
   console.log("CONTEÚDO DO USUÁRIO LOGADO NO CHAT:", usuarioLogado);
-
+    
+   
   // Normalização das propriedades para evitar problemas com maiúsculas/minúsculas
-  const minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
-  const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
-  const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
-  const meuNome = usuarioLogado?.Nome || usuarioLogado?.nome || "";
-  const meuStatus = usuarioLogado?.StatusPresenca || usuarioLogado?.statusPresenca || "";
-  const meuCargo = usuarioLogado?.TipoUsuario || usuarioLogado?.tipoUsuario || "";
-  const minhaFoto = usuarioLogado?.FotoUrl || usuarioLogado?.fotoUrl || "";
+   let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
+    const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
+    const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
+    const meuNome = usuarioLogado?.Nome || usuarioLogado?.nome || "";
+    const meuStatus = usuarioLogado?.StatusPresenca || usuarioLogado?.statusPresenca || "";
+    const meuCargo = usuarioLogado?.TipoUsuario || usuarioLogado?.tipoUsuario || "";
+    const minhaFoto = usuarioLogado?.FotoUrl || usuarioLogado?.fotoUrl || "";
+
+    // Se o objeto de login veio sem a empresa, nós forçamos o valor correto pelo seu ID ou Nome
+    if (!minhaEmpresa || minhaEmpresa.trim() === '') {
+      if (meuNome.includes("weslley") || meuId === "605882d4-8506-49e7-9ccc-518b6f3507e0") {
+        console.log("⚠️ Propriedade EmpresaNome ausente no login. Forçando 'juniorcar' via código.");
+        minhaEmpresa = "juniorcar";
+      }
+    }
 
   const [contatos, setContatos] = useState([]); 
   const [buscaContato, setBuscaContato] = useState('');
