@@ -27,7 +27,9 @@ export default function App() {
   const [modoAtualizarSenha, setModoAtualizarSenha] = useState(false);
   const [novaSenha, setNovaSenha] = useState('');
   const [atualizando, setAtualizando] = useState(false);
-
+  const [salaAtivaGlobal, setSalaAtivaGlobal] = useState(null);
+  const [contatoAtivoGlobal, setContatoAtivoGlobal] = useState(null);
+  const [mensagensGlobais, setMensagensGlobais] = useState([]);
   const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
 
   // 1. Ciclo de Vida: Monitoramento da Sessão de Autenticação
@@ -286,9 +288,13 @@ export default function App() {
         {abaAtiva === 'chat' && perfilDb && (
           <ChatInterno 
             usuarioLogado={perfilDb} 
-            conversaAtivaId={conversaAtivaId}
-            setConversaAtivaId={setConversaAtivaId}
-           />
+            salaAtiva={salaAtivaGlobal}
+            setSalaAtiva={setSalaAtivaGlobal}
+            contatoAtivo={contatoAtivoGlobal}
+            setContatoAtivo={setContatoAtivoGlobal}
+            mensagens={mensagensGlobais}
+            setMensagens={setMensagensGlobais}
+          />
         )}
 
         {/* 🔒 RENDERIZAÇÃO EXCLUSIVA DO FORMULÁRIO DE CADASTRO */}

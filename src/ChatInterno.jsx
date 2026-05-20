@@ -14,7 +14,7 @@ const tocarSomNotificacao = () => {
     gainNode.connect(audioCtx.destination);
 
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+    oscillator.frequency.setValueAtTime(580, audioCtx.currentTime); // Frequência suave estilo Telegram
     
     gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
@@ -22,20 +22,26 @@ const tocarSomNotificacao = () => {
     oscillator.start(audioCtx.currentTime);
     oscillator.stop(audioCtx.currentTime + 0.15);
   } catch (err) {
-    console.warn("Ambiente do navegador bloqueou a reprodução automática de áudio:", err);
+    console.warn("Navegador bloqueou áudio automatizado temporariamente:", err);
   }
 };
 
 const vibrarDispositivo = () => {
   if ('vibrate' in navigator) {
-    navigator.vibrate([100, 50, 100]);
+    navigator.vibrate([80, 50, 80]);
   }
 };
 
-export default function ChatInterno({ usuarioLogado }) {
-  console.log("CONTEÚDO DO USUÁRIO LOGADO NO CHAT:", usuarioLogado);
+export default function ChatInterno({ 
+  usuarioLogado, 
+  salaAtiva, 
+  setSalaAtiva, 
+  contatoAtivo, 
+  setContatoAtivo, 
+  mensagens, 
+  setMensagens 
+}) {
 
-  // --- CAPTURA DE PROPRIEDADES COM FALLBACK SEGURO ---
   let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
   const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
   const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
@@ -50,12 +56,8 @@ export default function ChatInterno({ usuarioLogado }) {
 
   const [contatos, setContatos] = useState([]); 
   const [buscaContato, setBuscaContato] = useState('');
-  const [salaAtiva, setSalaAtiva] = useState(null);
-  const [contatoAtivo, setContatoAtivo] = useState(null);
-  const [mensagens, setMensagens] = useState([]);
   const [novoTexto, setNovoTexto] = useState('');
   const [loadingContatos, setLoadingContatos] = useState(true);
-
   const [sugestoes, setSugestoes] = useState([]);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
@@ -63,21 +65,15 @@ export default function ChatInterno({ usuarioLogado }) {
 
   const obterCorStatus = (status) => {
     const s = status?.toString().toLowerCase().trim();
-    if (s === 'online') return '#22c55e'; // Verde nativo WhatsApp
-    if (s === 'pausa' || s === 'away') return '#f97316';
-    if (s === 'offline') return '#ef4444';
-    return '#22c55e';
+    if (s === 'online') return '#00c73c'; // Verde vivo nativo do Telegram
+    if (s === 'pausa' || s === 'away' || s === 'ausente') return '#ff9f0a'; // Laranja de atenção
+    return '#8e8e93'; // Cinza fosco para usuários offline
   };
 
-  // 1. CARREGAR CONTATOS DA MESMA EMPRESA (Executa apenas uma vez)
+  // 1. CARREGAR CONTATOS DA MESMA EMPRESA
   useEffect(() => {
     const buscarContatos = async () => {
-      if (!minhaEmpresa || minhaEmpresa.trim() === '') {
-        setContatos([]);
-        setLoadingContatos(false);
-        return;
-      }
-
+      if (!minhaEmpresa) return;
       setLoadingContatos(true);
       try {
         const response = await fetch(`${API_URL}/usuario?empresaNome=${encodeURIComponent(minhaEmpresa.trim())}`);
@@ -93,7 +89,6 @@ export default function ChatInterno({ usuarioLogado }) {
         setContatos(filtrados);
       } catch (err) {
         console.error("Erro ao carregar contatos do chat:", err);
-        setContatos([]);
       } finally {
         setLoadingContatos(false);
       }
@@ -102,7 +97,7 @@ export default function ChatInterno({ usuarioLogado }) {
     buscarContatos();
   }, [minhaEmpresa, meuId, meuEmail]);
 
-  // 2. AUTOCOMPLETE DE RESPOSTAS RÁPIDAS
+  // 2. AUTOCOMPLETE DE EFICIÊNCIA VIA COMANCO '/'
   useEffect(() => {
     if (novoTexto.startsWith('/') && minhaEmpresa) {
       const termoBusca = novoTexto.toLowerCase();
@@ -112,20 +107,17 @@ export default function ChatInterno({ usuarioLogado }) {
           setSugestoes(dados || []);
           setMostrarSugestoes(dados && dados.length > 0);
         })
-        .catch(err => {
-          console.error("Erro no autocomplete:", err);
-          setMostrarSugestoes(false);
-        });
+        .catch(() => setMostrarSugestoes(false));
     } else {
       setMostrarSugestoes(false);
-      setSugestoes([]);
     }
   }, [novoTexto, minhaEmpresa]);
 
-  // 3. SELECIONAR OU CRIAR UMA SALA E CARREGAR HISTÓRICO
+  // 3. SELECIONAR OU CRIAR UMA SALA ESPECÍFICA (Isolando Histórico)
   const abrirConversa = async (contato) => {
     const cId = contato.id || contato.Id;
     setContatoAtivo(contato);
+    
     try {
       const response = await fetch(`${API_URL}/chat/sala?usuarioId2=${cId}`, {
         method: 'POST',
@@ -151,7 +143,7 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   };
 
-  // 4. ESCUTA REALTIME SEM LOOP DE REQUISIÇÕES HTTP
+  // 4. FIX REALTIME: FILTRAGEM E ESCUTA BLINDADA POR SALAID ATIVA
   useEffect(() => {
     const sId = salaAtiva?.id || salaAtiva?.Id;
     if (!sId) return;
@@ -163,26 +155,29 @@ export default function ChatInterno({ usuarioLogado }) {
         { event: 'INSERT', schema: 'MobileTrucks', table: 'ChatMensagens', filter: `SalaId=eq.${sId}` },
         (payload) => {
           const novaMsg = payload.new;
-          
-          setMensagens(prev => {
-            if (prev.some(m => (m.id || m.Id) === novaMsg.Id)) return prev;
-            return [...prev, {
-              id: novaMsg.Id,
-              salaId: novaMsg.SalaId,
-              remetenteId: novaMsg.RemetenteId,
-              texto: novaMsg.Texto,
-              tipoMidia: novaMsg.TipoMidia,
-              arquivoUrl: novaMsg.ArquivoUrl,
-              dataEnvio: novaMsg.DataEnvio,
-              entregue: novaMsg.Entregue,
-              visualizado: novaMsg.Visualizado
-            }];
-          });
-          
-          if (novaMsg.RemetenteId !== meuId) {
-            tocarSomNotificacao();
-            vibrarDispositivo();
-            fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
+
+          // Validação crucial: Impede que mensagens de outras salas vazem para o contato selecionado
+          if (novaMsg.SalaId === sId) {
+            setMensagens(prev => {
+              if (prev.some(m => (m.id || m.Id) === novaMsg.Id)) return prev;
+              return [...prev, {
+                id: novaMsg.Id,
+                salaId: novaMsg.SalaId,
+                remetenteId: novaMsg.RemetenteId,
+                texto: novaMsg.Texto,
+                tipoMidia: novaMsg.TipoMidia,
+                arquivoUrl: novaMsg.ArquivoUrl,
+                dataEnvio: novaMsg.DataEnvio,
+                entregue: novaMsg.Entregue,
+                visualizado: novaMsg.Visualizado
+              }];
+            });
+            
+            if (novaMsg.RemetenteId !== meuId) {
+              tocarSomNotificacao();
+              vibrarDispositivo();
+              fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
+            }
           }
         }
       )
@@ -191,13 +186,13 @@ export default function ChatInterno({ usuarioLogado }) {
     return () => {
       supabase.removeChannel(canalRealtime);
     };
-  }, [salaAtiva, meuId]);
+  }, [salaAtiva, meuId, setMensagens]);
 
   useEffect(() => {
     mensagensEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
 
-  // 5. ENVIAR MENSAGEM COM ATUALIZAÇÃO OTIMISTA (Aparece na hora!)
+  // 5. ENVIAR MENSAGEM COM ATUALIZAÇÃO OTIMISTA (Sem delay de renderização)
   const enviarMensagem = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     const sId = salaAtiva?.id || salaAtiva?.Id;
@@ -207,7 +202,6 @@ export default function ChatInterno({ usuarioLogado }) {
     setNovoTexto('');
     setMostrarSugestoes(false);
 
-    // Renderização otimista imediata na tela
     const msgOtimista = {
       id: Math.random().toString(),
       salaId: sId,
@@ -246,6 +240,9 @@ export default function ChatInterno({ usuarioLogado }) {
     const cNome = c.nome || c.Nome || "";
     return cNome.toLowerCase().includes(buscaContato.toLowerCase());
   });
+
+  // Mapeamento correto do status do contato ativo para o cabeçalho
+  const statusContatoAtivo = contatoAtivo?.statusPresenca || contatoAtivo?.StatusPresenca || "offline";
 
   return (
     <div style={styles.chatContainer}>
@@ -289,9 +286,10 @@ export default function ChatInterno({ usuarioLogado }) {
               const cId = c.id || c.Id;
               const cNome = c.nome || c.Nome;
               const cFoto = c.fotoUrl || c.FotoUrl;
-              const cStatus = c.statusPresenca || c.StatusPresenca;
+              const cStatus = c.statusPresenca || c.StatusPresenca || "offline";
               const cCargo = c.tipoUsuario || c.TipoUsuario;
               const ativoId = contatoAtivo?.id || contatoAtivo?.Id;
+              const selecionado = ativoId === cId;
 
               return (
                 <div 
@@ -299,23 +297,29 @@ export default function ChatInterno({ usuarioLogado }) {
                   onClick={() => abrirConversa(c)}
                   style={{
                     ...styles.contatoRow,
-                    background: ativoId === cId ? '#3182ce' : 'transparent'
+                    background: selecionado ? '#2b5278' : 'transparent' // Azul clássico do Telegram Premium
                   }}
                 >
                   <div style={styles.avatarWrapper}>
                     {cFoto ? (
                       <img src={cFoto} alt={cNome} style={styles.avatarImagem} />
                     ) : (
-                      <div style={styles.avatarFallback} style={{...styles.avatarFallback, backgroundColor: ativoId === cId ? '#1e293b' : '#334155'}}>{cNome?.substring(0,2).toUpperCase()}</div>
+                      <div style={{...styles.avatarFallback, backgroundColor: selecionado ? '#182533' : '#24303f'}}>{cNome?.substring(0,2).toUpperCase()}</div>
                     )}
-                    <Circle size={10} fill={obterCorStatus(cStatus)} color={ativoId === cId ? '#3182ce' : '#0f172a'} style={styles.statusBadgeDot} />
+                    <Circle size={10} fill={obterCorStatus(cStatus)} color={selecionado ? '#2b5278' : '#0f172a'} style={styles.statusBadgeDot} />
                   </div>
-                  <div style={{ flex: 1 }}>
+                  <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={styles.contatoNomeLinha}>
-                      <span style={{...styles.contatoNome, color: ativoId === cId ? '#fff' : '#f1f5f9'}}>{cNome}</span>
-                      {cCargo === 'gestor' && <Shield size={12} color={ativoId === cId ? '#fff' : '#63b3ed'} title="Gestor" />}
+                      <span style={{...styles.contatoNome, color: '#fff'}}>{cNome}</span>
+                      {cCargo === 'gestor' && <Shield size={12} color={selecionado ? '#fff' : '#63b3ed'} title="Gestor" />}
                     </div>
-                    <span style={{...styles.contatoStatusTexto, color: ativoId === cId ? 'rgba(255,255,255,0.7)' : '#64748b'}}>{cStatus || 'offline'}</span>
+                    {/* Correção dinâmica da label de status na lista lateral */}
+                    <span style={{
+                      ...styles.contatoStatusTexto, 
+                      color: cStatus.toLowerCase() === 'online' ? '#5288c1' : '#707579'
+                    }}>
+                      {cStatus.toLowerCase() === 'online' ? 'online' : 'offline'}
+                    </span>
                   </div>
                 </div>
               );
@@ -335,11 +339,18 @@ export default function ChatInterno({ usuarioLogado }) {
                 ) : (
                   <div style={styles.avatarFallback}>{(contatoAtivo.nome || contatoAtivo.Nome)?.substring(0,2).toUpperCase()}</div>
                 )}
-                <Circle size={10} fill={obterCorStatus(contatoAtivo.statusPresenca || contatoAtivo.StatusPresenca)} color="#0f172a" style={styles.statusBadgeDot} />
+                <Circle size={10} fill={obterCorStatus(statusContatoAtivo)} color="#0f172a" style={styles.statusBadgeDot} />
               </div>
               <div>
                 <h4 style={styles.chatHeaderNome}>{contatoAtivo.nome || contatoAtivo.Nome}</h4>
-                <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: '500' }}>online</span>
+                {/* CORREÇÃO DO STATUS DINÂMICO NO HEADER */}
+                <span style={{ 
+                  fontSize: '13px', 
+                  color: statusContatoAtivo.toLowerCase() === 'online' ? '#5288c1' : '#707579',
+                  fontWeight: '500' 
+                }}>
+                  {statusContatoAtivo.toLowerCase() === 'online' ? 'online' : 'offline'}
+                </span>
               </div>
             </div>
 
@@ -355,7 +366,7 @@ export default function ChatInterno({ usuarioLogado }) {
                   <div key={msg.id || msg.Id || index} style={{ ...styles.messageRow, justifyContent: euEnviei ? 'flex-end' : 'flex-start' }}>
                     <div style={{
                       ...styles.balao,
-                      background: euEnviei ? '#3182ce' : '#1e293b',
+                      background: euEnviei ? '#2b5278' : '#182533', // Balões no padrão Dark do Telegram
                       borderRadius: euEnviei ? '16px 16px 4px 16px' : '16px 16px 16px 4px'
                     }}>
                       <p style={styles.balaoTexto}>{txt}</p>
@@ -366,9 +377,9 @@ export default function ChatInterno({ usuarioLogado }) {
                         {euEnviei && (
                           <div style={{ marginLeft: '4px', display: 'flex', alignItems: 'center' }}>
                             {visto ? (
-                              <CheckCheck size={14} color="#38bdf8" /> // Duplo check azul nativo do WhatsApp
+                              <CheckCheck size={14} color="#5288c1" /> // Duplo check azul do Telegram
                             ) : (
-                              <Check size={14} color="rgba(255,255,255,0.5)" /> // Um check cinza de enviado
+                              <Check size={14} color="rgba(255,255,255,0.4)" />
                             )}
                           </div>
                         )}
@@ -415,11 +426,11 @@ export default function ChatInterno({ usuarioLogado }) {
         ) : (
           <div style={styles.noChatSelected}>
             <div style={styles.circuloIcone}>
-              <User size={36} color="#3182ce" />
+              <User size={36} color="#5288c1" />
             </div>
             <h3 style={{ color: '#fff', margin: '15px 0 5px 0', fontSize: '18px' }}>Nenhuma conversa ativa</h3>
-            <p style={{ color: '#64748b', fontSize: '14px', maxWidth: '320px', lineHeight: '1.5' }}>
-              Selecione um membro do seu time na barra lateral para iniciar o chat criptografado.
+            <p style={{ color: '#707579', fontSize: '14px', maxWidth: '320px', lineHeight: '1.5' }}>
+              Selecione um membro do seu time na barra lateral para iniciar o chat criptografado em tempo real.
             </p>
           </div>
         )}
@@ -428,46 +439,46 @@ export default function ChatInterno({ usuarioLogado }) {
   );
 }
 
-// 🎨 DESIGN SYSTEM EXCLUSIVO TELEGRAM/WHATSAPP PREMIUM DARK
+// 🎨 DESIGN SYSTEM REFINADO — TELEGRAM K DARK MODE
 const styles = {
-  chatContainer: { display: 'flex', width: '100%', height: '78vh', background: '#0f172a', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', fontFamily: '"Inter", sans-serif' },
-  sidebar: { width: '320px', background: '#1e293b', borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' },
-  sidebarHeader: { padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.03)' },
+  chatContainer: { display: 'flex', width: '100%', height: '78vh', background: '#0e1621', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.03)', fontFamily: '"Inter", sans-serif' },
+  sidebar: { width: '320px', background: '#17212b', borderRight: '1px solid #101921', display: 'flex', flexDirection: 'column' },
+  sidebarHeader: { padding: '16px', borderBottom: '1px solid #101921' },
   perfilLogado: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' },
   nomePerfil: { display: 'block', fontSize: '14px', fontWeight: 'bold', color: '#fff' },
-  cargoPerfil: { display: 'block', fontSize: '11px', color: '#63b3ed', fontWeight: '500' },
+  cargoPerfil: { display: 'block', fontSize: '11px', color: '#5288c1', fontWeight: '500' },
   avatarWrapper: { position: 'relative', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  avatarImagem: { width: '100%', height: '100%', borderRadius: '14px', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' },
-  avatarFallback: { width: '100%', height: '100%', borderRadius: '14px', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: '#fff' },
-  statusBadgeDot: { position: 'absolute', bottom: '-2px', right: '-2px', zIndex: 2 },
+  avatarImagem: { width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' },
+  avatarFallback: { width: '100%', height: '100%', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold', color: '#fff' },
+  statusBadgeDot: { position: 'absolute', bottom: '-1px', right: '-1px', zIndex: 2 },
   searchBox: { position: 'relative', width: '100%' },
   searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' },
-  inputSearch: { width: '100%', padding: '10px 10px 10px 36px', borderRadius: '12px', background: '#0f172a', border: 'none', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' },
-  contatosList: { flex: 1, overflowY: 'auto', padding: '8px' },
-  contatoRow: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', marginBottom: '4px' },
+  inputSearch: { width: '100%', padding: '10px 10px 10px 36px', borderRadius: '12px', background: '#24303f', border: 'none', color: '#fff', fontSize: '13px', outline: 'none', boxSizing: 'border-box' },
+  contatosList: { flex: 1, overflowY: 'auto', padding: '6px' },
+  contatoRow: { display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '14px', cursor: 'pointer', transition: 'background 0.15s', marginBottom: '2px' },
   contatoNomeLinha: { display: 'flex', alignItems: 'center', gap: '6px' },
-  contatoNome: { fontSize: '14px', fontWeight: '600' },
-  contatoStatusTexto: { fontSize: '11px', textTransform: 'capitalize' },
-  chatArea: { flex: 1, display: 'flex', flexDirection: 'column', background: '#0f172a' },
-  chatHeader: { padding: '15px 20px', background: '#1e293b', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: '12px' },
-  chatHeaderNome: { margin: 0, fontSize: '15px', fontWeight: 'bold', color: '#fff' },
-  messagesArea: { flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '8px', background: 'radial-gradient(circle, rgba(15,23,42,1) 0%, rgba(30,41,59,0.2) 100%)' },
+  contatoNome: { fontSize: '14.5px', fontWeight: '500' },
+  contatoStatusTexto: { fontSize: '12px' },
+  chatArea: { flex: 1, display: 'flex', flexDirection: 'column', background: '#0e1621' },
+  chatHeader: { padding: '14px 20px', background: '#17212b', borderBottom: '1px solid #101921', display: 'flex', alignItems: 'center', gap: '12px' },
+  chatHeaderNome: { margin: 0, fontSize: '15px', fontWeight: '600', color: '#fff' },
+  messagesArea: { flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '6px' },
   messageRow: { display: 'flex', width: '100%' },
-  balao: { padding: '10px 14px', maxWidth: '65%', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' },
-  balaoTexto: { margin: 0, fontSize: '14.5px', color: '#fff', lineHeight: '1.5', wordBreak: 'break-word' },
-  balaoMeta: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: '4px', fontSize: '10px', color: 'rgba(255,255,255,0.6)' },
-  balaoHora: { fontSize: '10px', fontWeight: '500' },
-  inputAreaContainer: { padding: '16px 24px', background: '#0f172a', borderTop: '1px solid rgba(255,255,255,0.03)', position: 'relative' },
+  balao: { padding: '8px 14px', maxWidth: '60%', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' },
+  balaoTexto: { margin: 0, fontSize: '14.5px', color: '#fff', lineHeight: '1.45', wordBreak: 'break-word' },
+  balaoMeta: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: '3px', gap: '2px', opacity: 0.8 },
+  balaoHora: { fontSize: '10px', color: '#707579' },
+  inputAreaContainer: { padding: '14px 20px', background: '#17212b', position: 'relative' },
   inputForm: { display: 'flex', alignItems: 'center', gap: '12px' },
-  midiaBtn: { background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px', transition: 'color 0.2s' },
-  chatInputInput: { flex: 1, padding: '12px 16px', borderRadius: '16px', background: '#1e293b', border: 'none', color: '#fff', fontSize: '14.5px', outline: 'none' },
-  btnEnviar: { background: '#3182ce', width: '44px', height: '44px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(49, 130, 206, 0.3)' },
-  noChatSelected: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4px' },
-  circuloIcone: { width: '80px', height: '80px', borderRadius: '50%', backgroundColor: 'rgba(49, 130, 206, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  AvisoLinha: { textAlign: 'center', color: '#64748b', fontSize: '13px', paddingTop: '20px' },
-  autocompleteBox: { position: 'absolute', bottom: '75px', left: '24px', right: '24px', background: '#1e293b', borderRadius: '16px', border: '1px solid #3182ce', boxShadow: '0 -4px 24px rgba(0,0,0,0.5)', zIndex: 10, overflow: 'hidden' },
-  autocompleteHeader: { background: 'rgba(49, 130, 206, 0.1)', padding: '10px 14px', fontSize: '11px', color: '#63b3ed', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid rgba(255,255,255,0.03)' },
-  autocompleteItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' },
-  atalhoTexto: { background: 'rgba(99, 179, 237, 0.15)', color: '#63b3ed', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', fontFamily: 'monospace' },
+  midiaBtn: { background: 'none', border: 'none', color: '#707579', cursor: 'pointer', padding: '4px' },
+  chatInputInput: { flex: 1, padding: '10px 14px', borderRadius: '12px', background: '#24303f', border: 'none', color: '#fff', fontSize: '14.5px', outline: 'none' },
+  btnEnviar: { background: 'transparent', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' },
+  noChatSelected: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+  circuloIcone: { width: '70px', height: '70px', borderRadius: '50%', backgroundColor: 'rgba(82, 136, 193, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  AvisoLinha: { textAlign: 'center', color: '#707579', fontSize: '13px', paddingTop: '20px' },
+  autocompleteBox: { position: 'absolute', bottom: '72px', left: '20px', right: '20px', background: '#17212b', borderRadius: '14px', border: '1px solid #5288c1', boxShadow: '0 -4px 24px rgba(0,0,0,0.5)', zIndex: 10, overflow: 'hidden' },
+  autocompleteHeader: { background: 'rgba(82, 136, 193, 0.1)', padding: '10px 14px', fontSize: '11px', color: '#5288c1', fontWeight: 'bold', textTransform: 'uppercase' },
+  autocompleteItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid #101921' },
+  atalhoTexto: { background: 'rgba(82, 136, 193, 0.2)', color: '#5288c1', padding: '2px 6px', borderRadius: '5px', fontSize: '11px', fontWeight: 'bold' },
   completoTexto: { color: '#e2e8f0', fontSize: '13px' }
 };
