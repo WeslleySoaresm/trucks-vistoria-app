@@ -4,16 +4,21 @@ using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+// 1. ADICIONE as referências das suas outras camadas do projeto:
+using TrucksVistoria.Infrastructure.Data; // Ajuste para a pasta real do seu DbContext
+using TrucksVistoria.Domain.Entities;
+using TrucksVistoria.Infrastructure;     // Se a classe Usuario estiver na camada de Domain
 
 namespace MobileTrucks.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")] // Isso cria a rota: api/Usuario
+    [Route("api/[controller]")]
     public class UsuarioController : ControllerBase
     {
-        private readonly YourDbContext _context; // Substitua pelo nome do seu DbContext
+        // 2. ALTERE de 'YourDbContext' para o nome correto do seu contexto (Ex: AppDbContext)
+        private readonly AppDbContext _context; 
 
-        public UsuarioController(YourDbContext context)
+        public UsuarioController(AppDbContext context)
         {
             _context = context;
         }
