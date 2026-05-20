@@ -4,10 +4,8 @@ using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
-// 1. ADICIONE as referências das suas outras camadas do projeto:
-using TrucksVistoria.Infrastructure; // Ajuste para a pasta real do seu DbContext
+using TrucksVistoria.Infrastructure; 
 using TrucksVistoria.Domain.Entities;
-using TrucksVistoria.Infrastructure;     // Se a classe Usuario estiver na camada de Domain
 
 namespace MobileTrucks.Controllers
 {
@@ -15,7 +13,6 @@ namespace MobileTrucks.Controllers
     [Route("api/[controller]")]
     public class UsuarioController : ControllerBase
     {
-        // 2. ALTERE de 'YourDbContext' para o nome correto do seu contexto (Ex: AppDbContext)
         private readonly AppDbContext _context; 
 
         public UsuarioController(AppDbContext context)
@@ -23,9 +20,10 @@ namespace MobileTrucks.Controllers
             _context = context;
         }
 
-        // 1. POST: api/Usuario (Usado pelo seu FormCadastroUsuario.jsx)
+        // 1. POST: api/usuario
+        // Alterado para receber 'UsuarioRequest' para blindar a API e evitar o erro CS1061/CS1503
         [HttpPost]
-        public async Task<IActionResult> CadastrarUsuario([FromBody] TrucksVistoria.Domain.Entities.Usuario model)
+        public async Task<IActionResult> CadastrarUsuario([FromBody] UsuarioRequest model)
         {
             if (model == null)
             {
@@ -34,16 +32,22 @@ namespace MobileTrucks.Controllers
 
             try
             {
-                // Garante que o ID seja gerado caso não venha do front
-                if (model.Id == Guid.Empty)
+                // Mapeia o DTO de entrada para a Entidade do Banco de Dados de forma explícita
+                var novoUsuario = new TrucksVistoria.Domain.Entities.Usuario
                 {
-                    model.Id = Guid.NewGuid();
-                }
+                    Id = model.Id == Guid.Empty ? Guid.NewGuid() : model.Id,
+                    Nome = model.Nome,
+                    Email = model.Email.ToLower().Trim(),
+                    EmpresaId = model.EmpresaId, // 👈 Vincula com segurança
+                    TipoUsuario = model.TipoUsuario,
+                    StatusPresenca = model.StatusPresenca ?? "offline",
+                    FotoUrl = model.FotoUrl
+                };
 
-                _context.Usuarios.Add(model);
+                _context.Usuarios.Add(novoUsuario);
                 await _context.SaveChangesAsync();
 
-                return Ok(model);
+                return Ok(novoUsuario);
             }
             catch (Exception ex)
             {
@@ -51,12 +55,14 @@ namespace MobileTrucks.Controllers
             }
         }
 
-        // 2. GET: api/Usuario?empresaId=GUID (Usado pelo seu ChatInterno.jsx)
+        // 2. GET: api/usuario?empresaId=GUID
         [HttpGet]
         public async Task<IActionResult> ListarPorEmpresa([FromQuery] Guid empresaId)
         {
             try
             {
+                // IMPORTANTE: Garanta que na sua classe 'Usuario' dentro de Domain.Entities, 
+                // a propriedade se chame exatamente 'EmpresaId' com 'I' maiúsculo e 'd' minúsculo.
                 var usuarios = await _context.Usuarios
                     .Where(u => u.EmpresaId == empresaId)
                     .ToListAsync();
@@ -70,15 +76,15 @@ namespace MobileTrucks.Controllers
         }
     }
 
-    // Modelo de apoio (Caso você já não tenha a classe Usuario.cs em seu projeto)
+    // Modelo de apoio ajustado para evitar Warnings de nulos do .NET 9 (CS8618)
     public class UsuarioRequest
     {
         public Guid Id { get; set; }
-        public string Nome { get; set; }
-        public string Email { get; set; }
-        public Guid EmpresaId { get; set; }
-        public string TipoUsuario { get; set; }
-        public string StatusPresenca { get; set; }
-        public string FotoUrl { get; set; }
+        public required string Nome { get; set; }
+        public required string Email { get; set; }
+        public required Guid EmpresaId { get; set; }
+        public required string TipoUsuario { get; set; }
+        public string? StatusPresenca { get; set; }
+        public string? FotoUrl { get; set; }
     }
 }
