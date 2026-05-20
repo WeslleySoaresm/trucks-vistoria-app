@@ -14,6 +14,7 @@ import ChatInterno from './ChatInterno';
 import FormCadastroUsuario from './FormCadastroUsuario';
 
 export default function App() {
+  const [conversaAtivaId, setConversaAtivaId] = useState(null);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [abaAtiva, setAbaAtiva] = useState('nova');
@@ -283,7 +284,11 @@ export default function App() {
 
         {/* RENDERING DO CHAT UTILIZANDO O CONTEXTO DO PROVEDOR LOCAL DO POSTGRES */}
         {abaAtiva === 'chat' && perfilDb && (
-          <ChatInterno usuarioLogado={perfilDb} />
+          <ChatInterno 
+            usuarioLogado={perfilDb} 
+            conversaAtivaId={conversaAtivaId}
+            setConversaAtivaId={setConversaAtivaId}
+           />
         )}
 
         {/* 🔒 RENDERIZAÇÃO EXCLUSIVA DO FORMULÁRIO DE CADASTRO */}
