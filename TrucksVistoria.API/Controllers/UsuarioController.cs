@@ -31,16 +31,12 @@ namespace MobileTrucks.Controllers
 
             try
             {
-                // Mapeia o DTO de entrada para a Entidade do Banco de Dados de forma explícita
                 var novoUsuario = new TrucksVistoria.Domain.Entities.Usuario
                 {
                     Id = model.Id == Guid.Empty ? Guid.NewGuid() : model.Id,
                     Nome = model.Nome,
                     Email = model.Email.ToLower().Trim(),
-                    
-                    // ALTERADO: Mapeia o texto da empresa tratando espaços e letras maiúsculas
-                    EmpresaNome = model.EmpresaNome.ToLower().Trim(), 
-                    
+                    EmpresaNome = model.EmpresaNome.Trim(), // 👈 Atribuição direta da string limpa
                     TipoUsuario = model.TipoUsuario,
                     StatusPresenca = model.StatusPresenca ?? "offline",
                     FotoUrl = model.FotoUrl
@@ -57,20 +53,21 @@ namespace MobileTrucks.Controllers
             }
         }
 
-        // 2. GET: api/usuario?empresaNome=nome_da_empresa
+        // 2. GET: api/usuario?empresaNome=TEXTO
+        // CORRIGIDO: Modificado de 'Guid empresaId' para 'string empresaNome' para habilitar o isolamento nominal solicitado
         [HttpGet]
-        public async Task<IActionResult> ListarPorEmpresa([FromQuery] string empresaNome)
+        public async Task<IActionResult> ListarPorEmpresa([FromQuery] string? empresaNome)
         {
-            if (string.IsNullOrEmpty(empresaNome))
+            if (string.IsNullOrWhiteSpace(empresaNome))
             {
-                return BadRequest("O nome da empresa é obrigatório.");
+                return BadRequest("O parâmetro 'empresaNome' é obrigatório.");
             }
 
             try
             {
-                // ALTERADO: O filtro do chat agora compara strings de forma segura
+                // Busca ignorando espaçamentos marginais e case-sensitivity
                 var usuarios = await _context.Usuarios
-                    .Where(u => u.EmpresaNome == empresaNome.ToLower().Trim())
+                    .Where(u => u.EmpresaNome.ToLower() == empresaNome.ToLower().Trim())
                     .ToListAsync();
 
                 return Ok(usuarios);
@@ -82,13 +79,12 @@ namespace MobileTrucks.Controllers
         }
     }
 
-    // Modelo de apoio ajustado com os tipos em String para o nome da empresa
     public class UsuarioRequest
     {
         public Guid Id { get; set; }
         public required string Nome { get; set; }
         public required string Email { get; set; }
-        public required string EmpresaNome { get; set; } // 👈 Alterado para string
+        public required string EmpresaNome { get; set; } // 👈 Modificado de Guid para string
         public required string TipoUsuario { get; set; }
         public string? StatusPresenca { get; set; }
         public string? FotoUrl { get; set; }

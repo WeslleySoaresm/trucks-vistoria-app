@@ -4,10 +4,6 @@ import { Search, Send, Mic, ImageIcon, Circle, Shield, User, Zap } from 'lucide-
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 
-// ==========================================
-// FUNÇÕES UTILITÁRIAS DE ÁUDIO E VIBRAÇÃO NATIVAS
-// Incorporadas aqui para evitar erros de importação [UNRESOLVED_IMPORT] no Vite/Rolldown
-// ==========================================
 const tocarSomNotificacao = () => {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -37,8 +33,7 @@ const vibrarDispositivo = () => {
 };
 
 export default function ChatInterno({ usuarioLogado }) {
-  // Estados de dados
-  const [contatos, setContatos] = useState([]); // Lista de funcionários/gestores da empresa
+  const [contatos, setContatos] = useState([]); 
   const [buscaContato, setBuscaContato] = useState('');
   const [salaAtiva, setSalaAtiva] = useState(null);
   const [contatoAtivo, setContatoAtivo] = useState(null);
@@ -46,13 +41,11 @@ export default function ChatInterno({ usuarioLogado }) {
   const [novoTexto, setNovoTexto] = useState('');
   const [loadingContatos, setLoadingContatos] = useState(true);
 
-  // Estados do Autocomplete (Sugestões Rápidas)
   const [sugestoes, setSugestoes] = useState([]);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
   const mensagensEndRef = useRef(null);
 
-  // CORRIGIDO: Padronização para 'obterCorStatus' em português fluído
   const obterCorStatus = (status) => {
     switch (status?.toLowerCase()) {
       case 'online': return '#48bb78';
@@ -62,18 +55,18 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   };
 
-  // 1. CARREGAR CONTATOS DA MESMA EMPRESA (Isolamento Multi-tenant)
+  // 1. CARREGAR CONTATOS DA MESMA EMPRESA POR NOME TEXTUAL
   useEffect(() => {
     const buscarContatos = async () => {
-      if (!usuarioLogado?.empresaId || usuarioLogado.empresaId === '00000000-0000-0000-0000-000000000000') {
-        console.warn("Aguardando um EmpresaId válido para carregar os contatos.");
+      if (!usuarioLogado?.empresaNome || usuarioLogado.empresaNome.trim() === '') {
+        console.warn("Aguardando um EmpresaNome válido para carregar os contatos.");
         setLoadingContatos(false);
         return;
       }
       setLoadingContatos(true);
       try {
-        // AJUSTADO: Rota alterada para 'usuario' minúsculo (Padrão Linux do Render)
-        const response = await fetch(`${API_URL}/usuario?empresaId=${usuarioLogado.empresaId}`);
+        // CORRIGIDO: Agora envia o parâmetro ?empresaNome=NomeDaEmpresa como string para a API
+        const response = await fetch(`${API_URL}/usuario?empresaNome=${encodeURIComponent(usuarioLogado.empresaNome)}`);
         if (!response.ok) throw new Error("Erro ao buscar time");
         const dados = await response.json();
         
@@ -86,18 +79,17 @@ export default function ChatInterno({ usuarioLogado }) {
       }
     };
 
-    if (usuarioLogado?.empresaId) {
+    if (usuarioLogado?.empresaNome) {
       buscarContatos();
     }
-  }, [usuarioLogado.empresaId, usuarioLogado.id]);
+  }, [usuarioLogado.empresaNome, usuarioLogado.id]);
 
-  // 2. ALGORITMO DO AUTOCOMPLETE
+  // 2. ALGORITMO DO AUTOCOMPLETE POR STRING
   useEffect(() => {
     if (novoTexto.startsWith('/')) {
       const termoBusca = novoTexto.toLowerCase();
       
-      // AJUSTADO: Rota alterada para 'chat' minúsculo
-      fetch(`${API_URL}/chat/sugestoes/${usuarioLogado.empresaId}?termo=${termoBusca}`)
+      fetch(`${API_URL}/chat/sugestoes/${encodeURIComponent(usuarioLogado.empresaNome)}?termo=${termoBusca}`)
         .then(res => res.json())
         .then(dados => {
           setSugestoes(dados);
@@ -108,25 +100,22 @@ export default function ChatInterno({ usuarioLogado }) {
       setMostrarSugestoes(false);
       setSugestoes([]);
     }
-  }, [novoTexto, usuarioLogado.empresaId]);
+  }, [novoTexto, usuarioLogado.empresaNome]);
 
-  // 3. SELECIONAR OU CRIAR UMA SALA AO CLICAR EM UM CONTATO
   const abrirConversa = async (contato) => {
     setContatoAtivo(contato);
     try {
-      // AJUSTADO: Rota alterada para 'chat/sala' minúsculo
       const response = await fetch(`${API_URL}/chat/sala?usuarioId2=${contato.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          empresaId: usuarioLogado.empresaId,
+          empresaNome: usuarioLogado.empresaNome,
           tipo: 'individual'
         })
       });
       const sala = await response.json();
       setSalaAtiva(sala);
       
-      // AJUSTADO: Rota alterada para 'chat/mensagens' minúsculo
       const resMsg = await fetch(`${API_URL}/chat/mensagens/${sala.id}`);
       if (resMsg.ok) {
         const historico = await resMsg.json();
@@ -137,7 +126,6 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   };
 
-  // 4. LÓGICA DE ESCUTA REALTIME DO SUPABASE
   useEffect(() => {
     if (!salaAtiva) return;
 
@@ -168,7 +156,6 @@ export default function ChatInterno({ usuarioLogado }) {
             tocarSomNotificacao();
             vibrarDispositivo();
             
-            // AJUSTADO: Rota alterada para 'chat/mensagens/visualizar' minúsculo
             fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
           }
         }
@@ -184,7 +171,6 @@ export default function ChatInterno({ usuarioLogado }) {
     mensagensEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
 
-  // 5. ENVIAR MENSAGEM
   const enviarMensagem = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!novoTexto.trim() || !salaAtiva) return;
@@ -200,7 +186,6 @@ export default function ChatInterno({ usuarioLogado }) {
       setNovoTexto('');
       setMostrarSugestoes(false);
 
-      // AJUSTADO: Rota alterada para 'chat/mensagem' minúsculo
       await fetch(`${API_URL}/chat/mensagem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -214,7 +199,6 @@ export default function ChatInterno({ usuarioLogado }) {
   const selecionarSugestao = (sugestao) => {
     setNovoTexto(sugestao.textoCompleto);
     setMostrarSugestoes(false);
-    // AJUSTADO: Rota alterada para 'chat/sugestoes/computar-uso' minúsculo
     fetch(`${API_URL}/chat/sugestoes/computar-uso/${sugestao.id}`, { method: 'POST' });
   };
 
@@ -224,8 +208,6 @@ export default function ChatInterno({ usuarioLogado }) {
 
   return (
     <div style={styles.chatContainer}>
-      
-      {/* BARRA LATERAL: LISTA DE CONTATOS */}
       <div style={styles.sidebar}>
         <div style={styles.sidebarHeader}>
           <div style={styles.perfilLogado}>
@@ -235,7 +217,6 @@ export default function ChatInterno({ usuarioLogado }) {
               ) : (
                 <div style={styles.avatarFallback}>{usuarioLogado.nome?.substring(0,2).toUpperCase()}</div>
               )}
-              {/* CORRIGIDO: Nome da função ajustado */}
               <Circle size={12} fill={obterCorStatus(usuarioLogado.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
             </div>
             <div>
@@ -259,41 +240,42 @@ export default function ChatInterno({ usuarioLogado }) {
         <div style={styles.contatosList}>
           {loadingContatos ? (
             <p style={styles.AvisoLinha}>Carregando integrantes...</p>
-          ) : contatosFiltrados.map(c => (
-            <div 
-              key={c.id} 
-              onClick={() => abrirConversa(c)}
-              style={{
-                ...styles.contatoRow,
-                background: contatoAtivo?.id === c.id ? 'rgba(99, 179, 237, 0.1)' : 'transparent'
-              }}
-            >
-              <div style={styles.avatarWrapper}>
-                {c.fotoUrl ? (
-                  <img src={c.fotoUrl} alt={c.nome} style={styles.avatarImagem} />
-                ) : (
-                  <div style={styles.avatarFallback}>{c.nome?.substring(0,2).toUpperCase()}</div>
-                )}
-                {/* CORRIGIDO: Chamada corrigida para o nome unificado da função */}
-                <Circle size={12} fill={obterCorStatus(c.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={styles.contatoNomeLinha}>
-                  <span style={styles.contatoNome}>{c.nome}</span>
-                  {c.tipoUsuario === 'gestor' && <Shield size={12} color="#63b3ed" title="Gestor" />}
+          ) : contatosFiltrados.length === 0 ? (
+            <p style={styles.AvisoLinha}>Nenhum membro ativo nesta empresa.</p>
+          ) : (
+            contatosFiltrados.map(c => (
+              <div 
+                key={c.id} 
+                onClick={() => abrirConversa(c)}
+                style={{
+                  ...styles.contatoRow,
+                  background: contatoAtivo?.id === c.id ? 'rgba(99, 179, 237, 0.1)' : 'transparent'
+                }}
+              >
+                <div style={styles.avatarWrapper}>
+                  {c.fotoUrl ? (
+                    <img src={c.fotoUrl} alt={c.nome} style={styles.avatarImagem} />
+                  ) : (
+                    <div style={styles.avatarFallback}>{c.nome?.substring(0,2).toUpperCase()}</div>
+                  )}
+                  <Circle size={12} fill={obterCorStatus(c.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
                 </div>
-                <span style={styles.contatoStatusTexto}>{c.statusPresenca}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={styles.contatoNomeLinha}>
+                    <span style={styles.contatoNome}>{c.nome}</span>
+                    {c.tipoUsuario === 'gestor' && <Shield size={12} color="#63b3ed" title="Gestor" />}
+                  </div>
+                  <span style={styles.contatoStatusTexto}>{c.statusPresenca}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
-      {/* JANELA PRINCIPAL DA CONVERSA */}
       <div style={styles.chatArea}>
         {salaAtiva && contatoAtivo ? (
           <>
-            {/* TOPO DA CONVERSA ATIVA */}
             <div style={styles.chatHeader}>
               <div style={styles.avatarWrapper}>
                 {contatoAtivo.fotoUrl ? (
@@ -301,7 +283,6 @@ export default function ChatInterno({ usuarioLogado }) {
                 ) : (
                   <div style={styles.avatarFallback}>{contatoAtivo.nome?.substring(0,2).toUpperCase()}</div>
                 )}
-                {/* CORRIGIDO: Chamada corrigida para o nome unificado da função */}
                 <Circle size={12} fill={obterCorStatus(contatoAtivo.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
               </div>
               <div>
@@ -312,7 +293,6 @@ export default function ChatInterno({ usuarioLogado }) {
               </div>
             </div>
 
-            {/* ÁREA HISTÓRICO DE BALÕES */}
             <div style={styles.messagesArea}>
               {mensagens.map((msg, index) => {
                 const euEnviei = msg.remetenteId === usuarioLogado.id;
@@ -328,7 +308,6 @@ export default function ChatInterno({ usuarioLogado }) {
                         <span style={styles.balaoHora}>
                           {msg.dataEnvio ? new Date(msg.dataEnvio).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : ''}
                         </span>
-                        
                         {euEnviei && (
                           <div style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
                             {msg.visualizado ? (
@@ -349,19 +328,12 @@ export default function ChatInterno({ usuarioLogado }) {
               <div ref={mensagensEndRef} />
             </div>
 
-            {/* INPUT DE ENVIO + CAIXA DE AUTOCOMPLETE FLUTUANTE */}
             <div style={styles.inputAreaContainer}>
-              
-              {/* MENU DO AUTOCOMPLETE FLUTUANTE */}
               {mostrarSugestoes && (
                 <div style={styles.autocompleteBox}>
                   <div style={styles.autocompleteHeader}>Sugestões de eficiência</div>
                   {sugestoes.map((sug) => (
-                    <div 
-                      key={sug.id} 
-                      onClick={() => selecionarSugestao(sug)}
-                      style={styles.autocompleteItem}
-                    >
+                    <div key={sug.id} onClick={() => selecionarSugestao(sug)} style={styles.autocompleteItem}>
                       <span style={styles.atalhoTexto}>{sug.textoCurto}</span>
                       <span style={styles.completoTexto}>{sug.textoCompleto}</span>
                     </div>
@@ -372,7 +344,6 @@ export default function ChatInterno({ usuarioLogado }) {
               <form onSubmit={enviarMensagem} style={styles.inputForm}>
                 <button type="button" style={styles.midiaBtn} title="Enviar Foto"><ImageIcon size={20} /></button>
                 <button type="button" style={styles.midiaBtn} title="Gravar Áudio"><Mic size={20} /></button>
-                
                 <input 
                   type="text"
                   placeholder="Digite uma mensagem... (Use '/' para respostas rápidas)"
@@ -380,7 +351,6 @@ export default function ChatInterno({ usuarioLogado }) {
                   onChange={(e) => setNovoTexto(e.target.value)}
                   style={styles.chatInputInput}
                 />
-                
                 <button type="submit" style={styles.btnEnviar}><Send size={16} /></button>
               </form>
             </div>
@@ -397,7 +367,6 @@ export default function ChatInterno({ usuarioLogado }) {
   );
 }
 
-// Manter a constante styles exatamente igual abaixo...
 const styles = {
   chatContainer: { display: 'flex', width: '100%', height: '82vh', background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', fontFamily: '"Inter", sans-serif' },
   sidebar: { width: '320px', background: '#0f172a', borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' },

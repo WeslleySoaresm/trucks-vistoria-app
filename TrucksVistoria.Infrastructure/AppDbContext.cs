@@ -1,9 +1,10 @@
 ﻿using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using SeuProjeto.Models;
+using SeuProjeto.Models; // Nota: Certifique-se de que este namespace está correto no seu app
 using TrucksVistoria.Domain.Entities;
 
 namespace TrucksVistoria.Infrastructure;
+
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
@@ -18,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatParticipante> ChatParticipantes { get; set; }
     public DbSet<ChatMensagem> ChatMensagens { get; set; }
     public DbSet<ChatSugestao> ChatSugestoes { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Usuario>()
@@ -39,9 +41,9 @@ public class AppDbContext : DbContext
          modelBuilder.Entity<ChatParticipante>()
             .HasKey(p => new { p.SalaId, p.UsuarioId });
 
-        // Criação de Índice Composto para otimizar a busca do Autocomplete por Empresa
+        // CORRIGIDO: Alterado de s.EmpresaId para s.EmpresaNome para refletir o novo modelo de texto puro!
         modelBuilder.Entity<ChatSugestao>()
-            .HasIndex(s => new { s.EmpresaId, s.TextoCurto })
+            .HasIndex(s => new { s.EmpresaNome, s.TextoCurto })
             .HasDatabaseName("IX_ChatSugestoes_Busca"); 
 
         base.OnModelCreating(modelBuilder);
