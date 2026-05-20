@@ -52,12 +52,28 @@ export default function ChatInterno({ usuarioLogado }) {
 
   const mensagensEndRef = useRef(null);
 
+  // CORRIGIDO: Padronização para 'obterCorStatus' em português fluído
+  const obterCorStatus = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'online': return '#48bb78';
+      case 'pausa': return '#ed8936';
+      case 'offline': return '#e53e3e';
+      default: return '#a0aec0';
+    }
+  };
+
   // 1. CARREGAR CONTATOS DA MESMA EMPRESA (Isolamento Multi-tenant)
   useEffect(() => {
     const buscarContatos = async () => {
+      if (!usuarioLogado?.empresaId || usuarioLogado.empresaId === '00000000-0000-0000-0000-000000000000') {
+        console.warn("Aguardando um EmpresaId válido para carregar os contatos.");
+        setLoadingContatos(false);
+        return;
+      }
       setLoadingContatos(true);
       try {
-        const response = await fetch(`${API_URL}/Usuario?empresaId=${usuarioLogado.empresaId}`);
+        // AJUSTADO: Rota alterada para 'usuario' minúsculo (Padrão Linux do Render)
+        const response = await fetch(`${API_URL}/usuario?empresaId=${usuarioLogado.empresaId}`);
         if (!response.ok) throw new Error("Erro ao buscar time");
         const dados = await response.json();
         
@@ -75,12 +91,13 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   }, [usuarioLogado.empresaId, usuarioLogado.id]);
 
-  // 2. ALGORITMO DO AUTOCOMPLETE (Ajustado para limpar se o usuário apagar o texto)
+  // 2. ALGORITMO DO AUTOCOMPLETE
   useEffect(() => {
     if (novoTexto.startsWith('/')) {
       const termoBusca = novoTexto.toLowerCase();
       
-      fetch(`${API_URL}/Chat/sugestoes/${usuarioLogado.empresaId}?termo=${termoBusca}`)
+      // AJUSTADO: Rota alterada para 'chat' minúsculo
+      fetch(`${API_URL}/chat/sugestoes/${usuarioLogado.empresaId}?termo=${termoBusca}`)
         .then(res => res.json())
         .then(dados => {
           setSugestoes(dados);
@@ -97,7 +114,8 @@ export default function ChatInterno({ usuarioLogado }) {
   const abrirConversa = async (contato) => {
     setContatoAtivo(contato);
     try {
-      const response = await fetch(`${API_URL}/Chat/sala?usuarioId2=${contato.id}`, {
+      // AJUSTADO: Rota alterada para 'chat/sala' minúsculo
+      const response = await fetch(`${API_URL}/chat/sala?usuarioId2=${contato.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +126,8 @@ export default function ChatInterno({ usuarioLogado }) {
       const sala = await response.json();
       setSalaAtiva(sala);
       
-      const resMsg = await fetch(`${API_URL}/Chat/mensagens/${sala.id}`);
+      // AJUSTADO: Rota alterada para 'chat/mensagens' minúsculo
+      const resMsg = await fetch(`${API_URL}/chat/mensagens/${sala.id}`);
       if (resMsg.ok) {
         const historico = await resMsg.json();
         setMensagens(historico);
@@ -118,7 +137,7 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   };
 
-  // 4. LÓGICA DE ESCUTA REALTIME DO SUPABASE (Ouvindo o PostgreSQL)
+  // 4. LÓGICA DE ESCUTA REALTIME DO SUPABASE
   useEffect(() => {
     if (!salaAtiva) return;
 
@@ -149,7 +168,8 @@ export default function ChatInterno({ usuarioLogado }) {
             tocarSomNotificacao();
             vibrarDispositivo();
             
-            fetch(`${API_URL}/Chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
+            // AJUSTADO: Rota alterada para 'chat/mensagens/visualizar' minúsculo
+            fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
           }
         }
       )
@@ -166,7 +186,7 @@ export default function ChatInterno({ usuarioLogado }) {
 
   // 5. ENVIAR MENSAGEM
   const enviarMensagem = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!novoTexto.trim() || !salaAtiva) return;
 
     const payloadMensagem = {
@@ -180,7 +200,8 @@ export default function ChatInterno({ usuarioLogado }) {
       setNovoTexto('');
       setMostrarSugestoes(false);
 
-      await fetch(`${API_URL}/Chat/mensagem`, {
+      // AJUSTADO: Rota alterada para 'chat/mensagem' minúsculo
+      await fetch(`${API_URL}/chat/mensagem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payloadMensagem)
@@ -193,21 +214,13 @@ export default function ChatInterno({ usuarioLogado }) {
   const selecionarSugestao = (sugestao) => {
     setNovoTexto(sugestao.textoCompleto);
     setMostrarSugestoes(false);
-    fetch(`${API_URL}/Chat/sugestoes/computar-uso/${sugestao.id}`, { method: 'POST' });
+    // AJUSTADO: Rota alterada para 'chat/sugestoes/computar-uso' minúsculo
+    fetch(`${API_URL}/chat/sugestoes/computar-uso/${sugestao.id}`, { method: 'POST' });
   };
 
   const contatosFiltrados = contatos.filter(c => 
     c.nome?.toLowerCase().includes(buscaContato.toLowerCase())
   );
-
-  const obtenerCorStatus = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'online': return '#48bb78';
-      case 'pausa': return '#ed8936';
-      case 'offline': return '#e53e3e';
-      default: return '#a0aec0';
-    }
-  };
 
   return (
     <div style={styles.chatContainer}>
@@ -222,7 +235,8 @@ export default function ChatInterno({ usuarioLogado }) {
               ) : (
                 <div style={styles.avatarFallback}>{usuarioLogado.nome?.substring(0,2).toUpperCase()}</div>
               )}
-              <Circle size={12} fill={obtenerCorStatus(usuarioLogado.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
+              {/* CORRIGIDO: Nome da função ajustado */}
+              <Circle size={12} fill={obterCorStatus(usuarioLogado.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
             </div>
             <div>
               <span style={styles.nomePerfil}>{usuarioLogado.nome}</span>
@@ -260,6 +274,7 @@ export default function ChatInterno({ usuarioLogado }) {
                 ) : (
                   <div style={styles.avatarFallback}>{c.nome?.substring(0,2).toUpperCase()}</div>
                 )}
+                {/* CORRIGIDO: Chamada corrigida para o nome unificado da função */}
                 <Circle size={12} fill={obterCorStatus(c.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
               </div>
               <div style={{ flex: 1 }}>
@@ -286,6 +301,7 @@ export default function ChatInterno({ usuarioLogado }) {
                 ) : (
                   <div style={styles.avatarFallback}>{contatoAtivo.nome?.substring(0,2).toUpperCase()}</div>
                 )}
+                {/* CORRIGIDO: Chamada corrigida para o nome unificado da função */}
                 <Circle size={12} fill={obterCorStatus(contatoAtivo.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
               </div>
               <div>
@@ -381,6 +397,7 @@ export default function ChatInterno({ usuarioLogado }) {
   );
 }
 
+// Manter a constante styles exatamente igual abaixo...
 const styles = {
   chatContainer: { display: 'flex', width: '100%', height: '82vh', background: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)', fontFamily: '"Inter", sans-serif' },
   sidebar: { width: '320px', background: '#0f172a', borderRight: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' },
@@ -416,7 +433,6 @@ const styles = {
   btnEnviar: { background: '#2563eb', color: '#fff', border: 'none', width: '38px', height: '38px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' },
   noChatSelected: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', padding: '4px' },
   AvisoLinha: { textAlign: 'center', color: '#64748b', fontSize: '13px', paddingTop: '20px' },
-  
   autocompleteBox: { position: 'absolute', bottom: '75px', left: '20px', right: '20px', background: '#1e293b', borderRadius: '12px', border: '1px solid #3b82f6', boxShadow: '0 -4px 20px rgba(0,0,0,0.4)', zIndex: 10, overflow: 'hidden' },
   autocompleteHeader: { background: 'rgba(59, 130, 246, 0.1)', padding: '8px 14px', fontSize: '11px', color: '#63b3ed', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid rgba(255,255,255,0.03)' },
   autocompleteItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '12px 14px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.02)', transition: 'background 0.2s' },
