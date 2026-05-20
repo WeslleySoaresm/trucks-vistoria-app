@@ -25,7 +25,7 @@ namespace MobileTrucks.Controllers
 
         // 1. POST: api/Usuario (Usado pelo seu FormCadastroUsuario.jsx)
         [HttpPost]
-        public async Task<IActionResult> CadastrarUsuario([FromBody] Usuario model)
+        public async Task<IActionResult> CadastrarUsuario([FromBody] TrucksVistoria.Domain.Entities.Usuario model)
         {
             if (model == null)
             {
@@ -71,7 +71,7 @@ namespace MobileTrucks.Controllers
     }
 
     // Modelo de apoio (Caso você já não tenha a classe Usuario.cs em seu projeto)
-    public class Usuario
+    public class UsuarioRequest
     {
         public Guid Id { get; set; }
         public string Nome { get; set; }
