@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 // 1. ADICIONE as referências das suas outras camadas do projeto:
-using TrucksVistoria.Infrastructure.Data; // Ajuste para a pasta real do seu DbContext
+using TrucksVistoria.Infrastructure; // Ajuste para a pasta real do seu DbContext
 using TrucksVistoria.Domain.Entities;
 using TrucksVistoria.Infrastructure;     // Se a classe Usuario estiver na camada de Domain
 
