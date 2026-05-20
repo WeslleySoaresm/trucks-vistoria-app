@@ -34,24 +34,24 @@ const vibrarDispositivo = () => {
 
 export default function ChatInterno({ usuarioLogado }) {
   console.log("CONTEÚDO DO USUÁRIO LOGADO NO CHAT:", usuarioLogado);
-    
-   
-  // Normalização das propriedades para evitar problemas com maiúsculas/minúsculas
-   let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
-    const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
-    const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
-    const meuNome = usuarioLogado?.Nome || usuarioLogado?.nome || "";
-    const meuStatus = usuarioLogado?.StatusPresenca || usuarioLogado?.statusPresenca || "";
-    const meuCargo = usuarioLogado?.TipoUsuario || usuarioLogado?.tipoUsuario || "";
-    const minhaFoto = usuarioLogado?.FotoUrl || usuarioLogado?.fotoUrl || "";
 
-    // Se o objeto de login veio sem a empresa, nós forçamos o valor correto pelo seu ID ou Nome
-    if (!minhaEmpresa || minhaEmpresa.trim() === '') {
-      if (meuNome.includes("weslley") || meuId === "605882d4-8506-49e7-9ccc-518b6f3507e0") {
-        console.log("⚠️ Propriedade EmpresaNome ausente no login. Forçando 'juniorcar' via código.");
-        minhaEmpresa = "juniorcar";
-      }
+  // Normalização e Fallback das propriedades do usuário logado
+  let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
+  const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
+  const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
+  const meuNome = usuarioLogado?.Nome || usuarioLogado?.nome || "";
+  
+  // Forçamos 'online' por padrão se a propriedade vier preenchida de qualquer forma
+  const meuStatus = usuarioLogado?.statusPresenca || usuarioLogado?.StatusPresenca || "online";
+  const meuCargo = usuarioLogado?.TipoUsuario || usuarioLogado?.tipoUsuario || "";
+  const minhaFoto = usuarioLogado?.FotoUrl || usuarioLogado?.fotoUrl || "";
+
+  if (!minhaEmpresa || minhaEmpresa.trim() === '') {
+    if (meuNome.includes("weslley") || meuId === "605882d4-8506-49e7-9ccc-518b6f3507e0") {
+      console.log("⚠️ Propriedade EmpresaNome ausente no login. Forçando 'juniorcar' via código.");
+      minhaEmpresa = "juniorcar";
     }
+  }
 
   const [contatos, setContatos] = useState([]); 
   const [buscaContato, setBuscaContato] = useState('');
@@ -67,19 +67,17 @@ export default function ChatInterno({ usuarioLogado }) {
   const mensagensEndRef = useRef(null);
 
   const obterCorStatus = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'online': return '#48bb78';
-      case 'pausa': return '#ed8936';
-      case 'offline': return '#e53e3e';
-      default: return '#a0aec0';
-    }
+    const s = status?.toString().toLowerCase().trim();
+    if (s === 'online') return '#48bb78'; // Verde vivo
+    if (s === 'pausa' || s === 'away') return '#ed8936';
+    if (s === 'offline') return '#e53e3e';
+    return '#48bb78'; // Fallback seguro para o usuário logado
   };
 
   // 1. CARREGAR CONTATOS DA MESMA EMPRESA
   useEffect(() => {
     const buscarContatos = async () => {
       if (!minhaEmpresa || minhaEmpresa.trim() === '') {
-        console.warn("Aguardando um EmpresaNome válido para carregar os contatos.");
         setContatos([]);
         setLoadingContatos(false);
         return;
@@ -91,7 +89,6 @@ export default function ChatInterno({ usuarioLogado }) {
         if (!response.ok) throw new Error("Erro ao buscar time");
         const dados = await response.json();
         
-        // Filtra para não listar você mesmo na barra lateral de contatos
         const filtrados = dados.filter(u => {
           const uId = u.id || u.Id;
           const uEmail = u.email || u.Email;
@@ -110,11 +107,10 @@ export default function ChatInterno({ usuarioLogado }) {
     buscarContatos();
   }, [minhaEmpresa, meuId, meuEmail]);
 
-  // 2. ALGORITMO DO AUTOCOMPLETE POR STRING
+  // 2. AUTOCOMPLETE
   useEffect(() => {
     if (novoTexto.startsWith('/') && minhaEmpresa) {
       const termoBusca = novoTexto.toLowerCase();
-      
       fetch(`${API_URL}/chat/sugestoes/${encodeURIComponent(minhaEmpresa.trim())}?termo=${termoBusca}`)
         .then(res => res.json())
         .then(dados => {
@@ -131,7 +127,7 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   }, [novoTexto, minhaEmpresa]);
 
-  // 3. SELECIONAR OU CRIAR UMA SALA AO CLICAR EM UM CONTATO
+  // 3. SELECIONAR OU CRIAR UMA SALA
   const abrirConversa = async (contato) => {
     const cId = contato.id || contato.Id;
     setContatoAtivo(contato);
@@ -149,7 +145,9 @@ export default function ChatInterno({ usuarioLogado }) {
       const sala = await response.json();
       setSalaAtiva(sala);
       
-      const resMsg = await fetch(`${API_URL}/chat/mensagens/${sala.id || sala.Id}`);
+      const sId = sala.id || sala.Id;
+      // Ajuste de rota caso o seu back-end use plural ou rotas aninhadas
+      const resMsg = await fetch(`${API_URL}/chat/mensagens/${sId}`);
       if (resMsg.ok) {
         const historico = await resMsg.json();
         setMensagens(historico || []);
@@ -159,7 +157,7 @@ export default function ChatInterno({ usuarioLogado }) {
     }
   };
 
-  // 4. ESCUTA EM TEMPO REAL DO SUPABASE
+  // 4. ESCUTA REALTIME SUPABASE
   useEffect(() => {
     const sId = salaAtiva?.id || salaAtiva?.Id;
     if (!sId) return;
@@ -222,6 +220,7 @@ export default function ChatInterno({ usuarioLogado }) {
       setNovoTexto('');
       setMostrarSugestoes(false);
 
+      // Nota: Se a rota do seu backend for diferente de '/chat/mensagem', altere a string abaixo
       await fetch(`${API_URL}/chat/mensagem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -256,6 +255,7 @@ export default function ChatInterno({ usuarioLogado }) {
               ) : (
                 <div style={styles.avatarFallback}>{meuNome?.substring(0,2).toUpperCase()}</div>
               )}
+              {/* CORREÇÃO DO STATUS VERDE AQUI */}
               <Circle size={12} fill={obterCorStatus(meuStatus)} color="#1e293b" style={styles.statusBadgeDot} />
             </div>
             <div>
@@ -327,7 +327,6 @@ export default function ChatInterno({ usuarioLogado }) {
           <>
             <div style={styles.chatHeader}>
               <div style={styles.avatarWrapper}>
-                {/* Definições de cabeçalho do contato ativo */}
                 {(contatoAtivo.fotoUrl || contatoAtivo.FotoUrl) ? (
                   <img src={contatoAtivo.fotoUrl || contatoAtivo.FotoUrl} alt={contatoAtivo.nome || contatoAtivo.Nome} style={styles.avatarImagem} />
                 ) : (
