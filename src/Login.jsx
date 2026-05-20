@@ -21,6 +21,7 @@ export default function Login({ aoEsquecerSenha }) {
       if (error) throw error;
     } catch (error) {
       alert("Erro ao entrar: " + error.message);
+      handleLogin()
     } finally {
       setLoading(false);
     }

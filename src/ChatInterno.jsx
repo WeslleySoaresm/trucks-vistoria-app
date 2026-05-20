@@ -222,7 +222,7 @@ export default function ChatInterno({ usuarioLogado }) {
               ) : (
                 <div style={styles.avatarFallback}>{usuarioLogado.nome?.substring(0,2).toUpperCase()}</div>
               )}
-              <Circle size={12} fill={obterCorStatus(usuarioLogado.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
+              <Circle size={12} fill={obtenerCorStatus(usuarioLogado.statusPresenca)} color="#1e293b" style={styles.statusBadgeDot} />
             </div>
             <div>
               <span style={styles.nomePerfil}>{usuarioLogado.nome}</span>
