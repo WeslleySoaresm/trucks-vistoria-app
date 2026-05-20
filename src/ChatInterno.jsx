@@ -35,22 +35,19 @@ const vibrarDispositivo = () => {
 export default function ChatInterno({ usuarioLogado }) {
   console.log("CONTEÚDO DO USUÁRIO LOGADO NO CHAT:", usuarioLogado);
 
-  // Normalização e Fallback das propriedades do usuário logado
+  // --- CAPTURA DE PROPRIEDADES COM FALLBACK SEGURO ---
   let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
   const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
   const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
   const meuNome = usuarioLogado?.Nome || usuarioLogado?.nome || "";
-  
-  // Forçamos 'online' por padrão se a propriedade vier preenchida de qualquer forma
   const meuStatus = usuarioLogado?.statusPresenca || usuarioLogado?.StatusPresenca || "online";
   const meuCargo = usuarioLogado?.TipoUsuario || usuarioLogado?.tipoUsuario || "";
   const minhaFoto = usuarioLogado?.FotoUrl || usuarioLogado?.fotoUrl || "";
 
+  // Se a empresa vier em branco do login (ex: w@w.com), força 'juniorcar' automaticamente
   if (!minhaEmpresa || minhaEmpresa.trim() === '') {
-    if (meuNome.includes("weslley") || meuId === "605882d4-8506-49e7-9ccc-518b6f3507e0") {
-      console.log("⚠️ Propriedade EmpresaNome ausente no login. Forçando 'juniorcar' via código.");
-      minhaEmpresa = "juniorcar";
-    }
+    console.log(`⚠️ Empresa ausente para o e-mail: ${meuEmail}. Forçando 'juniorcar' via código.`);
+    minhaEmpresa = "juniorcar";
   }
 
   const [contatos, setContatos] = useState([]); 
