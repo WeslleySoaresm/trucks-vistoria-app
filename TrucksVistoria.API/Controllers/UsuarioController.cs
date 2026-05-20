@@ -77,6 +77,33 @@ namespace MobileTrucks.Controllers
                 return StatusCode(500, $"Erro ao buscar usuários: {ex.Message}");
             }
         }
+
+        // GET: api/usuario/perfil?email=w@w.com
+        [HttpGet("perfil")]
+        public async Task<IActionResult> ObterPerfilPorEmail([FromQuery] string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return BadRequest("O e-mail é obrigatório.");
+            }
+
+            try
+            {
+                var usuario = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower().Trim());
+
+                if (usuario == null)
+                {
+                    return NotFound($"Usuário com o e-mail {email} não foi encontrado no banco local.");
+                }
+
+                return Ok(usuario);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro ao buscar perfil: {ex.Message}");
+            }
+}
     }
 
     public class UsuarioRequest

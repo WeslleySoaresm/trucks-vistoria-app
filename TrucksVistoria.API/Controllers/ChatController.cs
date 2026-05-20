@@ -19,22 +19,17 @@ namespace MobileTrucks.Controllers
             _context = context;
         }
 
-        // 1. POST: api/chat/sala (Abre ou cria chat entre 2 usuários)
+        // 1. POST: api/chat/sala
         [HttpPost("sala")]
-        public async Task<IActionResult> ObterOuCriarSala([FromQuery] Guid usuarioId2, [FromBody] NovaSalaRequest request)
+        public async Task<IActionResult> ObterOuCriarSala([FromBody] NovaSalaRequest request)
         {
             try 
             {
                 if (string.IsNullOrWhiteSpace(request.EmpresaNome))
-                {
                     return BadRequest("O nome da empresa é obrigatório.");
-                }
 
                 string empresaNormalizada = request.EmpresaNome.ToLower().Trim();
 
-                // Procura se já existe uma sala associada a esta empresa
-                // Nota: Para sistemas em produção com alta escalabilidade, o ideal seria validar 
-                // a tabela ChatParticipantes. Para fins de simplificação da sua estrutura atual:
                 var salaExistente = await _context.ChatSalas
                     .FirstOrDefaultAsync(s => s.EmpresaNome.ToLower() == empresaNormalizada && s.Tipo == "individual");
 
@@ -62,26 +57,7 @@ namespace MobileTrucks.Controllers
             }
         }
 
-        // 2. GET: api/chat/mensagens/{salaId} (Busca o histórico de uma sala)
-        [HttpGet("mensagens/{salaId}")]
-        public async Task<IActionResult> ObterMensagens(Guid salaId)
-        {
-            try
-            {
-                var mensagens = await _context.ChatMensagens
-                    .Where(m => m.SalaId == salaId)
-                    .OrderBy(m => m.DataEnvio)
-                    .ToListAsync();
-
-                return Ok(mensagens);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erro ao obter mensagens: {ex.Message}");
-            }
-        }
-
-        // 3. POST: api/chat/mensagem (Envia uma nova mensagem)
+        // 2. POST: api/chat/mensagem (SALVA A MENSAGEM NO BANCO - FIM DO ERRO 404)
         [HttpPost("mensagem")]
         public async Task<IActionResult> EnviarMensagem([FromBody] NovaMensagemRequest request)
         {
@@ -110,27 +86,26 @@ namespace MobileTrucks.Controllers
             }
         }
 
-        // 4. POST: api/chat/mensagens/visualizar/{id} (Marca como lida)
-        [HttpPost("mensagens/visualizar/{id}")]
-        public async Task<IActionResult> MarcarVisualizada(Guid id)
+        // 3. GET: api/chat/mensagens/{salaId} (TRAZ O HISTÓRICO DAS MENSAGENS)
+        [HttpGet("mensagens/{salaId}")]
+        public async Task<IActionResult> ObterMensagens(Guid salaId)
         {
             try
             {
-                var mensagem = await _context.ChatMensagens.FindAsync(id);
-                if (mensagem == null) return NotFound();
+                var mensagens = await _context.ChatMensagens
+                    .Where(m => m.SalaId == salaId)
+                    .OrderBy(m => m.DataEnvio)
+                    .ToListAsync();
 
-                mensagem.Visualizado = true;
-                await _context.SaveChangesAsync();
-
-                return Ok();
+                return Ok(mensagens);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro ao atualizar status: {ex.Message}");
+                return StatusCode(500, $"Erro ao recuperar mensagens: {ex.Message}");
             }
         }
 
-        // 5. GET: api/chat/sugestoes/juniorcar?termo=/
+        // 4. GET: api/chat/sugestoes/juniorcar?termo=/
         [HttpGet("sugestoes/{empresaNome}")]
         public async Task<IActionResult> ObterSugestoes([FromRoute] string empresaNome, [FromQuery] string termo)
         {

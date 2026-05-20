@@ -7,11 +7,9 @@ import Dashboard from './Dashboard';
 import DashboardFuncionario from './DashboardFuncionario';
 import HistoricoVistorias from './HistoricoVistorias'; 
 import Instrucoes from './Instrucoes';
-// IMPORTANTE: Adicionado o ícone MessageSquare para a aba do chat e UserPlus para o cadastro
 import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car, MessageSquare, UserPlus } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
-// 1. IMPORTAÇÃO DO SEU NOVO COMPONENTE DE CHAT INTERNO
 import ChatInterno from './ChatInterno'; 
 import FormCadastroUsuario from './FormCadastroUsuario';
 
@@ -21,12 +19,17 @@ export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('nova');
   const [telaRecuperacao, setTelaRecuperacao] = useState(false); 
   
+  // 💾 ESTADO PARA O PERFIL OFICIAL DO POSTGRESQL (Evita injeções e gambiarras)
+  const [perfilDb, setPerfilDb] = useState(null);
+  const [carregandoPerfil, setCarregandoPerfil] = useState(false);
+
   const [modoAtualizarSenha, setModoAtualizarSenha] = useState(false);
   const [novaSenha, setNovaSenha] = useState('');
   const [atualizando, setAtualizando] = useState(false);
 
   const emailAdmin = import.meta.env.VITE_EMAIL_AD || "";
 
+  // 1. Ciclo de Vida: Monitoramento da Sessão de Autenticação
   useEffect(() => {
     document.documentElement.classList.add('notranslate');
     document.documentElement.setAttribute('lang', 'pt-BR');
@@ -44,6 +47,10 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       
+      if (event === 'SIGNED_OUT') {
+        setPerfilDb(null); // Limpa o estado ao deslogar
+      }
+
       if (event === 'PASSWORD_RECOVERY') {
         setModoAtualizarSenha(true);
       }
@@ -57,6 +64,33 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  // 2. Sincronização Arquitetural: Busca o Perfil Real no Banco Local pelo E-mail logado
+  useEffect(() => {
+    async function carregarPerfilUsuario() {
+      if (!session?.user?.email) return;
+
+      setCarregandoPerfil(true);
+      try {
+        const emailSanitizado = session.user.email.toLowerCase().trim();
+        // Chamada ao novo endpoint limpo da API
+        const response = await fetch(`https://trucks-vistoria-app-1.onrender.com/api/usuario/perfil?email=${emailSanitizado}`);
+        
+        if (response.ok) {
+          const dadosUsuario = await response.json();
+          setPerfilDb(dadosUsuario);
+        } else {
+          console.warn("Usuário autenticado, mas não localizado na base local do PostgreSQL.");
+        }
+      } catch (error) {
+        console.error("Erro de conexão ao sincronizar perfil com a API local:", error);
+      } finally {
+        setCarregandoPerfil(false);
+      }
+    }
+
+    carregarPerfilUsuario();
+  }, [session]);
 
   const handleAtualizarSenha = async (e) => {
     e.preventDefault();
@@ -79,6 +113,7 @@ export default function App() {
   };
 
   if (loading) return <div style={s.loadingScreen}>Iniciando sistema...</div>;
+  if (carregandoPerfil) return <div style={s.loadingScreen}>Sincronizando dados com o servidor...</div>;
 
   if (modoAtualizarSenha) {
     return (
@@ -110,18 +145,11 @@ export default function App() {
   }
 
   const userEmail = session?.user?.email ? session.user.email.toLowerCase().trim() : "";
-  const adminCheck = emailAdmin ? emailAdmin.toLowerCase().trim() : "";
-  const isAdmin = userEmail === adminCheck;
-
-  // 2. MONTAGEM DINÂMICA DO OBJETO DE USUÁRIO LOGADO PARA O CHAT
-  const dadosUsuarioChat = {
-    id: session.user.id,
-    nome: session.user.user_metadata?.nome || userEmail.split('@')[0], 
-    empresaId: session.user.user_metadata?.empresaId || "00000000-0000-0000-0000-000000000000", 
-    statusPresenca: session.user.user_metadata?.statusPresenca || "online",
-    tipoUsuario: isAdmin ? "gestor" : "funcionario",
-    fotoUrl: session.user.user_metadata?.fotoUrl || null
-  };
+  
+  // 🔐 Validação de Regras Administrativas baseadas no perfil real retornado do banco
+  const isAdmin = perfilDb 
+    ? (perfilDb.tipoUsuario?.toLowerCase() === 'admin' || perfilDb.cargo?.toLowerCase() === 'admin' || perfilDb.tipoUsuario?.toLowerCase() === 'gestor')
+    : (userEmail === (emailAdmin ? emailAdmin.toLowerCase().trim() : ""));
 
   return (
     <div style={s.appWrapper}>
@@ -135,7 +163,9 @@ export default function App() {
           }}>
             {isAdmin ? "GESTOR" : "EQUIPE"}
           </span>
-          <span style={s.userEmailText}>{userEmail}</span>
+          <span style={s.userEmailText}>
+            {userEmail} {perfilDb?.empresaNome ? `(${perfilDb.empresaNome.toUpperCase()})` : ''}
+          </span>
         </div>
         
         <button 
@@ -198,7 +228,7 @@ export default function App() {
           <Car size={18} /> CheckCar
         </button>
 
-        {/* 3. NOVA ABA DO CHAT: Visível para Gestores e Funcionários */}
+        {/* ABA DO CHAT: Visível para toda a operação mapeada */}
         <button 
           onClick={() => setAbaAtiva('chat')} 
           style={abaAtiva === 'chat' ? s.tabActive : s.tab}
@@ -251,9 +281,9 @@ export default function App() {
           <HistoricoVistorias user={session.user} />
         )}
 
-        {/* 4. RENDERIZAÇÃO DO COMPONENTE DO CHAT INTERNO */}
-        {abaAtiva === 'chat' && (
-          <ChatInterno usuarioLogado={dadosUsuarioChat} />
+        {/* RENDERING DO CHAT UTILIZANDO O CONTEXTO DO PROVEDOR LOCAL DO POSTGRES */}
+        {abaAtiva === 'chat' && perfilDb && (
+          <ChatInterno usuarioLogado={perfilDb} />
         )}
 
         {/* 🔒 RENDERIZAÇÃO EXCLUSIVA DO FORMULÁRIO DE CADASTRO */}
