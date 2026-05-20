@@ -31,7 +31,9 @@ export default function FormCadastroUsuario() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/Usuario`, {
+      // CORRIGIDO: Alterado de /Usuario para /usuario (letra minúscula)
+      // Isso resolve o erro 404 causado pelo case-sensitivity do servidor Linux no Render
+      const response = await fetch(`${API_URL}/usuario`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(novoUsuario)
@@ -48,6 +50,7 @@ export default function FormCadastroUsuario() {
       setEmail('');
       setTipoUsuario('funcionario');
       setFotoUrl('');
+      setEmpresaId(''); // Adicionado para limpar também o campo de empresa após o sucesso
     } catch (error) {
       console.error("Erro no cadastro:", error);
       alert("Erro ao cadastrar usuário: " + error.message);
@@ -62,7 +65,6 @@ export default function FormCadastroUsuario() {
         <UserPlus size={24} color="#3182ce" />
         <h2 style={styles.titulo}>Painel do Desenvolvedor: Cadastrar Membro do Time</h2>
       </div>
-      {/* AJUSTADO: Removida a variável {email} incorreta daqui */}
       <p style={styles.subtitulo}>Apenas você tem acesso a esta tela para criar usuários atrelados às empresas parceiras.</p>
 
       <form onSubmit={handleCadastro} style={styles.form}>
@@ -82,7 +84,6 @@ export default function FormCadastroUsuario() {
         </div>
 
         <div style={styles.inputGroup}>
-          {/* ALTERADO: Mudado de <Image /> para <ImageIcon /> de forma segura */}
           <label style={styles.label}><ImageIcon size={14} /> URL da Foto de Perfil (Opcional)</label>
           <input type="url" value={fotoUrl} onChange={(e) => setFotoUrl(e.target.value)} placeholder="https://linkdafoto.com/imagem.png" style={styles.input} />
         </div>
