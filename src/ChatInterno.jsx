@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from './supabaseClient';
+import * as Ably from 'ably';
 import { Search, Send, Mic, ImageIcon, Circle, Shield, User, Check, CheckCheck } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
+
+// CHAVE PÚBLICA GRATUITA DO ABLY (Substitua pela sua chave obtida em ably.com se preferir)
+// Formato padrão da chave: "ID_DO_APP:SEGREDO"
+const ABLY_KEY = "Sua_Chave_Ably_Aqui"; 
 
 const tocarSomNotificacao = () => {
   try {
@@ -14,7 +18,7 @@ const tocarSomNotificacao = () => {
     gainNode.connect(audioCtx.destination);
 
     oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(580, audioCtx.currentTime); // Frequência suave estilo Telegram
+    oscillator.frequency.setValueAtTime(580, audioCtx.currentTime); // Frequência suave do Telegram
     
     gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
@@ -22,13 +26,7 @@ const tocarSomNotificacao = () => {
     oscillator.start(audioCtx.currentTime);
     oscillator.stop(audioCtx.currentTime + 0.15);
   } catch (err) {
-    console.warn("Navegador bloqueou áudio automatizado temporariamente:", err);
-  }
-};
-
-const vibrarDispositivo = () => {
-  if ('vibrate' in navigator) {
-    navigator.vibrate([80, 50, 80]);
+    console.warn("Áudio automático bloqueado pelo navegador. Interaja com a página primeiro.");
   }
 };
 
@@ -42,44 +40,75 @@ export default function ChatInterno({
   setMensagens 
 }) {
 
-  let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "";
+  let minhaEmpresa = usuarioLogado?.EmpresaNome || usuarioLogado?.empresaNome || "juniorcar";
   const meuId = usuarioLogado?.Id || usuarioLogado?.id || "";
   const meuEmail = usuarioLogado?.Email || usuarioLogado?.email || "";
   const meuNome = usuarioLogado?.Nome || usuarioLogado?.nome || "";
-  const meuStatus = usuarioLogado?.statusPresenca || usuarioLogado?.StatusPresenca || "online";
   const meuCargo = usuarioLogado?.TipoUsuario || usuarioLogado?.tipoUsuario || "";
   const minhaFoto = usuarioLogado?.FotoUrl || usuarioLogado?.fotoUrl || "";
 
-  if (!minhaEmpresa || minhaEmpresa.trim() === '') {
-    minhaEmpresa = "juniorcar";
-  }
-
   const [contatos, setContatos] = useState([]); 
+  const [usuariosOnline, setUsuariosOnline] = useState({}); // Controla dinamicamente quem está ativo no WebSocket
   const [buscaContato, setBuscaContato] = useState('');
   const [novoTexto, setNovoTexto] = useState('');
   const [loadingContatos, setLoadingContatos] = useState(true);
-  const [sugestoes, setSugestoes] = useState([]);
-  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
   const mensagensEndRef = useRef(null);
+  const ablyClientRef = useRef(null);
+  const canalMensagensRef = useRef(null);
+  const canalPresencaGlobalRef = useRef(null);
 
-  const obterCorStatus = (status) => {
-    const s = status?.toString().toLowerCase().trim();
-    if (s === 'online') return '#00c73c'; // Verde vivo nativo do Telegram
-    if (s === 'pausa' || s === 'away' || s === 'ausente') return '#ff9f0a'; // Laranja de atenção
-    return '#8e8e93'; // Cinza fosco para usuários offline
-  };
+  // 1. INICIALIZAÇÃO DO ABLY E CONTROLE DE PRESENÇA EM TEMPO REAL
+  useEffect(() => {
+    if (!meuId) return;
 
-  // 1. CARREGAR CONTATOS DA MESMA EMPRESA
+    // Conecta ao serviço de WebSocket do Ably informando quem é o usuário atual
+    const ably = new Ably.Realtime({
+      key: ABLY_KEY,
+      clientId: meuId
+    });
+    ablyClientRef.current = ably;
+
+    // Canal global da empresa para monitorar quem está online/offline
+    const canalPresenca = ably.channels.get(`presenca-${minhaEmpresa}`);
+    canalPresencaGlobalRef.current = canalPresenca;
+
+    // Entra no canal informando seu nome e foto para os colegas
+    canalPresenca.presence.enter({ nome: meuNome, foto: minhaFoto });
+
+    // Escuta quem entra, sai ou muda de status na empresa
+    const atualizarPresenca = async () => {
+      const membros = await canalPresenca.presence.get();
+      const mapaOnline = {};
+      membros.forEach(m => {
+        mapaOnline[m.clientId] = true; // Se está na lista, está online
+      });
+      setUsuariosOnline(mapaOnline);
+    };
+
+    canalPresenca.presence.subscribe('enter', atualizarPresenca);
+    canalPresenca.presence.subscribe('leave', atualizarPresenca);
+    canalPresenca.presence.subscribe('update', atualizarPresenca);
+    
+    // Executa a primeira carga de presença
+    atualizarPresenca();
+
+    return () => {
+      canalPresenca.presence.leave();
+      ably.close();
+    };
+  }, [meuId, minhaEmpresa]);
+
+  // 2. CARREGAR LISTA DE INTEGRANTES DO TIME
   useEffect(() => {
     const buscarContatos = async () => {
-      if (!minhaEmpresa) return;
       setLoadingContatos(true);
       try {
         const response = await fetch(`${API_URL}/usuario?empresaNome=${encodeURIComponent(minhaEmpresa.trim())}`);
-        if (!response.ok) throw new Error("Erro ao buscar time");
+        if (!response.ok) throw new Error("Erro ao carregar time");
         const dados = await response.json();
         
+        // Remove você mesmo da barra lateral de contatos
         const filtrados = dados.filter(u => {
           const uId = u.id || u.Id;
           const uEmail = u.email || u.Email;
@@ -88,47 +117,29 @@ export default function ChatInterno({
 
         setContatos(filtrados);
       } catch (err) {
-        console.error("Erro ao carregar contatos do chat:", err);
+        console.error("Erro ao processar contatos:", err);
       } finally {
         setLoadingContatos(false);
       }
     };
 
-    buscarContatos();
+    if (minhaEmpresa) buscarContatos();
   }, [minhaEmpresa, meuId, meuEmail]);
 
-  // 2. AUTOCOMPLETE DE EFICIÊNCIA VIA COMANCO '/'
-  useEffect(() => {
-    if (novoTexto.startsWith('/') && minhaEmpresa) {
-      const termoBusca = novoTexto.toLowerCase();
-      fetch(`${API_URL}/chat/sugestoes/${encodeURIComponent(minhaEmpresa.trim())}?termo=${termoBusca}`)
-        .then(res => res.json())
-        .then(dados => {
-          setSugestoes(dados || []);
-          setMostrarSugestoes(dados && dados.length > 0);
-        })
-        .catch(() => setMostrarSugestoes(false));
-    } else {
-      setMostrarSugestoes(false);
-    }
-  }, [novoTexto, minhaEmpresa]);
-
-  // 3. SELECIONAR OU CRIAR UMA SALA ESPECÍFICA (Isolando Histórico)
+  // 3. SELECIONAR CONVERSA E ABRIR CANAL PRIVADO (Evita duplicação de mensagens)
   const abrirConversa = async (contato) => {
     const cId = contato.id || contato.Id;
     setContatoAtivo(contato);
-    
+    setMensagens([]); // Limpa a tela anterior imediatamente para evitar fantasmas
+
     try {
       const response = await fetch(`${API_URL}/chat/sala?usuarioId2=${cId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          empresaNome: minhaEmpresa.trim(),
-          tipo: 'individual'
-        })
+        body: JSON.stringify({ empresaNome: minhaEmpresa.trim(), tipo: 'individual' })
       });
       
-      if (!response.ok) throw new Error("Erro ao obter/criar sala");
+      if (!response.ok) throw new Error("Erro ao obter sala");
       const sala = await response.json();
       setSalaAtiva(sala);
       
@@ -139,52 +150,49 @@ export default function ChatInterno({
         setMensagens(historico || []);
       }
     } catch (err) {
-      console.error("Erro ao inicializar sala de chat:", err);
+      console.error("Erro ao inicializar sala de conversa:", err);
     }
   };
 
-  // 4. FIX REALTIME: FILTRAGEM E ESCUTA BLINDADA POR SALAID ATIVA
+  // 4. ESCUTA EM TEMPO REAL ISOLADA VIA ABLY WEBSOCKET
   useEffect(() => {
     const sId = salaAtiva?.id || salaAtiva?.Id;
-    if (!sId) return;
+    if (!sId || !ablyClientRef.current) return;
 
-    const canalRealtime = supabase
-      .channel(`sala-${sId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'MobileTrucks', table: 'ChatMensagens', filter: `SalaId=eq.${sId}` },
-        (payload) => {
-          const novaMsg = payload.new;
+    // Desinscreve do canal anterior se houver
+    if (canalMensagensRef.current) {
+      canalMensagensRef.current.unsubscribe();
+    }
 
-          // Validação crucial: Impede que mensagens de outras salas vazem para o contato selecionado
-          if (novaMsg.SalaId === sId) {
-            setMensagens(prev => {
-              if (prev.some(m => (m.id || m.Id) === novaMsg.Id)) return prev;
-              return [...prev, {
-                id: novaMsg.Id,
-                salaId: novaMsg.SalaId,
-                remetenteId: novaMsg.RemetenteId,
-                texto: novaMsg.Texto,
-                tipoMidia: novaMsg.TipoMidia,
-                arquivoUrl: novaMsg.ArquivoUrl,
-                dataEnvio: novaMsg.DataEnvio,
-                entregue: novaMsg.Entregue,
-                visualizado: novaMsg.Visualizado
-              }];
-            });
-            
-            if (novaMsg.RemetenteId !== meuId) {
-              tocarSomNotificacao();
-              vibrarDispositivo();
-              fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
-            }
-          }
-        }
-      )
-      .subscribe();
+    // Assina o canal privado EXCLUSIVO desta sala
+    const canalSala = ablyClientRef.current.channels.get(`sala-${sId}`);
+    canalMensagensRef.current = canalSala;
+
+    canalSala.subscribe('nova-mensagem', (message) => {
+      const novaMsg = message.data;
+
+      setMensagens(prev => {
+        // Evita duplicar na tela se a mensagem já foi renderizada de forma otimista
+        if (prev.some(m => (m.id || m.Id) === novaMsg.Id)) return prev;
+        return [...prev, {
+          id: novaMsg.Id,
+          salaId: novaMsg.SalaId,
+          remetenteId: novaMsg.RemetenteId,
+          texto: novaMsg.Texto,
+          dataEnvio: novaMsg.DataEnvio,
+          visualizado: novaMsg.Visualizado
+        }];
+      });
+
+      // Toca o som de notificação apenas se o remetente for o outro usuário
+      if (novaMsg.RemetenteId !== meuId) {
+        tocarSomNotificacao();
+        fetch(`${API_URL}/chat/mensagens/visualizar/${novaMsg.Id}`, { method: 'POST' });
+      }
+    });
 
     return () => {
-      supabase.removeChannel(canalRealtime);
+      canalSala.unsubscribe();
     };
   }, [salaAtiva, meuId, setMensagens]);
 
@@ -192,7 +200,7 @@ export default function ChatInterno({
     mensagensEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [mensagens]);
 
-  // 5. ENVIAR MENSAGEM COM ATUALIZAÇÃO OTIMISTA (Sem delay de renderização)
+  // 5. ENVIO INSTANTÂNEO COM ATUALIZAÇÃO OTIMISTA
   const enviarMensagem = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     const sId = salaAtiva?.id || salaAtiva?.Id;
@@ -200,19 +208,34 @@ export default function ChatInterno({
 
     const textoEnvio = novoTexto;
     setNovoTexto('');
-    setMostrarSugestoes(false);
 
-    const msgOtimista = {
-      id: Math.random().toString(),
-      salaId: sId,
-      remetenteId: meuId,
-      texto: textoEnvio,
-      tipoMidia: 'texto',
-      dataEnvio: new Date().toISOString(),
-      visualizado: false
+    const idMensagemUnica = Math.random().toString(36).substring(7);
+
+    const corpoMensagem = {
+      Id: idMensagemUnica,
+      SalaId: sId,
+      RemetenteId: meuId,
+      Texto: textoEnvio,
+      DataEnvio: new Date().toISOString(),
+      Visualizado: false
     };
-    setMensagens(prev => [...prev, msgOtimista]);
 
+    // Renderiza na tela na mesma hora (Estilo Telegram)
+    setMensagens(prev => [...prev, {
+      id: corpoMensagem.Id,
+      salaId: corpoMensagem.SalaId,
+      remetenteId: corpoMensagem.RemetenteId,
+      texto: corpoMensagem.Texto,
+      dataEnvio: corpoMensagem.DataEnvio,
+      visualizado: corpoMensagem.Visualizado
+    }]);
+
+    // Publica no WebSocket do Ably para chegar instantaneamente na outra ponta
+    if (canalMensagensRef.current) {
+      canalMensagensRef.current.publish('nova-mensagem', corpoMensagem);
+    }
+
+    // Salva no seu banco de dados em segundo plano
     try {
       await fetch(`${API_URL}/chat/mensagem`, {
         method: 'POST',
@@ -225,28 +248,21 @@ export default function ChatInterno({
         })
       });
     } catch (err) {
-      console.error("Erro ao disparar mensagem:", err);
+      console.error("Erro ao persistir mensagem no banco:", err);
     }
   };
 
-  const selecionarSugestao = (sugestao) => {
-    setNovoTexto(sugestao.textoCompleto || sugestao.TextoCompleto);
-    setMostrarSugestoes(false);
-    const sugId = sugestao.id || sugestao.Id;
-    fetch(`${API_URL}/chat/sugestoes/computar-uso/${sugId}`, { method: 'POST' });
-  };
-
   const contatosFiltrados = contatos.filter(c => {
-    const cNome = c.nome || c.Nome || "";
-    return cNome.toLowerCase().includes(buscaContato.toLowerCase());
+    const nome = c.nome || c.Nome || "";
+    return nome.toLowerCase().includes(buscaContato.toLowerCase());
   });
 
-  // Mapeamento correto do status do contato ativo para o cabeçalho
-  const statusContatoAtivo = contatoAtivo?.statusPresenca || contatoAtivo?.StatusPresenca || "offline";
+  const contatoAtivoId = contatoAtivo?.id || contatoAtivo?.Id;
+  const estaOnline = usuariosOnline[contatoAtivoId] === true;
 
   return (
     <div style={styles.chatContainer}>
-      {/* BARRA LATERAL (CONTATOS) */}
+      {/* SIDEBAR TELEGRAM PREMIUM */}
       <div style={styles.sidebar}>
         <div style={styles.sidebarHeader}>
           <div style={styles.perfilLogado}>
@@ -256,7 +272,7 @@ export default function ChatInterno({
               ) : (
                 <div style={styles.avatarFallback}>{meuNome?.substring(0,2).toUpperCase()}</div>
               )}
-              <Circle size={10} fill={obterCorStatus(meuStatus)} color="#0f172a" style={styles.statusBadgeDot} />
+              <Circle size={10} fill="#00c73c" color="#17212b" style={styles.statusBadgeDot} />
             </div>
             <div>
               <span style={styles.nomePerfil}>{meuNome}</span>
@@ -265,7 +281,7 @@ export default function ChatInterno({
           </div>
           
           <div style={styles.searchBox}>
-            <Search size={16} color="#64748b" style={styles.searchIcon} />
+            <Search size={16} color="#707579" style={styles.searchIcon} />
             <input 
               type="text" 
               placeholder="Buscar no time..." 
@@ -278,7 +294,7 @@ export default function ChatInterno({
 
         <div style={styles.contatosList}>
           {loadingContatos ? (
-            <p style={styles.AvisoLinha}>Carregando integrantes...</p>
+            <p style={styles.AvisoLinha}>Sincronizando canais...</p>
           ) : contatosFiltrados.length === 0 ? (
             <p style={styles.AvisoLinha}>Nenhum membro ativo.</p>
           ) : (
@@ -286,10 +302,11 @@ export default function ChatInterno({
               const cId = c.id || c.Id;
               const cNome = c.nome || c.Nome;
               const cFoto = c.fotoUrl || c.FotoUrl;
-              const cStatus = c.statusPresenca || c.StatusPresenca || "offline";
               const cCargo = c.tipoUsuario || c.TipoUsuario;
-              const ativoId = contatoAtivo?.id || contatoAtivo?.Id;
-              const selecionado = ativoId === cId;
+              const selecionado = contatoAtivoId === cId;
+              
+              // Verifica se o id do usuário está na lista de presença do WebSocket
+              const ativoAgora = usuariosOnline[cId] === true;
 
               return (
                 <div 
@@ -297,7 +314,7 @@ export default function ChatInterno({
                   onClick={() => abrirConversa(c)}
                   style={{
                     ...styles.contatoRow,
-                    background: selecionado ? '#2b5278' : 'transparent' // Azul clássico do Telegram Premium
+                    background: selecionado ? '#2b5278' : 'transparent'
                   }}
                 >
                   <div style={styles.avatarWrapper}>
@@ -306,19 +323,18 @@ export default function ChatInterno({
                     ) : (
                       <div style={{...styles.avatarFallback, backgroundColor: selecionado ? '#182533' : '#24303f'}}>{cNome?.substring(0,2).toUpperCase()}</div>
                     )}
-                    <Circle size={10} fill={obterCorStatus(cStatus)} color={selecionado ? '#2b5278' : '#0f172a'} style={styles.statusBadgeDot} />
+                    <Circle size={10} fill={ativoAgora ? '#00c73c' : '#8e8e93'} color={selecionado ? '#2b5278' : '#17212b'} style={styles.statusBadgeDot} />
                   </div>
                   <div style={{ flex: 1, overflow: 'hidden' }}>
                     <div style={styles.contatoNomeLinha}>
                       <span style={{...styles.contatoNome, color: '#fff'}}>{cNome}</span>
-                      {cCargo === 'gestor' && <Shield size={12} color={selecionado ? '#fff' : '#63b3ed'} title="Gestor" />}
+                      {cCargo === 'gestor' && <Shield size={12} color={selecionado ? '#fff' : '#5288c1'} />}
                     </div>
-                    {/* Correção dinâmica da label de status na lista lateral */}
                     <span style={{
                       ...styles.contatoStatusTexto, 
-                      color: cStatus.toLowerCase() === 'online' ? '#5288c1' : '#707579'
+                      color: ativoAgora ? '#5288c1' : '#707579'
                     }}>
-                      {cStatus.toLowerCase() === 'online' ? 'online' : 'offline'}
+                      {ativoAgora ? 'online' : 'offline'}
                     </span>
                   </div>
                 </div>
@@ -328,7 +344,7 @@ export default function ChatInterno({
         </div>
       </div>
 
-      {/* ÁREA DE CONVERSA */}
+      {/* ÁREA DA CONVERSA ACTIVA */}
       <div style={styles.chatArea}>
         {salaAtiva && contatoAtivo ? (
           <>
@@ -339,17 +355,16 @@ export default function ChatInterno({
                 ) : (
                   <div style={styles.avatarFallback}>{(contatoAtivo.nome || contatoAtivo.Nome)?.substring(0,2).toUpperCase()}</div>
                 )}
-                <Circle size={10} fill={obterCorStatus(statusContatoAtivo)} color="#0f172a" style={styles.statusBadgeDot} />
+                <Circle size={10} fill={estaOnline ? '#00c73c' : '#8e8e93'} color="#17212b" style={styles.statusBadgeDot} />
               </div>
               <div>
                 <h4 style={styles.chatHeaderNome}>{contatoAtivo.nome || contatoAtivo.Nome}</h4>
-                {/* CORREÇÃO DO STATUS DINÂMICO NO HEADER */}
                 <span style={{ 
                   fontSize: '13px', 
-                  color: statusContatoAtivo.toLowerCase() === 'online' ? '#5288c1' : '#707579',
+                  color: estaOnline ? '#5288c1' : '#707579',
                   fontWeight: '500' 
                 }}>
-                  {statusContatoAtivo.toLowerCase() === 'online' ? 'online' : 'offline'}
+                  {estaOnline ? 'online' : 'offline'}
                 </span>
               </div>
             </div>
@@ -366,7 +381,7 @@ export default function ChatInterno({
                   <div key={msg.id || msg.Id || index} style={{ ...styles.messageRow, justifyContent: euEnviei ? 'flex-end' : 'flex-start' }}>
                     <div style={{
                       ...styles.balao,
-                      background: euEnviei ? '#2b5278' : '#182533', // Balões no padrão Dark do Telegram
+                      background: euEnviei ? '#2b5278' : '#182533', // Cores originais do Telegram K Dark
                       borderRadius: euEnviei ? '16px 16px 4px 16px' : '16px 16px 16px 4px'
                     }}>
                       <p style={styles.balaoTexto}>{txt}</p>
@@ -377,7 +392,7 @@ export default function ChatInterno({
                         {euEnviei && (
                           <div style={{ marginLeft: '4px', display: 'flex', alignItems: 'center' }}>
                             {visto ? (
-                              <CheckCheck size={14} color="#5288c1" /> // Duplo check azul do Telegram
+                              <CheckCheck size={14} color="#5288c1" />
                             ) : (
                               <Check size={14} color="rgba(255,255,255,0.4)" />
                             )}
@@ -392,34 +407,17 @@ export default function ChatInterno({
             </div>
 
             <div style={styles.inputAreaContainer}>
-              {mostrarSugestoes && (
-                <div style={styles.autocompleteBox}>
-                  <div style={styles.autocompleteHeader}>Sugestões de eficiência</div>
-                  {sugestoes.map((sug) => {
-                    const sId = sug.id || sug.Id;
-                    const sCurto = sug.textoCurto || sug.TextoCurto;
-                    const sCompleto = sug.textoCompleto || sug.TextoCompleto;
-                    return (
-                      <div key={sId} onClick={() => selecionarSugestao(sug)} style={styles.autocompleteItem}>
-                        <span style={styles.atalhoTexto}>{sCurto}</span>
-                        <span style={styles.completoTexto}>{sCompleto}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               <form onSubmit={enviarMensagem} style={styles.inputForm}>
-                <button type="button" style={styles.midiaBtn} title="Enviar Foto"><ImageIcon size={20} /></button>
-                <button type="button" style={styles.midiaBtn} title="Gravar Áudio"><Mic size={20} /></button>
+                <button type="button" style={styles.midiaBtn}><ImageIcon size={20} /></button>
+                <button type="button" style={styles.midiaBtn}><Mic size={20} /></button>
                 <input 
                   type="text"
-                  placeholder="Digite uma mensagem... (Use '/' para respostas rápidas)"
+                  placeholder="Digite uma mensagem..."
                   value={novoTexto}
                   onChange={(e) => setNovoTexto(e.target.value)}
                   style={styles.chatInputInput}
                 />
-                <button type="submit" style={styles.btnEnviar}><Send size={16} color="#fff" /></button>
+                <button type="submit" style={styles.btnEnviar}><Send size={16} color="#5288c1" /></button>
               </form>
             </div>
           </>
@@ -428,9 +426,9 @@ export default function ChatInterno({
             <div style={styles.circuloIcone}>
               <User size={36} color="#5288c1" />
             </div>
-            <h3 style={{ color: '#fff', margin: '15px 0 5px 0', fontSize: '18px' }}>Nenhuma conversa ativa</h3>
-            <p style={{ color: '#707579', fontSize: '14px', maxWidth: '320px', lineHeight: '1.5' }}>
-              Selecione um membro do seu time na barra lateral para iniciar o chat criptografado em tempo real.
+            <h3 style={{ color: '#fff', margin: '15px 0 5px 0', fontSize: '18px' }}>Nenhuma conversa activa</h3>
+            <p style={{ color: '#707579', fontSize: '14px', maxWidth: '320px', lineHeight: '1.5', textAlign: 'center' }}>
+              Selecione um inspecionador ou gestor ao lado para abrir o chat em tempo real.
             </p>
           </div>
         )}
@@ -439,9 +437,9 @@ export default function ChatInterno({
   );
 }
 
-// 🎨 DESIGN SYSTEM REFINADO — TELEGRAM K DARK MODE
+// 🎨 DESIGN SYSTEM TELEGRAM ORIGINAL DARK
 const styles = {
-  chatContainer: { display: 'flex', width: '100%', height: '78vh', background: '#0e1621', borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.03)', fontFamily: '"Inter", sans-serif' },
+  chatContainer: { display: 'flex', width: '100%', height: '78vh', background: '#0e1621', borderRadius: '24px', overflow: 'hidden', border: '1px solid #101921', fontFamily: '"Inter", sans-serif' },
   sidebar: { width: '320px', background: '#17212b', borderRight: '1px solid #101921', display: 'flex', flexDirection: 'column' },
   sidebarHeader: { padding: '16px', borderBottom: '1px solid #101921' },
   perfilLogado: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '15px' },
@@ -462,23 +460,18 @@ const styles = {
   chatArea: { flex: 1, display: 'flex', flexDirection: 'column', background: '#0e1621' },
   chatHeader: { padding: '14px 20px', background: '#17212b', borderBottom: '1px solid #101921', display: 'flex', alignItems: 'center', gap: '12px' },
   chatHeaderNome: { margin: 0, fontSize: '15px', fontWeight: '600', color: '#fff' },
-  messagesArea: { flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '6px' },
+  messagesArea: { flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '6px', background: '#0e1621' },
   messageRow: { display: 'flex', width: '100%' },
   balao: { padding: '8px 14px', maxWidth: '60%', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' },
   balaoTexto: { margin: 0, fontSize: '14.5px', color: '#fff', lineHeight: '1.45', wordBreak: 'break-word' },
   balaoMeta: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: '3px', gap: '2px', opacity: 0.8 },
   balaoHora: { fontSize: '10px', color: '#707579' },
-  inputAreaContainer: { padding: '14px 20px', background: '#17212b', position: 'relative' },
+  inputAreaContainer: { padding: '14px 20px', background: '#17212b' },
   inputForm: { display: 'flex', alignItems: 'center', gap: '12px' },
   midiaBtn: { background: 'none', border: 'none', color: '#707579', cursor: 'pointer', padding: '4px' },
   chatInputInput: { flex: 1, padding: '10px 14px', borderRadius: '12px', background: '#24303f', border: 'none', color: '#fff', fontSize: '14.5px', outline: 'none' },
   btnEnviar: { background: 'transparent', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' },
   noChatSelected: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
   circuloIcone: { width: '70px', height: '70px', borderRadius: '50%', backgroundColor: 'rgba(82, 136, 193, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  AvisoLinha: { textAlign: 'center', color: '#707579', fontSize: '13px', paddingTop: '20px' },
-  autocompleteBox: { position: 'absolute', bottom: '72px', left: '20px', right: '20px', background: '#17212b', borderRadius: '14px', border: '1px solid #5288c1', boxShadow: '0 -4px 24px rgba(0,0,0,0.5)', zIndex: 10, overflow: 'hidden' },
-  autocompleteHeader: { background: 'rgba(82, 136, 193, 0.1)', padding: '10px 14px', fontSize: '11px', color: '#5288c1', fontWeight: 'bold', textTransform: 'uppercase' },
-  autocompleteItem: { display: 'flex', alignItems: 'center', gap: '15px', padding: '11px 14px', cursor: 'pointer', borderBottom: '1px solid #101921' },
-  atalhoTexto: { background: 'rgba(82, 136, 193, 0.2)', color: '#5288c1', padding: '2px 6px', borderRadius: '5px', fontSize: '11px', fontWeight: 'bold' },
-  completoTexto: { color: '#e2e8f0', fontSize: '13px' }
+  AvisoLinha: { textAlign: 'center', color: '#707579', fontSize: '13px', paddingTop: '20px' }
 };
