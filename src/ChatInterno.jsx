@@ -5,7 +5,7 @@ import { Search, Send, Mic, ImageIcon, Circle, Shield, User, Check, CheckCheck, 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 
 
-const ABLY_KEY = Import.meta.env.VITE_ABLY_KEY;
+const ABLY_KEY = import.meta.env.VITE_ABLY_KEY;
 
 const tocarSomNotificacao = () => {
   try {
