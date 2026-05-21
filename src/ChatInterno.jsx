@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as Ably from 'ably';
-import { Search, Send, Mic, ImageIcon, Circle, Shield, User, Check, CheckCheck } from 'lucide-react';
+import { Search, Send, Mic, ImageIcon, Circle, Shield, User, Check, CheckCheck, Import } from 'lucide-react';
 
 const API_URL = "https://trucks-vistoria-app-1.onrender.com/api";
 
 // CHAVE PÚBLICA GRATUITA DO ABLY (Substitua pela sua chave obtida em ably.com se preferir)
 // Formato padrão da chave: "ID_DO_APP:SEGREDO"
-const ABLY_KEY = "Sua_Chave_Ably_Aqui"; 
+const ABLY_KEY = Import.meta.env.VITE_ABLY_KEY
 
 const tocarSomNotificacao = () => {
   try {

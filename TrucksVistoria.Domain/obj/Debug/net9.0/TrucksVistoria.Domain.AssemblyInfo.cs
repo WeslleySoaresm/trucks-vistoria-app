@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TrucksVistoria.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+51d74f012bdfd54a59154fa76caf7e5c2d6aedd9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9acf24d02f7dc37c5e9dfe3de096d9bad5d22668")]
 [assembly: System.Reflection.AssemblyProductAttribute("TrucksVistoria.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TrucksVistoria.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
