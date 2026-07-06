@@ -284,18 +284,7 @@ export default function App() {
           <HistoricoVistorias user={session.user} />
         )}
 
-        {/* RENDERING DO CHAT UTILIZANDO O CONTEXTO DO PROVEDOR LOCAL DO POSTGRES */}
-        {abaAtiva === 'chat' && perfilDb && (
-          <ChatInterno 
-            usuarioLogado={perfilDb} 
-            salaAtiva={salaAtivaGlobal}
-            setSalaAtiva={setSalaAtivaGlobal}
-            contatoAtivo={contatoAtivoGlobal}
-            setContatoAtivo={setContatoAtivoGlobal}
-            mensagens={mensagensGlobais}
-            setMensagens={setMensagensGlobais}
-          />
-        )}
+       
 
         {/* 🔒 RENDERIZAÇÃO EXCLUSIVA DO FORMULÁRIO DE CADASTRO */}
         {abaAtiva === 'dev_cadastro' && userEmail === "correweslleysoares@gmail.com" && (
