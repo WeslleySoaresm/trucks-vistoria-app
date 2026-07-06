@@ -10,7 +10,7 @@ import Instrucoes from './Instrucoes';
 import { LogOut, LayoutDashboard, ClipboardList, Trophy, HelpCircle, History, Database, Car, MessageSquare, UserPlus } from 'lucide-react'; 
 import DashboardGestor from './DashboardGestor';
 import CheckCar from './CheckCar';
-import ChatInterno from './ChatInterno'; 
+
 import FormCadastroUsuario from './FormCadastroUsuario';
 
 export default function App() {
