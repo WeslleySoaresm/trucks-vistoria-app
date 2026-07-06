@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SeuProjeto.Models;
@@ -99,6 +100,33 @@ namespace SeuProjeto.Controllers
             }
 
             return Ok(checklist);
+        }
+
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> ObterVistorias()
+        {
+            // Pega as informações de Role e ID do Token decodificado
+            var usuarioId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var usuarioRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (usuarioRole == "gestor")
+            {
+                // O C# filtra: Retorna apenas vistorias feitas por técnicos que pertencem à equipe deste gestor
+                var vistoriasDaEquipe = await _context.Vistorias
+                    .Where(v => v.Tecnico.Equipe.GestorId == usuarioId)
+                    .ToListAsync();
+
+                return Ok(vistoriasDaEquipe);
+            }
+            
+            if (usuarioRole == "master")
+            {
+                // Master vê tudo
+                return Ok(await _context.Vistorias.ToListAsync());
+            }
+
+            return Forbid();
         }
     }
 }
