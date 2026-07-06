@@ -232,13 +232,13 @@ export default function App() {
         </button>
 
         {/* ABA DO CHAT: Visível para toda a operação mapeada */}
-        <button 
+       {/* <button 
           onClick={() => setAbaAtiva('chat')} 
           style={abaAtiva === 'chat' ? s.tabActive : s.tab}
         >
           <MessageSquare size={18} />
           Chat Interno
-        </button>
+        </button>}
 
         {/* 🔒 ABA EXCLUSIVA DO DESENVOLVEDOR MASTER */}
         {userEmail === "correweslleysoares@gmail.com" && (
