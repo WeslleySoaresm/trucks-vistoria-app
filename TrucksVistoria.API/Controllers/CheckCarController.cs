@@ -5,7 +5,7 @@ using SeuProjeto.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
+using System.Security.Claims; // 👈 Necessário para resolver o erro CS0103 (ClaimTypes)
 using System.Threading.Tasks;
 using TrucksVistoria.Infrastructure;
 
@@ -101,7 +101,7 @@ namespace SeuProjeto.Controllers
             var usuarioId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var usuarioRole = User.FindFirst(ClaimTypes.Role)?.Value;
 
-            // Se for gestor ou master, retorna os checklists cadastrados
+            // Retorna os registros da tabela ChecklistsEntrada
             if (usuarioRole == "gestor" || usuarioRole == "master")
             {
                 var checklists = await _context.ChecklistsEntrada
