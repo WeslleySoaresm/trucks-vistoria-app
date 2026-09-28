@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "oYVmiy+dRBk=",
+  "dgSpecHash": "wsVkrw7o9Jg=",
   "success": true,
-  "projectFilePath": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj",
+  "projectFilePath": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj",
   "expectedPackageFiles": [
     "/Users/weslleysoares/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
     "/Users/weslleysoares/.nuget/packages/microsoft.bcl.asyncinterfaces/7.0.0/microsoft.bcl.asyncinterfaces.7.0.0.nupkg.sha512",

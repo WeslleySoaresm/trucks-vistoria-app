@@ -54,7 +54,7 @@ public class VistoriaController : ControllerBase
                     veiculo = new Veiculo 
                     { 
                         Placa = request.Placa, 
-                        ClienteNome = nomeDoClienteFinal // 🔥 CORRIGIDO: Removido o "." que quebrava o build
+                        ClienteNome = nomeDoClienteFinal 
                     };
                     _context.Veiculos.Add(veiculo);
                     await _context.SaveChangesAsync();

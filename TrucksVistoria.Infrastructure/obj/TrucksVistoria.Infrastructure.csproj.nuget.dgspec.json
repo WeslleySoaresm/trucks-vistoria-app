@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj": {}
+    "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj": {}
   },
   "projects": {
-    "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj": {
+    "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj",
+        "projectUniqueName": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj",
         "projectName": "TrucksVistoria.Domain",
-        "projectPath": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj",
+        "projectPath": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj",
         "packagesPath": "/Users/weslleysoares/.nuget/packages/",
-        "outputPath": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/obj/",
+        "outputPath": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Domain/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/weslleysoares/.nuget/NuGet/NuGet.Config"
@@ -64,14 +64,14 @@
         }
       }
     },
-    "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj": {
+    "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj",
+        "projectUniqueName": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj",
         "projectName": "TrucksVistoria.Infrastructure",
-        "projectPath": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj",
+        "projectPath": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Infrastructure/TrucksVistoria.Infrastructure.csproj",
         "packagesPath": "/Users/weslleysoares/.nuget/packages/",
-        "outputPath": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Infrastructure/obj/",
+        "outputPath": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Infrastructure/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/weslleysoares/.nuget/NuGet/NuGet.Config"
@@ -87,8 +87,8 @@
           "net9.0": {
             "targetAlias": "net9.0",
             "projectReferences": {
-              "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj": {
-                "projectPath": "/Users/weslleysoares/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj"
+              "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj": {
+                "projectPath": "/Users/weslleysoares/Desktop/trucks-vistoria-app/TrucksVistoria.Domain/TrucksVistoria.Domain.csproj"
               }
             }
           }

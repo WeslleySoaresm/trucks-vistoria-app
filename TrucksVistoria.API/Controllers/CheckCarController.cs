@@ -7,6 +7,7 @@ using System.Collections.Generic; // Adicionado para IEnumerable
 using System.Linq; // Adicionado para consultas LINQ
 using System.Threading.Tasks;
 using TrucksVistoria.Infrastructure;
+using System.Security.Claims;
 
 namespace SeuProjeto.Controllers
 {
